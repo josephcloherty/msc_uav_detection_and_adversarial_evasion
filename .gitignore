@@ -10,11 +10,11 @@ xcuserdata/
 
 # MATLAB
 *.asv
-*.mat        # only if your .mat files are large/regenerable
+*.mat     
 slprj/
 
 # Data & outputs
-*.csv         # remove this line if CSVs ARE your data and they're small
+*.csv    
 *.log
 /results/
 /figures/*.png
