@@ -8,6 +8,17 @@ xcuserdata/
 ## Obj-C/Swift specific
 *.hmap
 
+# MATLAB
+*.asv
+*.mat        # only if your .mat files are large/regenerable
+slprj/
+
+# Data & outputs
+*.csv         # remove this line if CSVs ARE your data and they're small
+*.log
+/results/
+/figures/*.png
+
 ## App packaging
 *.ipa
 *.dSYM.zip
