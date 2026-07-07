@@ -1,1 +1,1 @@
-replayScenario('test_replay[seed=default].mat')
+replayScenario('../data/features_UMa_seed42.csv')

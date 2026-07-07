@@ -38,7 +38,17 @@ classdef positionRecorder < handle
                 frame(n, :) = obj.AllNodes{n}.Position;
             end
             obj.Times(end+1) = t;
-            obj.XYZ(:, :, end+1) = frame;
+            % Empty-array append bug fix: for XYZ = [], size([],3) is 1, so
+            % XYZ(:,:,end+1) wrote to slab 2 and left slab 1 all zeros.
+            % That produced one more frame than timestamps, a spurious
+            % all-zero first frame (every node at the origin), and a one
+            % sample misalignment between times and positions in the
+            % replay. Found via run diagnostics; see deviations log.
+            if isempty(obj.XYZ)
+                obj.XYZ = frame;
+            else
+                obj.XYZ(:, :, end+1) = frame;
+            end
         end
 
         function posLog = toStruct(obj)

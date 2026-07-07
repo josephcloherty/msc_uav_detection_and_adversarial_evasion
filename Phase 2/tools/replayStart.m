@@ -1,1 +1,1 @@
-replayScenario('test_replay[seed=default].mat')
+replayScenario('../test_replay[seed=default].mat')

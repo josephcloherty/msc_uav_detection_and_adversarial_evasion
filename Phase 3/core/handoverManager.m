@@ -10,8 +10,35 @@ classdef handoverManager < handle
         % Configuration parameters
         scanPeriod = 0.01          % Periodic scan interval for handover decision (every 0.01s). For a 10s simulation = 1000 decision steps.
         scanStartTime = 0.0795     % Initial scan time: gNBs start receiving SRS around 0.0715s; by 0.0795s, 4 updates are available for averaging
-        hysteresis = 1             % Hysteresis margin (dB) for A3 event
+        hysteresis = 1             % Hysteresis margin (dB) for legacy instant A3
         sinrThreshold = 20         % SINR threshold (dB) for A5 event
+
+        % 3GPP mobility chain, TR 36.777 Table A.2.1-1 baseline values
+        % (agreed mobility evaluation parameters for aerial studies). The
+        % measurement metric here is uplink SRS SINR rather than DL RSRP,
+        % a documented substitution; see the deviations log.
+        useTr36777Mobility = true  % false = legacy instant A3 (1 dB, no TTT)
+        a3Offset = 2               % dB, A3Offset
+        ttt = 0.160                % s, TimeToTrigger
+        l1WindowSec = 0.200        % s, L1 linear filtering window
+        l3K = 1                    % L3RRMCoefficient k; a = (1/2)^(k/4)
+        hoPrepDelay = 0.050        % s, HOPreparationDelay
+        hoExecDelay = 0.040        % s, HOExecutionDelay
+        measErrStd = 1.22          % dB, RSRPError std dev; applied to the
+                                   % DECISION chain only, never the logged
+                                   % features
+        mtsPingPong = 1            % s, minimum time of stay: a handover
+                                   % back to the previous cell within this
+                                   % time counts as ping-pong
+        measSeed = 0               % seed for the measurement-error stream
+                                   % (set by the scenario script so runs
+                                   % stay reproducible)
+
+        % Mobility-chain state
+        l3SINR = []                % L3-filtered SINR per gNB (dB)
+        tttStart = []              % A3 entering-condition start time per gNB
+        pendingHO = []             % struct('target',id,'executeAt',t) or []
+        measStream = []            % RandStream for measurement error
 
         % SINR measurement storage
         ulSINR                    % Uplink SINR matrix [numCells × time]
@@ -25,6 +52,11 @@ classdef handoverManager < handle
         featureLog = []          % Numeric feature rows, columns per featureNames
         featureNames = {}        % Column names for featureLog
         visThreshold = 0         % Min SINR (dB) for a gNB to count as "visible"
+        sinrLog = []             % Per-scan per-gNB averaged SINR: one row per
+                                 % scan, [time, SINR_gNB1..SINR_gNBN] (dB, NaN
+                                 % for never-heard cells). Additive diagnostic
+                                 % log so link behaviour can be reviewed
+                                 % offline; nothing reads it during the run.
 
         % Handover strategy pool
         handoverPolicy = {}       % Cell array storing different handover models
@@ -100,8 +132,10 @@ classdef handoverManager < handle
 
             obj.ulSINR = [];
             obj.ulSINRAverage = [];
-            obj.gNBCount = zeros(obj.numCells, 1); 
+            obj.gNBCount = zeros(obj.numCells, 1);
             obj.latestSINR = nan(obj.numCells, 1);   % NaN = cell never heard yet
+            obj.l3SINR   = nan(obj.numCells, 1);     % mobility-chain state
+            obj.tttStart = nan(obj.numCells, 1);
 
             % Initialize DQN logging structure
             obj.dqnAgent_data = struct( ...
@@ -293,6 +327,8 @@ classdef handoverManager < handle
                    obj.UE.GNBNodeID, servingSINR, numVisible, maxNeigh, meanNeigh, ...
                    sinrSpread, obj.handover_num, timeSinceHO];
             obj.featureLog(end+1, :) = row;
+            % Full per-gNB SINR snapshot for offline diagnostics/plotting
+            obj.sinrLog(end+1, :) = [obj.networkSimulator.CurrentTime, sinrVec(:).'];
 
            % Live terminal print (suppressed unless obj.verbose)
             if obj.verbose
@@ -300,13 +336,100 @@ classdef handoverManager < handle
                     row(1), row(2), obj.ueLabel, row(4), row(5), row(6), row(7), row(8), row(9), row(10));
             end
             
-            % Use selected handover policy 
-            model = obj.handoverPolicy{1};
-            targetGNB = model(obj.ulSINRAverage, obj.UE, obj.gNBs);
-        
-            % Execute handover if target gNB is valid
-            if ~isempty(targetGNB)
-                obj.executeHandover(targetGNB);
+            % Handover decision: 3GPP mobility chain (default) or the
+            % legacy instant A3 for comparison runs.
+            if obj.useTr36777Mobility
+                obj.tr36777Mobility();
+            else
+                model = obj.handoverPolicy{1};
+                targetGNB = model(obj.ulSINRAverage, obj.UE, obj.gNBs);
+                if ~isempty(targetGNB)
+                    obj.executeHandover(targetGNB);
+                end
+            end
+        end
+
+        %% TR 36.777 Table A.2.1-1 mobility chain (TS 36.331 event A3)
+        function tr36777Mobility(obj)
+        %tr36777Mobility L1/L3-filtered A3 with time-to-trigger and
+        % handover preparation/execution delays.
+        %   Chain, per Table A.2.1-1 of TR 36.777 (verified against the
+        %   source document) and the TS 36.331 measurement model:
+        %     L1: linear average of each gNB's own SRS samples over the
+        %         trailing l1WindowSec (measurement interval = scanPeriod
+        %         = 10 ms, matching the table).
+        %     Measurement error: additive Gaussian, measErrStd dB, from a
+        %         seeded stream. Applied here only; the logged features
+        %         and sinrLog keep the raw averages.
+        %     L3: F = (1-a)*F_prev + a*M with a = (1/2)^(l3K/4).
+        %     A3: neighbour > serving + a3Offset must hold CONTINUOUSLY
+        %         for ttt seconds (per-neighbour timers; the timer resets
+        %         the moment the condition fails, i.e. the leaving
+        %         condition of TS 36.331).
+        %     Execution: after the report, the logical switch happens
+        %         hoPrepDelay + hoExecDelay later; no new evaluation runs
+        %         while a handover is in flight.
+            tNow = obj.networkSimulator.CurrentTime;
+
+            % Execute an in-flight handover once its delay has elapsed
+            if ~isempty(obj.pendingHO)
+                if tNow >= obj.pendingHO.executeAt
+                    tgtIdx = find([obj.gNBs.ID] == obj.pendingHO.target, 1);
+                    if ~isempty(tgtIdx) && obj.pendingHO.target ~= obj.UE.GNBNodeID
+                        obj.executeHandover(obj.gNBs(tgtIdx));
+                    end
+                    obj.pendingHO = [];
+                    obj.tttStart(:) = NaN;
+                end
+                return;
+            end
+
+            % L1 filtering
+            w = max(1, round(obj.l1WindowSec / obj.scanPeriod));
+            l1 = obj.computeAverageSINR(w);
+
+            % Measurement error (decision chain only, reproducible)
+            if obj.measErrStd > 0
+                if isempty(obj.measStream)
+                    obj.measStream = RandStream('Threefry', 'Seed', ...
+                        max(obj.measSeed, 1));
+                end
+                l1 = l1 + obj.measErrStd * randn(obj.measStream, obj.numCells, 1);
+            end
+
+            % L3 filtering
+            a = (1/2)^(obj.l3K/4);
+            fresh = isnan(obj.l3SINR) & ~isnan(l1);
+            obj.l3SINR(fresh) = l1(fresh);
+            upd = ~isnan(obj.l3SINR) & ~isnan(l1);
+            obj.l3SINR(upd) = (1 - a) * obj.l3SINR(upd) + a * l1(upd);
+
+            % Event A3 with per-neighbour time-to-trigger
+            servIdx = find([obj.gNBs.ID] == obj.UE.GNBNodeID, 1);
+            if isempty(servIdx) || isnan(obj.l3SINR(servIdx))
+                return;
+            end
+            for n = 1:obj.numCells
+                if n == servIdx || isnan(obj.l3SINR(n))
+                    obj.tttStart(n) = NaN;
+                    continue;
+                end
+                if obj.l3SINR(n) > obj.l3SINR(servIdx) + obj.a3Offset
+                    if isnan(obj.tttStart(n))
+                        obj.tttStart(n) = tNow;
+                    end
+                else
+                    obj.tttStart(n) = NaN;
+                end
+            end
+            held = find(~isnan(obj.tttStart) & ...
+                (tNow - obj.tttStart >= obj.ttt));
+            if ~isempty(held)
+                [~, bi] = max(obj.l3SINR(held));
+                obj.pendingHO = struct( ...
+                    'target', obj.gNBs(held(bi)).ID, ...
+                    'executeAt', tNow + obj.hoPrepDelay + obj.hoExecDelay);
+                obj.tttStart(:) = NaN;
             end
         end
 
@@ -769,9 +892,12 @@ function executeHandover(obj, targetGNB)
                 [s.meanInterHO, s.stdInterHO, s.minInterHO, s.cvInterHO] = deal(NaN);
             end
 
+            % Ping-pong per TR 36.777 Table A.2.1-1: a handover back to the
+            % previous cell within the minimum time of stay (mtsPingPong).
             pp = 0;
             for k = 2:n
-                if obj.handoverLog(k,2) == obj.handoverLog(k-1,1)   % A->B->A
+                if obj.handoverLog(k,2) == obj.handoverLog(k-1,1) ...  % A->B->A
+                        && (t(k) - t(k-1)) < obj.mtsPingPong           % within MTS
                     pp = pp + 1;
                 end
             end
