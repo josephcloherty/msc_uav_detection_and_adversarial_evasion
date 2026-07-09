@@ -14,7 +14,7 @@ clc; clear;
 
 cfg = struct();
 cfg.scenario = "UMa";
-cfg.seed = 42;                      % fixed seed: CSV must regenerate identically
+cfg.seed = 1;                      % fixed seed: CSV must regenerate identically
 
 % --- TR 36.777 Annex B.1: UMa-AV overlay applies 22.5 m to 300 m --------
 cfg.zBoundary = 22.5;               % m AGL; below this the aerial UE class

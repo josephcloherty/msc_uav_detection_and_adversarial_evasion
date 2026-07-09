@@ -1,1 +1,1 @@
-replayScenario('../data/features_UMa_seed42.csv')
+replayScenario('../core/uMA_seed1_30s')

@@ -137,8 +137,9 @@ function results = phase3_Pipeline(cfg)
     clear progGuard;   % run finished: close the progress bar
 
     elapsedWall = toc(wallStart);
-    fprintf('Done: sim %.2f s in %.1f s wall (%.2fx real-time)\n', ...
-        cfg.simulationTime, elapsedWall, cfg.simulationTime / max(elapsedWall, eps));
+    fprintf('Done: sim %.2f s in %s wall (%.2fx real-time)\n', ...
+        cfg.simulationTime, fmtDuration(elapsedWall), ...
+        cfg.simulationTime / max(elapsedWall, eps));
 
     %% D3.1: windowed features + schema-locked labelled CSV
     T = extractWindowedFeatures(managers, cfg);
@@ -187,8 +188,8 @@ function reportProgress(p, ~, ~)
     else
         eta = NaN;
     end
-    msg = sprintf('sim %.2f / %.2f s  |  wall %.0f s  |  ETA %.0f s', ...
-        simNow, p.total, elapsedWall, eta);
+    msg = sprintf('sim %.2f / %.2f s  |  wall %s  |  ETA %s', ...
+        simNow, p.total, fmtDuration(elapsedWall), fmtDuration(eta));
     if ~isempty(p.bar) && isvalid(p.bar)
         waitbar(frac, p.bar, msg);
     else
@@ -200,6 +201,24 @@ end
 function closeProgress(p)
     if ~isempty(p.bar) && isvalid(p.bar)
         delete(p.bar);
+    end
+end
+
+function s = fmtDuration(secs)
+%fmtDuration Human-readable duration: seconds below a minute, minutes and
+% seconds below an hour, hours, minutes and seconds above that.
+    if ~isfinite(secs)
+        s = '--';
+        return;
+    end
+    secs = max(secs, 0);
+    if secs < 60
+        s = sprintf('%.0f s', secs);
+    elseif secs < 3600
+        s = sprintf('%d min %02.0f s', floor(secs/60), mod(secs, 60));
+    else
+        s = sprintf('%d h %d min %02.0f s', floor(secs/3600), ...
+            floor(mod(secs, 3600)/60), mod(secs, 60));
     end
 end
 
