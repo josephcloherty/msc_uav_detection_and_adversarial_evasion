@@ -1,23 +1,29 @@
-function T = extractWindowedFeatures(managers, cfg, sched, sampler)
+function T = extractWindowedFeatures(managers, cfg, sched, trafficLogs)
 %extractWindowedFeatures Per-UE sliding-window feature extraction (D4.2).
 %
-%   T = extractWindowedFeatures(MANAGERS, CFG, SCHED, SAMPLER) converts
-%   the per-scan featureLog rows accumulated by each handoverManager,
-%   the CQI/MCS logs collected by the per-gNB cqiLoggingScheduler
-%   instances, and the trafficSampler byte series into windowed feature
-%   rows, one row per UE per window position. Every feature is computed
-%   only from network-side observables (per-gNB SRS SINR, handover
-%   events, scheduler CQI/MCS logs, MAC byte counters), never from UE
-%   position or identity.
+%   T = extractWindowedFeatures(MANAGERS, CFG, SCHED, TRAFFICLOGS)
+%   converts the per-scan featureLog rows accumulated by each
+%   handoverManager, the CQI/MCS logs collected by the per-gNB
+%   cqiLoggingScheduler instances, and the traffic byte series into
+%   windowed feature rows, one row per UE per window position. Every
+%   feature is computed only from network-side observables (per-gNB SRS
+%   SINR, handover events, scheduler CQI/MCS logs, MAC byte counters),
+%   never from UE position or identity.
 %
 %   This is the Phase 4 extension of the Phase 3 function: the Phase 3
 %   windowing rules, settle gating, column definitions and determinism
 %   guarantees are UNCHANGED, and the Phase 3 columns are computed by the
-%   same code as before. The new inputs are:
+%   same code as before. All new inputs are PLAIN ARRAYS rather than
+%   objects, so validateFeatureExtraction.m can drive this function with
+%   synthetic logs of known ground truth:
 %
 %   SCHED is a struct wiring the scheduler logs to UEs:
-%       sched.logs      - cell array, one cqiLoggingScheduler per gNB
-%       sched.anchorIdx - 1 x numUE, index (into sched.logs) of each UE's
+%       sched.ctx       - cell array, one per gNB: the ctxLog matrix from
+%                         that gNB's cqiLoggingScheduler.getLogs(),
+%                         [time, RNTI, wbCQI_DL, RI_DL, ulMCS_ctx]
+%       sched.grants    - cell array, one per gNB: the grantLog matrix,
+%                         [time, RNTI, dir(0 DL/1 UL), MCSIndex, numRBs]
+%       sched.anchorIdx - 1 x numUE, index (into the cells) of each UE's
 %                         ANCHOR gNB: the cell that holds its physical
 %                         data link for the whole run. Under the logical
 %                         handover model (see the Phase 3 deviations log)
@@ -34,8 +40,10 @@ function T = extractWindowedFeatures(managers, cfg, sched, sampler)
 %                         tools/rntiOffsetCalculator.m and asserted in
 %                         phase4SchedulerCheck.m).
 %
-%   SAMPLER is the trafficSampler object (cumulative per-UE byte
-%   counters at 0.1 s spacing; differenced at window edges here).
+%   TRAFFICLOGS is a cell array, one matrix per UE (from
+%   trafficSampler.getLog): cumulative byte counters at 0.1 s spacing,
+%   [time, appTxBytes, appRxBytes, macTxBytes, macRxBytes], differenced
+%   at the window edges here.
 %
 %   The output T is a MATLAB table whose column set is the LOCKED Phase 4
 %   schema (phase4FeatureSchema): the Phase 3 columns as an exact prefix,
@@ -113,11 +121,12 @@ function T = extractWindowedFeatures(managers, cfg, sched, sampler)
         hoTimes = hoTimes(hoTimes >= cfg.settleTime);
 
         % Per-UE scheduler and traffic sources (Phase 4)
-        [ctx, grants] = sched.logs{sched.anchorIdx(k)}.getLogs();
+        ctx    = sched.ctx{sched.anchorIdx(k)};
+        grants = sched.grants{sched.anchorIdx(k)};
         rnti = sched.rnti(k);
         ctx    = ctx(ctx(:, 2) == rnti, :);        % [t rnti cqi ri ulMcsCtx]
         grants = grants(grants(:, 2) == rnti, :);  % [t rnti dir mcs nRB]
-        traf = sampler.getLog(k);                  % [t appTx appRx macTx macRx]
+        traf = trafficLogs{k};                     % [t appTx appRx macTx macRx]
 
         % Window start times (deterministic grid anchored at first scan)
         tFirst = t(1); tLast = t(end);

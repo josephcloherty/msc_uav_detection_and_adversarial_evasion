@@ -6,6 +6,7 @@
 % identical ACROSS SCENARIOS and the two CSVs concatenate cleanly.
 
 clc; clear;
+addpath(fullfile(fileparts(mfilename('fullpath')), 'functions'));   % auxiliary functions live in core/functions
 
 cfg = struct();
 cfg.scenario = "RMa";

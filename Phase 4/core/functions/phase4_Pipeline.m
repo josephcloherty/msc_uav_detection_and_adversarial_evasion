@@ -153,9 +153,18 @@ function results = phase4_Pipeline(cfg)
         cfg.simulationTime / max(elapsedWall, eps));
 
     %% D4.2: windowed features (SINR/HO + CQI/MCS + traffic) + CSV
-    sched = struct('logs', {scheds}, 'anchorIdx', anchorIdx, ...
-        'rnti', [UEs.ID] + cfg.rntiOffset);
-    T = extractWindowedFeatures(managers, cfg, sched, sampler);
+    % Logs are unpacked to plain arrays before extraction so that the
+    % extraction function is object-free and unit-testable
+    % (validateFeatureExtraction.m drives it with synthetic logs).
+    ctxs = cell(1, numgNB); grs = cell(1, numgNB);
+    for g = 1:numgNB
+        [ctxs{g}, grs{g}] = scheds{g}.getLogs();
+    end
+    trafficLogs = arrayfun(@(u) sampler.getLog(u), 1:numsUE, ...
+        'UniformOutput', false);
+    sched = struct('ctx', {ctxs}, 'grants', {grs}, ...
+        'anchorIdx', anchorIdx, 'rnti', [UEs.ID] + cfg.rntiOffset);
+    T = extractWindowedFeatures(managers, cfg, sched, trafficLogs);
     csvPath = writeFeatureCSV(T, cfg);
     fprintf('Feature CSV (%d rows x %d cols): %s\n', height(T), width(T), csvPath);
 

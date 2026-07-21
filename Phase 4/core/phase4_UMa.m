@@ -10,6 +10,7 @@
 % for every point where a source value is read or adapted.
 
 clc; clear;
+addpath(fullfile(fileparts(mfilename('fullpath')), 'functions'));   % auxiliary functions live in core/functions
 
 cfg = struct();
 cfg.scenario = "UMa";

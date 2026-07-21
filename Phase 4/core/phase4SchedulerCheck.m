@@ -29,6 +29,7 @@ function phase4SchedulerCheck()
 %   failed probe documents the R2024b layout for the deviations log
 %   rather than erroring opaquely.
 
+    addpath(fullfile(fileparts(mfilename('fullpath')), 'functions'));
     fprintf('=== Phase 4 D4.1 scheduler-route check ===\n');
     fprintf('MATLAB release: %s\n', version('-release'));
     assert(strcmp(version('-release'), '2024b'), ...

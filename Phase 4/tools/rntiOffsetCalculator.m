@@ -27,6 +27,7 @@ function rntiOffsetCalculator()
 
 clc;
 addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'core'));
+addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'core', 'functions'));
 
 %% ---- PASTE YOUR SCENARIO GEOMETRY HERE -----------------------------------
 gNBPositions = [ ...

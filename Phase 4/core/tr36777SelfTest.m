@@ -11,6 +11,7 @@ function tr36777SelfTest()
 %   from the spec, the corresponding assertion fails and names the table
 %   or clause it violates. Passing output ends with "All checks passed".
 
+    addpath(fullfile(fileparts(mfilename('fullpath')), 'functions'));
     tol = 1e-4;
 
     %% --- TR 36.777 Table B-1 / TR 38.901 Table 7.4.2-1: LOS probability ---
@@ -130,32 +131,6 @@ function tr36777SelfTest()
     assert(u1.HasLOSCluster && isfinite(u1.KFactorFirstCluster), ...
         'UMi LOS link must carry a LOS cluster');
 
-    %% --- D3.1: schema lock and byte-identical CSV -------------------------
-    % Synthetic two-UE feature log driven through the real extraction and
-    % writer, twice, then compared byte for byte.
-    fakeNames = {'time','ueID','label_is_aerial','servingGNB','servingSINR', ...
-        'numVisible','maxNeighbourSINR','meanNeighbourSINR','sinrSpread', ...
-        'handoverCount','timeSinceLastHO'};
-    t = (0.1:0.01:15)';
-    mk = @(id, lbl, base) struct( ...
-        'featureLog', [t, id*ones(size(t)), lbl*ones(size(t)), ...
-            ones(size(t)), base + sin(t), 3*ones(size(t)), base - 3 + cos(t), ...
-            base - 5 + 0*t, 8 + 0*t, cumsum(t > 7), max(t - 7, t)], ...
-        'featureNames', {fakeNames}, 'ueLabel', string(ternary(lbl, "aerial", ...
-            "terrestrial")), 'handoverTimes', ternary(lbl, 7.5, zeros(1,0)), ...
-        'UE', struct('ID', id, 'Name', "UE-" + id));
-    managers = {mk(4, 0, 20), mk(5, 1, 25)};
-    cfg = struct('scenario', "UMa", 'seed', 42, 'windowLen', 10, ...
-        'windowStride', 1, 'outputDir', tempname);
-    T1 = extractWindowedFeatures(managers, cfg);
-    assert(isequal(T1.Properties.VariableNames, phase3FeatureSchema()), ...
-        'D3.1: extracted table does not match the locked schema');
-    assert(all(T1.label(T1.ueID == 5) == 1) && all(T1.label(T1.ueID == 4) == 0), ...
-        'D3.1: labels wrong');
-    f1 = writeFeatureCSV(T1, cfg);  b1 = fileread(f1);
-    f2 = writeFeatureCSV(T1, cfg);  b2 = fileread(f2);
-    assert(isequal(b1, b2), 'D3.1: CSV not byte-identical on rewrite');
-
     fprintf('\nAll checks passed (%s).\n', datestr(now)); %#ok<TNOW1,DATST>
 end
 
@@ -166,8 +141,4 @@ function checkVal(actual, expected, tol, what)
             'FAIL: %s\n  expected %.6f, got %.6f', what, expected, actual);
     end
     fprintf('PASS  %-58s %12.6f\n', what, actual);
-end
-
-function out = ternary(cond, a, b)
-    if cond, out = a; else, out = b; end
 end

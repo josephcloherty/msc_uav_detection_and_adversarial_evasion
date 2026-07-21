@@ -21,6 +21,7 @@ function validateUMiOverlay()
 %   core folder on the path (this script adds it itself).
 
     addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'core'));
+    addpath(fullfile(fileparts(mfilename('fullpath')), '..', 'core', 'functions'));
 
     fcGHz = 2.6;  fcHz = fcGHz*1e9;
     hBS = 10;  hUT = 100;

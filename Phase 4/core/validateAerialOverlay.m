@@ -24,6 +24,7 @@ function validateAerialOverlay(scenario)
 %   The figure is saved to <Phase 3>/figures/validation_<scenario>.png and
 %   .fig. No network simulation is needed; this runs in seconds.
 
+    addpath(fullfile(fileparts(mfilename('fullpath')), 'functions'));
     scenario = upper(string(scenario));
     assert(any(scenario == ["UMA","RMA"]), ...
         'validateAerialOverlay:badScenario', ...
