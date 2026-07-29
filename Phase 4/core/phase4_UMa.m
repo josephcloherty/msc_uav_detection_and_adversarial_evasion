@@ -33,15 +33,13 @@ cfg.carrierFrequency = 2.6e9;       % kept from Phase 2 for dataset continuity
 spacing = 500;
 cfg.gNBPositions = [ ...
     spacing/2  spacing  25;         % 25 m gNB height: UMa assumption
-    spacing    0        25;         % (TR 36.777 Table B-1 Note 1)
     0          0        25];
 
 cfg.uePositions = [ ...
     -6   100  1.5;                  % terrestrial UEs
-    -32  20   1.5;
-    200  0    100;                  % aerial UEs (inside the 22.5-300 m band)
+    -32  20   1.5;         % aerial UEs (inside the 22.5-300 m band)
     -50  130  120];
-cfg.ueIsAerial = logical([0 0 1 1]);   % ground truth, label 0/1
+cfg.ueIsAerial = logical([0 0 1]);   % ground truth, label 0/1
 
 % --- Mobility --------------------------------------------------------------
 cfg.enableMobility = true;
