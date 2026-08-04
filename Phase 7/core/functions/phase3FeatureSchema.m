@@ -1,16 +1,15 @@
 function schema = phase3FeatureSchema()
-%phase3FeatureSchema The locked Phase 3 dataset column set (D3.1).
+%phase3FeatureSchema The locked Phase 3 dataset column set.
 %
-%   SCHEMA = phase3FeatureSchema() returns the ordered list of column
-%   names for the labelled feature CSV. This list is FINAL for all later
-%   phases: training, evaluation, and the interim oral dataset all consume
-%   it. Any change here invalidates every previously generated CSV, so the
-%   single source of truth lives in this one function and both
-%   extractWindowedFeatures and writeFeatureCSV assert against it.
+%   SCHEMA = phase3FeatureSchema() returns the ordered column names for the
+%   labelled feature CSV.
 %
-%   The scenario column is part of the schema from the start so that the
-%   UMa, RMa, and UMi forks all emit identical column sets and their CSVs
-%   can be concatenated without rework.
+%   This list is final for every later phase, and changing it invalidates
+%   every CSV already generated, so it is the single source of truth that
+%   extractWindowedFeatures and writeFeatureCSV both assert against.
+%
+%   The scenario column is in the schema so all three forks emit identical
+%   column sets and their CSVs concatenate without rework.
 
     schema = { ...
         'scenario', ...              % UMa | RMa | UMi

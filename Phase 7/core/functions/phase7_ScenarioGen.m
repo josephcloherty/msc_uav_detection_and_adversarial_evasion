@@ -1,68 +1,48 @@
-function [runCfg, meta] = phase5_ScenarioGen(base, seed, scenarioName)
-%phase5_ScenarioGen Expand the batch config into one concrete run (D5.1).
+function [runCfg, meta] = phase7_ScenarioGen(base, seed, scenarioName)
+%phase7_ScenarioGen Expand the batch config into one concrete run.
 %
-%   [RUNCFG, META] = phase5_ScenarioGen(BASE, SEED, SCENARIONAME) turns
-%   the configuration returned by phase5_Config into the flat run
-%   configuration that phase5_Pipeline (and, below it, the Phase 3 and
-%   Phase 4 channel, measurement and extraction functions) expects.
+%   [RUNCFG, META] = phase7_ScenarioGen(BASE, SEED, SCENARIONAME) flattens
+%   phase7_Config into the run configuration phase7_Pipeline expects.
 %
-%   SEPARATION OF CONCERNS
-%   ----------------------
-%   Everything topological comes from BASE.scenarios.(SCENARIONAME) and
-%   is therefore identical across every replicate of that scenario: gNB
-%   count, positions, heights, carrier, the TR 36.777 aerial parameters
-%   and the size of the UE region. Everything stochastic comes from a
-%   dedicated random stream seeded from SEED: how many aerial UEs are
-%   present, where every UE starts, at what altitude the aerial UEs fly,
-%   and the per-UE traffic jitter. The stream used here is Philox, while
-%   createScenarioChannels draws its LOS and shadow-fading terms from a
-%   Threefry stream and the simulator itself runs off the global stream
-%   seeded with rng(SEED); three different generators means the three
-%   draw sequences cannot alias onto one another even though they share
-%   the same seed value.
+%   The scenario supplies everything topological, identical across every
+%   replicate. The seed supplies the aerial UE count, UE start positions,
+%   aerial altitudes and per-UE traffic jitter.
 %
-%   All stochastic quantities are resolved HERE, before the simulation
-%   starts, and written into RUNCFG as fixed numbers. The traffic sources
-%   the pipeline builds are therefore deterministic, and the whole run
-%   remains byte-reproducible from the seed alone.
+%   Three different generators are in play so their draw sequences cannot
+%   alias: Philox here, Threefry in createScenarioChannels, and the global
+%   stream in the simulator.
 %
-%   META reports what was drawn (aerial count, altitudes, jitter factors,
-%   UE-per-gNB load) for the batch manifest.
+%   Everything stochastic is resolved here and written into RUNCFG as fixed
+%   numbers, so the run is byte-reproducible from the seed alone.
 %
-%   SRS CAPACITY
-%   ------------
-%   configureULforSRS gives every UE a dedicated uplink link to every gNB,
-%   so the per-gNB UE count equals the TOTAL UE count rather than the
-%   count anchored to that cell. The simulator's default SRS configuration
-%   supports 16 UEs per gNB, so the check below is on the total. It is
-%   made here, before any object is created, so an over-sized population
-%   fails immediately with an actionable message instead of erroring
-%   inside connectUE partway through a batch.
+%   META reports what was drawn, for the batch manifest.
+%
+%   The SRS capacity check is on the total UE count, not the count anchored
+%   to a cell, because every UE holds an uplink to every gNB.
 
-    %% ---- scenario template -------------------------------------------
+    %% scenario template
     scenarioName = string(scenarioName);
     assert(isfield(base.scenarios, scenarioName), ...
-        'phase5_ScenarioGen:unknownScenario', ...
-        'Scenario "%s" is not defined in phase5_Config (have: %s).', ...
+        'phase7_ScenarioGen:unknownScenario', ...
+        'Scenario "%s" is not defined in phase7_Config (have: %s).', ...
         scenarioName, strjoin(string(fieldnames(base.scenarios))', ', '));
     sc   = base.scenarios.(scenarioName);
     topo = sc.topology;
 
-    %% ---- dedicated scenario stream ------------------------------------
+    %% dedicated scenario stream
     s = RandStream('Philox', 'Seed', seed);
 
-    %% ---- fixed topology ------------------------------------------------
+    %% fixed topology
     gNBPositions = ringLayout(topo.numGNB, topo.siteRadius_m, ...
         topo.gnbHeight_m, topo.originOffset_m);
 
-    %% ---- aerial population ---------------------------------------------
-    % One draw decides single versus multi, a second draws the group size.
-    % Both are taken unconditionally so the stream advances by the same
-    % amount whichever branch is taken, keeping later draws aligned.
+    %% aerial population
+    % Take both draws unconditionally so the stream advances by the same
+    % amount whichever branch is taken.
     isMulti  = rand(s) < base.population.pMultiAerial;
     swarmRng = base.population.aerialSwarmSizeRange;
     assert(numel(swarmRng) == 2 && swarmRng(1) >= 1 && swarmRng(2) >= swarmRng(1), ...
-        'phase5_ScenarioGen:badSwarmRange', ...
+        'phase7_ScenarioGen:badSwarmRange', ...
         'cfg.population.aerialSwarmSizeRange must be [min max] with 1 <= min <= max.');
     swarmSize = randi(s, [swarmRng(1) swarmRng(2)]);
     if isMulti
@@ -75,7 +55,7 @@ function [runCfg, meta] = phase5_ScenarioGen(base, seed, scenarioName)
 
     if isempty(base.srs.periodicitySlots)
         assert(numUE <= base.srs.maxUEsPerGNB, ...
-            'phase5_ScenarioGen:srsCapacity', ...
+            'phase7_ScenarioGen:srsCapacity', ...
             ['%d UEs requested, but every UE holds an SRS link to every ' ...
              'gNB and the default SRS configuration supports %d per gNB. ' ...
              'Reduce cfg.population.numTerrestrialUE or ' ...
@@ -84,15 +64,14 @@ function [runCfg, meta] = phase5_ScenarioGen(base, seed, scenarioName)
              'deviations log.'], numUE, base.srs.maxUEsPerGNB);
     end
 
-    %% ---- placement -------------------------------------------------------
-    % Uniform over the square UE region centred on the layout origin.
-    % Terrestrial UEs first, then aerial, matching the Phase 3/4 ordering.
+    %% placement
+    % Uniform over the square UE region, terrestrial UEs first then aerial.
     span = topo.ueAreaSpan_m;
     ctr  = topo.originOffset_m(:)';
     xy   = ctr + (rand(s, numUE, 2) - 0.5) * span;
 
     assert(sc.aerialAltRange_m(1) > sc.zBoundary, ...
-        'phase5_ScenarioGen:altitudeBelowBoundary', ...
+        'phase7_ScenarioGen:altitudeBelowBoundary', ...
         ['Scenario %s: aerialAltRange_m(1) = %.1f m is not above the ' ...
          'TR 36.777 overlay floor zBoundary = %.1f m, so aerial UEs would ' ...
          'be given the terrestrial channel.'], scenarioName, ...
@@ -105,10 +84,9 @@ function [runCfg, meta] = phase5_ScenarioGen(base, seed, scenarioName)
     uePositions = [xy, z];
     ueIsAerial  = [false(1, numTerr), true(1, numAerial)];
 
-    %% ---- per-UE traffic --------------------------------------------------
-    % Three jitter factors are drawn per direction per UE regardless of
-    % whether the profile can use all three, so the stream advances
-    % identically for every UE and class.
+    %% per-UE traffic
+    % Draw three jitter factors per direction whether or not the profile can
+    % use them all, so the stream advances identically for every UE.
     rj = base.traffic.rateJitterFrac;
     tj = base.traffic.timingJitterFrac;
     trafficPerUE = repmat(struct('ul', [], 'dl', []), 1, numUE);
@@ -121,22 +99,20 @@ function [runCfg, meta] = phase5_ScenarioGen(base, seed, scenarioName)
         jitterLog(u, :) = [fUL fDL];
     end
 
-    %% ---- mobility bounds --------------------------------------------------
-    % addMobility takes a four-element Bounds vector. The "centre"
-    % convention, [xCentre yCentre width height], is the one verified
-    % against the recorded Phase 3 trajectories (aerial UEs reached
-    % coordinates only reachable under that reading).
+    %% mobility bounds
+    % The "centre" convention is the one verified against the recorded
+    % Phase 3 trajectories.
     switch lower(string(base.mobility.boundsConvention))
         case "centre"
             bounds = [ctr(1) ctr(2) span span];
         case "corner"
             bounds = [ctr(1)-span/2 ctr(2)-span/2 span span];
         otherwise
-            error('phase5_ScenarioGen:badBoundsConvention', ...
+            error('phase7_ScenarioGen:badBoundsConvention', ...
                 'cfg.mobility.boundsConvention must be "centre" or "corner".');
     end
 
-    %% ---- assemble the run configuration ------------------------------------
+    %% assemble the run configuration
     runCfg = struct();
     runCfg.scenario = scenarioName;
     runCfg.seed     = seed;
@@ -189,10 +165,8 @@ function [runCfg, meta] = phase5_ScenarioGen(base, seed, scenarioName)
     % channel and SRS
     runCfg.enableShadowFading = base.channel.enableShadowFading;
 
-    % Dynamic LOS state and its correlation distance. Defaulted here (not
-    % only in createScenarioChannels) so the value that governed a run is
-    % recorded in the run configuration, and therefore in the archived
-    % replay bundle, rather than being implicit in the code version.
+    % Default these here as well as in createScenarioChannels, so the value
+    % that governed a run ends up in the archived replay.
     if isfield(base.channel, 'dynamicLOS')
         runCfg.dynamicLOS = base.channel.dynamicLOS;
     else
@@ -205,10 +179,8 @@ function [runCfg, meta] = phase5_ScenarioGen(base, seed, scenarioName)
     end
     runCfg.srs                = base.srs;
 
-    % output and replay. An empty dataDir resolves to <Phase 5>/data here
-    % rather than being left for writeFeatureCSV to guess, whose own
-    % fallback is relative to its file location and would land in
-    % core/data now that it lives one folder deeper.
+    % Resolve an empty dataDir here, since writeFeatureCSV's own fallback is
+    % relative to its file location and would land in core/data.
     if strlength(string(base.batch.dataDir)) == 0
         runCfg.outputDir = string(fullfile(fileparts(mfilename('fullpath')), ...
             '..', '..', 'data'));
@@ -226,12 +198,12 @@ function [runCfg, meta] = phase5_ScenarioGen(base, seed, scenarioName)
     end
 
     assert(runCfg.simulationTime > runCfg.windowLen + runCfg.settleTime, ...
-        'phase5_ScenarioGen:tooShort', ...
+        'phase7_ScenarioGen:tooShort', ...
         ['simulationTime (%.2f s) must exceed settleTime + windowLen ' ...
          '(%.2f s) or the run produces no feature rows.'], ...
         runCfg.simulationTime, runCfg.settleTime + runCfg.windowLen);
 
-    %% ---- metadata for the manifest -------------------------------------------
+    %% metadata for the manifest
     d = vecnorm(reshape(gNBPositions, [], 1, 3) - reshape(uePositions, 1, [], 3), 2, 3);
     [~, nearest] = min(d, [], 1);
     meta = struct();
@@ -251,20 +223,16 @@ function [runCfg, meta] = phase5_ScenarioGen(base, seed, scenarioName)
     meta.rateJitter      = jitterLog;
 end
 
-%% --------------------------------------------------------------------------
+%% ------------------------------------------------------------------------
 function P = ringLayout(numGNB, radius, h, origin)
-%ringLayout Centre site plus a ring of sites EVENLY spaced over 360 deg.
-%   Deterministic given the scenario, so the topology is a property of the
-%   scenario and not of the run. Site span is 2*radius across the ring.
+%ringLayout Centre site plus a ring of sites evenly spaced over 360 deg.
+%   Deterministic given the scenario, with a site span of 2*radius.
 %
-%   The angular spacing adapts to the number of ring sites: six ring sites
-%   give the usual hexagon, four give a cross, five a pentagon. Taking the
-%   first N angles from a fixed 60 degree grid instead, which is the
-%   obvious implementation, would place five sites at 0, 60, 120 and 180
-%   degrees and leave the whole 240 to 300 degree sector uncovered, so a
-%   five-site deployment would be lopsided and every UE in that sector
-%   would see an unrepresentative cell count.
-    assert(numGNB >= 1 && numGNB <= 13, 'phase5_ScenarioGen:numGNB', ...
+%   The spacing adapts to the number of ring sites, so six give a hexagon,
+%   four a cross and five a pentagon.
+%   Do not take the first N angles from a fixed 60 degree grid instead: that
+%   leaves the 240-300 degree sector uncovered for five sites.
+    assert(numGNB >= 1 && numGNB <= 13, 'phase7_ScenarioGen:numGNB', ...
         ['topology.numGNB must be between 1 and 13 (centre site plus a ' ...
          'ring of up to twelve). D5.1 specifies 5 to 7.']);
     nRing = numGNB - 1;
@@ -278,19 +246,17 @@ function P = ringLayout(numGNB, radius, h, origin)
     end
 end
 
-%% --------------------------------------------------------------------------
+%% ------------------------------------------------------------------------
 function v = getOr(s, f, dflt)
 %getOr Field value with a default, so an older config still loads.
     if isfield(s, f), v = s.(f); else, v = dflt; end
 end
 
-%% --------------------------------------------------------------------------
+%% ------------------------------------------------------------------------
 function [spec, rateFactor] = jitterSpec(spec, s, rateFrac, timeFrac)
 %jitterSpec Apply per-UE multiplicative jitter to one traffic specification.
-%   Three uniform draws are always taken so the stream advances by a fixed
-%   amount per direction per UE. Values are rounded (rate to 0.1 kbps,
-%   times to 1 ms) so the frozen specification stays readable in the saved
-%   configuration and identical on any platform.
+%   Always takes three draws so the stream advances by a fixed amount.
+%   Values are rounded so the frozen spec is identical on any platform.
     r = rand(s, 1, 3);
     rateFactor = 1 + rateFrac * (2*r(1) - 1);
     spec.dataRate_kbps = round(spec.dataRate_kbps * rateFactor, 1);

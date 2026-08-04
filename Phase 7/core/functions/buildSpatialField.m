@@ -2,38 +2,28 @@ function F = buildSpatialField(seed, substream, numFields, extent, dcor)
 %buildSpatialField Correlated random-variable grid (TR 38.901 clause 7.6.3.1).
 %
 %   F = buildSpatialField(SEED, SUBSTREAM, NUMFIELDS, EXTENT, DCOR) builds
-%   NUMFIELDS independent spatially-correlated random fields over the
-%   horizontal plane, returned as a plain struct so it can be stored in a
-%   value-class property and passed to parallel workers without side
-%   effects.
+%   NUMFIELDS independent spatially-correlated fields over the horizontal
+%   plane, returned as a plain struct so it passes to workers cleanly.
 %
-%   This is Option 2 of TR 38.901 clause 7.6.3.1 ("spatially consistent
-%   random variables"): independent standard normal variables are drawn on
-%   a regular grid whose spacing is the correlation distance DCOR from
-%   Table 7.6.3.1-2, and the value at an arbitrary point is obtained by
-%   interpolating the four surrounding grid nodes. Two points closer than
-%   DCOR share grid nodes and are therefore correlated; two points further
-%   apart than DCOR share none and are independent.
+%   This is Option 2 of clause 7.6.3.1: draw independent normals on a grid
+%   spaced at the correlation distance, then interpolate the four surrounding
+%   nodes. Points closer than DCOR share nodes and correlate, points further
+%   apart share none and are independent.
 %
 %   Inputs:
-%     SEED      - run seed (cfg.seed); fixes the whole field
-%     SUBSTREAM - substream index (>= 1) separating this field family from
-%                 every other consumer of the same seed
-%     NUMFIELDS - number of independent fields (one per gNB, so that two
-%                 UEs at the same place see the same state for a given
-%                 cell, which is the point of spatial consistency)
-%     EXTENT    - [xMin xMax yMin yMax] in metres, the area the UEs can
-%                 reach; padded by two grid cells so a UE that leaves the
-%                 nominal bounds still lands inside the grid
-%     DCOR      - correlation distance in metres (grid spacing)
+%     SEED      - run seed, fixes the whole field
+%     SUBSTREAM - substream index, separating this family from other
+%                 consumers of the same seed
+%     NUMFIELDS - one per gNB, so two UEs in the same place see the same
+%                 state for a given cell
+%     EXTENT    - [xMin xMax yMin yMax] in metres, padded by two grid cells
+%     DCOR      - correlation distance in metres, the grid spacing
 %
-%   Determinism: the field is a pure function of (SEED, SUBSTREAM,
-%   NUMFIELDS, EXTENT, DCOR). It carries no state and is never updated at
-%   run time, so sampling it is order-independent. This matters because
-%   pathloss is evaluated per packet in whatever order the simulator
-%   delivers them; a Markov-chain LOS state updated in place would make
-%   the result depend on packet ordering and break the fixed-seed
-%   byte-identical regeneration contract.
+%   The field is a pure function of its arguments and is never updated at run
+%   time, so sampling is order-independent.
+%   That matters because pathloss is evaluated per packet in whatever order
+%   the simulator delivers them, and an in-place Markov LOS state would make
+%   the result depend on packet ordering.
 %
 %   See also sampleSpatialField, linkState, createScenarioChannels.
 

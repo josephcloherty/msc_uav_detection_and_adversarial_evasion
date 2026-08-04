@@ -10,39 +10,24 @@ function st = linkState(linkInfo, cfg, gnbID, ueID, gnbPos, uePos)
 %                  field, false when it fell back to the setup-time draw
 %       ST.d2D, ST.d3D, ST.hUT  the geometry the state was evaluated at
 %
-%   THIS IS THE SINGLE SOURCE OF TRUTH for LOS state. Both the runtime
-%   pathloss (tr36777ChannelModel) and the replay renderer call it, so the
-%   colour of a link in the replay is by construction the state the
-%   simulator used. The previous split - pathloss reading a frozen
-%   linkInfo.los while the replay annotation recomputed pLOS live - is
-%   what made a static LOS state look like a rendering bug.
+%   This is the single source of truth for LOS state, called by both the
+%   runtime pathloss and the replay renderer, so a link's colour in the
+%   replay cannot disagree with what the simulator used.
 %
-%   Dynamic state (TR 38.901 clause 7.6.3.1/7.6.3.3)
-%   -----------------------------------------------
-%   The LOS state is the threshold test
-%       isLOS = U(x, y) < pLOS(hUT, d2D)
-%   where U is a spatially-consistent uniform field with the correlation
-%   distance of Table 7.6.3.1-2 (50 m UMa/UMi, 60 m RMa), one independent
-%   field per gNB. Because U is a pure function of position, a UE flying
-%   through the cell transitions LOS -> NLOS -> LOS on the correct spatial
-%   scale instead of flickering per packet, and two UEs at the same place
-%   see the same state for a given cell.
+%   The state is the threshold test isLOS = U(x, y) < pLOS(hUT, d2D), where U
+%   is a spatially-consistent uniform field with the Table 7.6.3.1-2
+%   correlation distance and one independent field per gNB.
+%   Since U depends only on position, a UE flying through the cell changes
+%   state on the right spatial scale instead of flickering per packet.
 %
-%   pLOS is evaluated at the LIVE height and 2D distance, so the altitude
-%   dependence of Table B-1 is tracked as well: a UE climbing above 100 m
-%   in UMa reaches pLOS = 1 and latches to LOS, which is exactly the
-%   behaviour the frozen draw could not reproduce.
+%   pLOS uses the live height and 2D distance, so a UE climbing above 100 m
+%   in UMa reaches pLOS = 1 and latches to LOS.
 %
-%   Shadow fading follows the live state: sigma is re-read from
-%   tr36777ShadowFadingStd for the current LOS/NLOS branch and multiplies
-%   a second spatially-consistent normal field with the Table 7.6.3.1-2 SF
-%   correlation distance for that branch. A LOS transition therefore steps
-%   the shadow-fading term, which is the physically correct consequence of
-%   a state change but is a discontinuity; noted in the deviations log.
+%   Shadow fading follows the live state, so a LOS transition steps the
+%   shadow-fading term; that discontinuity is noted in the deviations log.
 %
-%   Backward compatibility: when LINKINFO carries no field (an archived
-%   Phase 4 replay, or cfg.dynamicLOS false) the function returns the
-%   setup-time draw from LINKINFO.los / LINKINFO.sf with ST.dynamic false.
+%   When LINKINFO carries no field, as in an archived replay or with
+%   cfg.dynamicLOS false, this falls back to the setup-time draw.
 %
 %   See also buildSpatialField, sampleSpatialField, createScenarioChannels.
 
@@ -71,13 +56,13 @@ function st = linkState(linkInfo, cfg, gnbID, ueID, gnbPos, uePos)
         st.isLOS = u < st.pLOS;
         st.dynamic = true;
     else
-        % Frozen setup-time draw (archived runs, or dynamic LOS disabled)
+        % Frozen setup-time draw, for archived runs or dynamic LOS off
         st.isLOS = linkInfo.los(gnbID, ueID);
         st.sfDB  = linkInfo.sf(gnbID, ueID);
         return;
     end
 
-    % ---- shadow fading, sigma selected by the LIVE state ----------------
+    % Shadow fading, with sigma selected by the live state.
     if isfield(cfg, 'enableShadowFading') && cfg.enableShadowFading
         if isfield(linkInfo, 'sfField') && ~isempty(linkInfo.sfField)
             if st.isLOS, which = 1; else, which = 2; end

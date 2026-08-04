@@ -1,180 +1,90 @@
-function cfg = phase5_Config()
-%phase5_Config Single configuration point for the Phase 5 dataset pipeline (D5.1).
+function cfg = phase7_Config()
+%phase7_Config Every tunable value for the Phase 7 pipeline, in one place.
 %
-%   CFG = phase5_Config() returns the complete parameter set for the
-%   parallelised multi-cell scenario generator and batch runner. Nothing
-%   else in Phase 5 holds a tunable value: phase5_RunBatch reads this
-%   file, phase5_ScenarioGen expands it into one concrete run
-%   configuration per seed, and phase5_Pipeline consumes that. To change
-%   the dataset, change this file only.
+%   CFG = phase7_Config() returns the full parameter set. phase7_RunBatch
+%   reads it, phase7_ScenarioGen expands it into one run config per seed, and
+%   phase7_Pipeline consumes that. To change the dataset, change this file.
 %
-%   WHAT VARIES WITH THE SEED, AND WHAT DOES NOT
-%   --------------------------------------------
-%   The network topology is a property of the SCENARIO, not of the run.
-%   For a given scenario name the gNB count, site radius, gNB height and
-%   carrier are fixed, so every replicate of that scenario observes the
-%   same deployment. The seed drives only the things a real
-%   operator would see change between observation periods:
+%   The scenario fixes the topology (gNB count, positions, heights, carrier,
+%   site radius, UE region). The seed drives everything else: UE placement,
+%   aerial UE count, mobility, traffic jitter, LOS and shadow-fading draws,
+%   channel seeds and handover measurement error.
 %
-%     - initial UE placement (terrestrial and aerial, in x, y and z)
-%     - how many aerial UEs are present in the run
-%     - mobility (speeds are drawn per UE inside the toolbox mobility
-%       model from the run's global stream, which is seeded from cfg.seed)
-%     - per-UE traffic rate and on/off timing jitter around the class
-%       profile
-%     - per-link LOS draws, shadow fading draws and channel seeds
-%     - handover measurement-error draws
-%
-%   Two runs with the same seed and scenario are therefore identical, and
-%   two runs with different seeds are independent replicates of the same
-%   deployment. Seeds are plain integers, so a seed range can be split
-%   across machines with no coordination: machine A runs 1:50, machine B
-%   runs 51:100, and the union is one dataset with no duplicated or
-%   missing runs.
-%
-%   RUN ENUMERATION
-%   ---------------
-%   Run i takes seed cfg.batch.seedRange(i) and scenario
-%   cfg.batch.scenarioCycle(mod(i-1, numel(cycle))+1), so the scenarios
-%   are cycled one per run. numel(cfg.batch.seedRange) is therefore the
-%   number of scenario replicates the batch will generate.
-%
-%   OUTPUTS PER RUN (all into cfg.batch.dataDir)
-%   --------------------------------------------
-%     features_<scenario>_seed<seed>.csv   labelled windowed feature rows
-%     replay_<scenario>_seed<seed>.mat     replay bundle, reopened with
-%                                          replayScenario(path) or
-%                                          phase5_ReplayRun(scenario, seed)
-%   and one manifest_<tag>.csv for the batch recording every generation
-%   parameter needed to reproduce it (D5.5 groundwork).
+%   Same seed and scenario gives an identical run, and seeds are plain
+%   integers, so a seed range splits across machines without coordination.
 
     cfg = struct();
 
-    %% ==================================================================
-    %  BATCH CONTROL
-    %  ==================================================================
+    %% batch control
     cfg.batch = struct();
 
-    % Seeds to run on THIS machine. Any numeric vector; 1:6 here,
-    % 7:12 on the next machine, and so on.
-    %
-    % Sized deliberately small for the first batch. At the measured cost
-    % (see cfg.batch.costModel) a run is several hours, so six runs is
-    % two replicates per scenario and roughly three thousand rows: enough
-    % to look at class separation in D5.4 and size the real batch from
-    % what it shows. phase5_DryRun projects the wall time before you
-    % commit to it.
+    % Seeds to run on this machine; use a disjoint range on each machine.
     cfg.batch.seedRange = 13:36;
 
-    % Scenario cycled one per run. Any subset/order of the names defined
-    % in cfg.scenarios below. "UMa" is the primary deployment scenario,
-    % "RMa" the required second fork, "UMi" the optional third, included
-    % here at equal weight so all three are represented in the dataset.
-    % Changing the length of this list changes which scenario a given
-    % seed index maps to, so a seed range run under a different cycle
-    % produces a different set of runs (existing files are not
-    % overwritten: the run identity is the scenario and seed pair).
+    % Scenario cycled one per run; changing the length of this list changes
+    % which scenario a given seed index maps to.
     cfg.batch.scenarioCycle = ["UMa", "RMa", "UMi"];
 
-    % Hard cap on the number of runs actually executed (Inf = all seeds).
-    % Useful for a short smoke batch without editing seedRange.
+    % Hard cap on runs actually executed, Inf for all seeds.
     cfg.batch.maxRuns = Inf;
 
-    % Parallel pool size. [] uses the default profile's worker count.
-    % Each worker holds one full simulation, so memory scales with this.
+    % Pool size, [] for the profile default; each worker holds one full
+    % simulation, so memory scales with this.
     cfg.batch.numWorkers = [12];
 
-    % Label used in the manifest filename. "" uses a yyyymmdd_HHMMSS stamp.
+    % Manifest filename label, "" for a yyyymmdd_HHMMSS stamp.
     cfg.batch.tag = "";
 
-    % Output directory. "" resolves to <Phase 5>/data.
+    % Output directory, "" resolves to <Phase 7>/data.
     cfg.batch.dataDir = "";
 
-    % Skip a run whose feature CSV already exists. Makes a batch
-    % resumable after an interruption and safe to re-launch.
+    % Skip a run whose feature CSV already exists, so a batch is resumable.
     cfg.batch.skipExisting = true;
 
-    % Record a failed run in the manifest and carry on, rather than
-    % aborting the whole batch.
+    % Record a failed run in the manifest and carry on.
     cfg.batch.continueOnError = true;
 
-    % Per-run console chatter from the workers. Progress is reported by
-    % the client regardless.
+    % Per-run console output from the workers; the client reports progress
+    % either way.
     cfg.batch.verboseWorkers = false;
 
-    % Wall-time cost model. The constant is seconds of wall time per
-    % (simulated second x gNB x UE). Cost is dominated by per-packet
-    % channel filtering across the UE-to-gNB links and by every UE's SRS
-    % being received at every gNB, both of which scale with that product.
-    %
-    % This value is only the PRIOR, used until real runs exist. It came
-    % from the 21 July smoke runs, 1881 s for 6 s at 7 gNB and 3 UE, where
-    % fixed per-run overhead is a large share of a six second run, and the
-    % first full batch cost 33.6 rather than 14.9. phase5_CostModel keeps
-    % the measurements from every finished run in
-    % data/costmodel_measured.csv and both the dry run projection and the
-    % live ETA use those in preference to this number, per pool size,
-    % since cost per run rises with contention. The value below is
-    % therefore left at the measured figure for the six-worker batch and
-    % only matters on a machine with no measurements yet.
+    % Seconds of wall time per (simulated second x gNB x UE), used only as a
+    % prior until real runs exist.
+    % phase7_CostModel keeps the measurements in data/costmodel_measured.csv
+    % and every estimate prefers those to this number.
     cfg.batch.costModel = struct('sPerSimSecPerGNBPerUE', 33.6);
 
-    % Parallel pool startup. The client binds a listening port for the
-    % interactive pool, by default from 27370 up, and that bind fails for
-    % reasons outside this project: a Windows reserved port block from
-    % Hyper-V, WSL or Docker covering the range, a firewall blocking
-    % loopback, workers orphaned by a killed session still holding the port,
-    % stale cluster job metadata, or a machine too loaded to finish every
-    % handshake in time. Rather than lose a night to it, the runner tries
-    % each port range below, then retries, then steps the worker count down.
+    % Pool startup can fail on the client's listening port for reasons
+    % outside this project, so the runner retries before giving up.
     cfg.batch.poolRetries       = 2;     % extra attempts per size and range
     cfg.batch.poolRetryWait_s   = 15;    % pause between attempts
     cfg.batch.allowFewerWorkers = true;  % halve and retry rather than abort
 
-    % Client listening port ranges to try, in order, via pctconfig. [] keeps
-    % MATLAB's default 27370-28370; 0 asks for ephemeral ports, which the OS
-    % picks from what is genuinely free and so cannot collide with a fixed
-    % reservation; a two-element vector is an explicit range. Diagnose a
-    % blocked range with, in a command prompt:
+    % Port ranges to try via pctconfig: [] keeps the default, 0 asks for
+    % ephemeral ports, a pair is an explicit range.
+    % To list blocked ranges on Windows:
     %   netsh int ipv4 show excludedportrange protocol=tcp
     cfg.batch.poolPortRanges = {[], 0, [40000 41000], [21000 22000]};
 
-    %% ==================================================================
-    %  PROGRESS REPORTING
-    %  ==================================================================
-    % The client shows one aggregated readout for the whole batch, in the
-    % same terms the Phase 3 and Phase 4 single-run reporter used:
-    % simulated-time progress, wall time and estimated time remaining.
-    % Workers report their own simulated-time fraction periodically, so
-    % the bar moves continuously rather than only when a run finishes.
-    % enable false suppresses the live display entirely; the
-    % one-line-per-completed-run record is printed either way.
+    %% progress reporting (command line only)
+    % The client prints a throttled aggregate line, one line per completed
+    % run, and a DONE block at the end.
+    % enable false drops the aggregate lines but keeps the rest.
     cfg.progress = struct();
     cfg.progress.enable        = true;
-    % perRunBars true draws one horizontal bar per run in a single
-    % window, coloured by state, with the aggregate on a header line, so
-    % it is visible which runs are in flight and how far each has got.
-    % False, or a batch larger than maxBars where one bar per run would
-    % be unreadable, falls back to a single aggregate waitbar.
-    cfg.progress.perRunBars    = true;
-    cfg.progress.maxBars       = 40;
-    cfg.progress.useWaitbar    = true;  % fallback bar; false forces text
-    % Progress messages per run. Each one is a message from a worker to
-    % the client, so a high value on a large pool costs client time for
-    % no extra information. 100 gives one per cent resolution, which at
-    % these run lengths is a report every twenty minutes or so per run and
-    % is also the rate at which each run's ETA is re-estimated.
+    % Progress messages per run, which is also how often each run's ETA is
+    % re-estimated; a high value on a large pool just costs client time.
     cfg.progress.updatesPerRun = 100;
-    % Weight on the newest sample in each run's rate estimate. Higher
-    % follows a run whose cost is changing more closely and is noisier;
-    % lower is smoother and slower to notice a slowdown.
+    % Weight on the newest rate sample: higher tracks a changing cost more
+    % closely but is noisier.
     cfg.progress.rateAlpha     = 0.35;
-    cfg.progress.minRedraw_s   = 0.5;   % throttle between redraws
+    % Minimum gap between aggregate lines, so a long batch does not flood the
+    % command window.
+    cfg.progress.minPrint_s    = 5;
 
-    %% ==================================================================
-    %  RADIO (shared by every scenario, kept at the Phase 2-4 values so
-    %  the Phase 5 dataset stays comparable with the earlier CSVs)
-    %  ==================================================================
+    %% radio
+    % Shared by every scenario, at the Phase 2-4 values so the dataset stays
+    % comparable with the earlier CSVs.
     cfg.radio = struct();
     cfg.radio.carrierFrequency  = 2.6e9;   % Hz
     cfg.radio.channelBandwidth  = 20e6;    % Hz
@@ -187,57 +97,41 @@ function cfg = phase5_Config()
     cfg.radio.ueRxAntennas      = 2;
     cfg.radio.ueReceiveGain     = 11;      % dB
 
-    %% ==================================================================
-    %  UE POPULATION
-    %  ==================================================================
+    %% UE population
     cfg.population = struct();
 
-    % Terrestrial UEs are a fixed background population: the same number
-    % in every run, so the aerial signature is what varies.
+    % Fixed background population, so the aerial side is what varies.
     cfg.population.numTerrestrialUE = 8;
 
-    % Aerial count is randomised per run. With probability pMultiAerial
-    % the run contains a group of aerial UEs, otherwise a lone one. The
-    % default 0.5 targets a roughly even split of single-aerial and
-    % multi-aerial runs across the dataset.
+    % Chance that a run holds a group of aerial UEs rather than one.
     cfg.population.pMultiAerial = 0.5;
 
     % Number of aerial UEs in a single-aerial run.
     cfg.population.singleAerialCount = 1;
 
-    % Inclusive [min max] group size for a multi-aerial run, drawn
-    % uniformly. Each aerial UE gets independent placement, mobility and
-    % traffic draws; there is no leader/follower differentiation (see the
-    % deviations log entry on swarm C2 modelling).
+    % Inclusive [min max] group size for a multi-aerial run, drawn uniformly.
+    % Every aerial UE gets its own placement, mobility and traffic draws.
     cfg.population.aerialSwarmSizeRange = [2 6];
 
-    % Resulting aerial fraction with the defaults above: 1/9 to 6/14,
-    % i.e. 11% to 43%, straddling the ~20% target of D5.1.
+    % With the defaults above the aerial fraction runs 11% to 43%.
 
-    %% ==================================================================
-    %  MOBILITY
-    %  ==================================================================
+    %% mobility
     cfg.mobility = struct();
     cfg.mobility.enable = true;
 
-    % Speed ranges (m/s) handed to the toolbox random-waypoint model.
+    % Speed ranges (m/s) for the toolbox random-waypoint model.
     cfg.mobility.aerialSpeedRange      = [15 30];
     cfg.mobility.terrestrialSpeedRange = [1 5];
 
-    % Interpretation of the four-element Bounds vector passed to
-    % addMobility. "centre" is [xCentre yCentre width height] and is the
-    % convention verified against the recorded Phase 3 trajectories;
-    % "corner" is [xMin yMin width height]. Kept configurable so a
-    % toolbox behaviour change can be absorbed here rather than in code.
+    % How to read the Bounds vector addMobility takes: "centre" is
+    % [xCentre yCentre width height], "corner" is [xMin yMin width height].
+    % Leave it on "centre" unless the toolbox changes.
     cfg.mobility.boundsConvention = "centre";
 
-    %% ==================================================================
-    %  TRAFFIC
-    %  ==================================================================
-    % Class profiles carried over unchanged from Phase 4 (sources and the
-    % confound discussion are in the Phase 4 deviations log). Aerial:
-    % uplink-heavy steady video plus the TR 36.777 command and control
-    % model on the downlink. Terrestrial: downlink-heavy bursty browsing.
+    %% traffic
+    % Class profiles carried over from Phase 4: aerial is uplink-heavy steady
+    % video with TR 36.777 command and control on the downlink, terrestrial
+    % is downlink-heavy bursty browsing.
     %                                kbps   on(s)  off(s)  pkt(B)
     cfg.traffic = struct();
     cfg.traffic.aerial.ul      = trafficSpec(4000,  Inf,  0,    1250);
@@ -245,60 +139,42 @@ function cfg = phase5_Config()
     cfg.traffic.terrestrial.dl = trafficSpec(2000,  1,    2,    1500);
     cfg.traffic.terrestrial.ul = trafficSpec( 200,  0.5,  2.5,   500);
 
-    % Per-UE jitter, drawn once per run from the seeded scenario stream
-    % and then frozen as fixed scalars, so every traffic source stays
-    % deterministic and the run remains byte-reproducible. A value of
-    % 0.15 means each rate is scaled by a factor drawn uniformly from
-    % [0.85 1.15]. Set to 0 for the Phase 4 behaviour (identical sources
-    % within a class).
+    % Per-UE jitter, drawn once per run and then frozen, so the sources stay
+    % deterministic.
+    % 0.15 scales each rate by a factor from [0.85 1.15]; use 0 for identical
+    % sources within a class.
     cfg.traffic.rateJitterFrac   = 0.15;
     cfg.traffic.timingJitterFrac = 0.20;   % applies to finite On/Off times
 
-    %% ==================================================================
-    %  MEASUREMENT
-    %  ==================================================================
+    %% measurement
     cfg.measurement = struct();
     cfg.measurement.visThreshold = 0;    % dB; gNB counts as visible above this
 
-    % SRS RNTI offset. SRS reception events identify a UE as
-    % UE.ID + rntiOffset, and the handover managers filter on that. This
-    % is an empirical constant (SLS library ID convention): -2 has held
-    % at three, five and seven gNBs, but nothing in the toolbox enforces
-    % it and a wrong value fails SILENTLY, with the managers ingesting
-    % nothing and the run completing after hours with every SINR column
-    % NaN. It is therefore verified in flight on every run rather than
-    % trusted. The scheduler RNTI is a different quantity entirely and is
-    % never calibrated: it is read from the gNB connection tables.
+    % SRS events identify a UE as UE.ID + rntiOffset, and the managers filter
+    % on that.
+    % It is empirical, and a wrong value fails silently with every SINR
+    % column NaN, so every run verifies it in flight.
+    % Not to be confused with the scheduler RNTI, read from the gNB tables.
     cfg.measurement.rntiOffset = -2;
 
-    % Verify the offset against observed SRS events at the settle time,
-    % inside the span the extraction discards. Leave this on.
+    % Check the offset against real SRS events at the settle time, inside the
+    % span the extraction throws away anyway.
     cfg.measurement.verifyRNTI = true;
 
-    % On a mismatch: false aborts the run naming the correct offset,
-    % true corrects the managers in place and warns. False is the safer
-    % default and matches the rest of the pipeline preferring a loud
-    % failure to a silent repair; true is worth setting for long
-    % unattended batches, where losing a thirteen hour run to a
-    % recalibratable constant is the worse outcome. The correction lands
-    % inside the settle window either way, so no dataset row is computed
-    % from measurements taken under the wrong identifier.
+    % On a mismatch, false aborts and names the right offset while true fixes
+    % the managers in place and warns.
+    % Worth setting true for long unattended batches, since the correction
+    % lands inside the settle window either way.
     cfg.measurement.autoCorrectRNTI = false;
 
-    % Print the per-UE RNTI map (node ID, class, anchor gNB, scheduler
-    % RNTI, SRS RNTI) before each run.
+    % Print the per-UE RNTI map before each run.
     cfg.measurement.printRNTIMap = true;
 
-    %% ==================================================================
-    %  HANDOVER / MOBILITY CHAIN
-    %  ==================================================================
-    % TR 36.777 Table A.2.1-1 baseline values, restated here so the whole
-    % measurement chain is adjustable from the configuration rather than
-    % by editing handoverManager. Every field is applied to each manager
-    % after construction; the defaults below reproduce the class defaults
-    % exactly, so leaving this block alone gives Phase 3 and Phase 4
-    % behaviour. Changing any of them changes the handover features, so
-    % rows generated under different values are not comparable.
+    %% handover / mobility chain
+    % TR 36.777 Table A.2.1-1 baselines, applied to each manager after
+    % construction and matching the class defaults exactly.
+    % Changing any of them changes the handover features, so rows generated
+    % under different values are not comparable.
     cfg.handover = struct();
     cfg.handover.useTr36777Mobility = true;   % false = legacy instant A3
     cfg.handover.a3Offset      = 2;      % dB, A3Offset
@@ -311,77 +187,62 @@ function cfg = phase5_Config()
     cfg.handover.mtsPingPong   = 1;      % s, minimum time of stay
     cfg.handover.hysteresis    = 1;      % dB, legacy instant-A3 margin
     cfg.handover.sinrThreshold = 20;     % dB, A5 threshold
-    % scanPeriod and scanStartTime are deliberately absent: handoverManager
-    % schedules its periodic scan inside its constructor, so a value set
-    % afterwards would be accepted and then ignored. The pipeline rejects
-    % them explicitly rather than letting that pass silently.
+    % Do not add scanPeriod or scanStartTime here, because handoverManager
+    % schedules its scan in the constructor and would ignore them.
 
-    %% ==================================================================
-    %  WINDOWING (feature definition: changing these makes rows
-    %  incomparable with every earlier CSV)
-    %  ==================================================================
+    %% windowing
+    % These define the features, so changing them makes rows incomparable
+    % with every earlier CSV.
     cfg.window = struct();
     cfg.window.simulationTime = 60.5;   % s; must exceed windowLen
     cfg.window.windowLen      = 10;     % s, per-UE sliding window
     cfg.window.windowStride   = 1;      % s
     cfg.window.settleTime     = 0.5;    % s, discarded attach/handover burst
 
-    %% ==================================================================
-    %  CHANNEL
-    %  ==================================================================
+    %% channel
     cfg.channel = struct();
     cfg.channel.enableShadowFading = true;
 
-    % Dynamic LOS state (Phase 5). true evaluates the LOS/NLOS state per
-    % packet from a spatially-consistent random field (TR 38.901 clause
-    % 7.6.3.1), so a moving UE changes state as its geometry changes.
-    % false restores the Phase 4 behaviour, where the state was drawn once
-    % from the INITIAL positions and frozen for the whole run - kept only
-    % so a Phase 4 dataset can be regenerated for comparison.
+    % true evaluates LOS/NLOS per packet from a spatially consistent random
+    % field (TR 38.901 clause 7.6.3.1), so a moving UE changes state.
+    % false freezes the state at the initial positions, which is Phase 4
+    % behaviour and only useful for regenerating a comparison dataset.
     cfg.channel.dynamicLOS = true;
 
-    % Correlation distance (m) for the LOS state field. Empty uses the
-    % TR 38.901 Table 7.6.3.1-2 value for the scenario (50 m UMa and UMi,
-    % 60 m RMa). Set a number here only for a sensitivity study, and
-    % record it in the deviations log.
+    % Correlation distance (m) for the LOS field; empty uses the TR 38.901
+    % Table 7.6.3.1-2 value (50 m UMa and UMi, 60 m RMa).
+    % Only set a number for a sensitivity study, and log it.
     cfg.channel.losCorrelationDistance_m = [];
 
-    %% ==================================================================
-    %  REPLAY FILES
-    %  ==================================================================
+    %% replay files
     cfg.replay = struct();
     cfg.replay.save = true;             % one replay .mat per run
     cfg.replay.format = "-v7.3";        % needed above the 2 GB v7 limit
-    cfg.replay.includeNodes = true;     % gNB/UE objects in the bundle;
-                                        % false shrinks the file but the
-                                        % replay then draws no node marks
+    cfg.replay.includeNodes = true;     % gNB/UE objects in the bundle; false
+                                        % shrinks the file but the replay
+                                        % then draws no node marks
     cfg.replay.cullTime = [];           % s; [] culls the settle span only
 
-    %% ==================================================================
-    %  SRS CAPACITY
-    %  ==================================================================
-    % Every UE holds a dedicated uplink link to EVERY gNB so that all
-    % cells receive its SRS (configureULforSRS), so the per-gNB UE count
-    % equals the total UE count, and the simulator's default SRS
-    % configuration caps that at 16. The generator asserts the limit
-    % before a run starts rather than letting connectUE fail mid-batch.
+    %% SRS capacity
+    % Every UE holds an uplink to every gNB so all cells receive its SRS,
+    % which makes the per-gNB UE count equal the total UE count.
+    % The default SRS configuration caps that at 16, and the generator
+    % asserts the limit before a run starts.
     cfg.srs = struct();
     cfg.srs.maxUEsPerGNB = 16;
-    % Manual SRS periodicity override in slots. [] leaves the toolbox
-    % default. Setting it is the documented route past the 16-UE limit
-    % and MUST be recorded in the deviations log when used.
+    % Periodicity override in slots, [] for the toolbox default.
+    % This is the documented route past the 16-UE limit, so log it when used.
     cfg.srs.periodicitySlots = [];
 
-    %% ==================================================================
-    %  SCENARIOS (topology and TR 36.777 parameters; NOT seed dependent)
-    %  ==================================================================
+    %% scenarios
+    % Topology and TR 36.777 parameters, none of it seed dependent.
     cfg.scenarios = struct();
 
-    % ---- UMa: primary deployment scenario -----------------------------
+    % UMa: primary deployment scenario
     s = struct();
     s.zBoundary = 22.5;                 % TR 36.777 Annex B.1: UMa-AV from 22.5 m
     s.avgBuildingHeight = 20;           % m, rooftop reflection (eq B.1.1-2)
-    % Table B.1.1-2 (UMa-AV), verified against the source
+    % Table B.1.1-2 (UMa-AV)
     s.av.los  = struct('ASA',0.5,'ASD',0.5,'ZSA',0.1,'ZSD',0.1, ...
                        'K_dB',20,'DS_s',10e-9);
     s.av.nlos = struct('ASA',1,  'ASD',1,  'ZSA',0.3,'ZSD',0.3, ...
@@ -396,11 +257,11 @@ function cfg = phase5_Config()
     s.aerialAltRange_m  = [40 200];     % above zBoundary, below the 300 m cap
     cfg.scenarios.UMa = s;
 
-    % ---- RMa: required second fork (rural / isolated protected sites) --
+    % RMa: rural and isolated protected sites
     s = struct();
     s.zBoundary = 10;                   % RMa-AV applies from 10 m
     s.avgBuildingHeight = NaN;          % ground reflection (eq B.1.1-1)
-    % Table B.1.1-1 (RMa-AV), verified against the source
+    % Table B.1.1-1 (RMa-AV)
     s.av.los  = struct('ASA',0.2,'ASD',0.2,'ZSA',0.1,'ZSD',0.1, ...
                        'K_dB',20,'DS_s',10e-9);
     s.av.nlos = struct('ASA',0.5,'ASD',0.5,'ZSA',0.2,'ZSD',0.2, ...
@@ -415,7 +276,7 @@ function cfg = phase5_Config()
     s.aerialAltRange_m  = [40 200];
     cfg.scenarios.RMa = s;
 
-    % ---- UMi: optional third fork -------------------------------------
+    % UMi: street-level dense urban
     s = struct();
     s.zBoundary = 22.5;
     s.avgBuildingHeight = NaN;          % unused; the fork builder owns the geometry
@@ -431,7 +292,7 @@ function cfg = phase5_Config()
     cfg.scenarios.UMi = s;
 end
 
-%% ----------------------------------------------------------------------
+%% ------------------------------------------------------------------------
 function s = trafficSpec(kbps, on, off, pkt)
 %trafficSpec One networkTrafficOnOff specification.
     s = struct('dataRate_kbps', kbps, 'onTime_s', on, ...

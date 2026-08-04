@@ -1,103 +1,79 @@
-function manifest = phase5_RunBatch(cfg)
-%phase5_RunBatch Parallel batch runner for the Phase 5 dataset (D5.1).
+function manifest = phase7_RunBatch(cfg)
+%phase7_RunBatch Run the whole batch in parallel and write a manifest.
 %
-%   manifest = phase5_RunBatch()      uses phase5_Config()
-%   manifest = phase5_RunBatch(CFG)   uses a modified configuration
+%   manifest = phase7_RunBatch()      uses phase7_Config()
+%   manifest = phase7_RunBatch(CFG)   uses a modified configuration
 %
-%   This is the only script that needs running. It enumerates the runs
-%   from cfg.batch, generates one seeded scenario per run, executes them
-%   in parallel, and writes a manifest recording every generation
-%   parameter alongside the per-run outputs.
+%   This is the only script you need to run. Progress goes to the command
+%   window.
 %
-%   RUN ENUMERATION
-%     run i  ->  seed     = cfg.batch.seedRange(i)
-%                scenario = cfg.batch.scenarioCycle(mod(i-1, nCycle)+1)
-%   so numel(cfg.batch.seedRange) runs are produced, with the scenarios
-%   cycled one per run. Because the run identity is (scenario, seed) and
-%   both come from the configuration, a seed range can be split across
-%   machines with no coordination and the outputs merge without conflict.
+%   Run i uses seed cfg.batch.seedRange(i) and scenario
+%   cfg.batch.scenarioCycle(mod(i-1, nCycle)+1). Because a run is identified
+%   by (scenario, seed), you can split a seed range across machines.
 %
-%   OUTPUTS (all in cfg.batch.dataDir, default <Phase 5>/data)
+%   Writes into cfg.batch.dataDir (default <Phase 7>/data):
 %     features_<scenario>_seed<seed>.csv   labelled feature rows
 %     replay_<scenario>_seed<seed>.mat     replay bundle, if enabled
 %     manifest_<tag>.csv                   one row per run
 %
-%   Run phase5_DryRun first to see the dataset shape without simulating,
-%   and phase5_SmokeCheck to verify each scenario end to end on a short
-%   run. Concatenate the per-run CSVs into a single dataset with
-%   phase5_MergeDataset. Reopen any run's replay with
-%   phase5_ReplayRun(scenario, seed).
+%   Run phase7_DryRun first to see the dataset shape without simulating.
+%   Merge the per-run CSVs afterwards with phase7_MergeDataset.
 %
-%   PARALLELISM
-%   Runs execute under parfor. Each worker is a separate process with its
-%   own wirelessNetworkSimulator singleton, so runs do not interfere. The
-%   Parallel Computing Toolbox is required and its absence is a hard
-%   error rather than a silent fall back to serial execution, so a batch
-%   never quietly takes many times longer than expected.
+%   Needs the Parallel Computing Toolbox; missing it is a hard error rather
+%   than a silent fall back to serial.
 %
-%   RE-RUNNING A BATCH
-%   With cfg.batch.skipExisting true a run whose feature CSV already exists
-%   is skipped, so a batch that lost some of its runs is completed by
-%   re-running this script: whole runs are the unit of work. A run that did
-%   not finish leaves no CSV and is simply run again from the start. With
-%   cfg.batch.continueOnError true a failed run is recorded in the manifest
-%   and the batch carries on.
+%   Safe to re-run: finished runs are skipped, so a batch that lost some of
+%   its runs is completed by launching it again.
 
     if nargin < 1 || isempty(cfg)
-        cfg = phase5_Config();
+        cfg = phase7_Config();
     end
 
     here = fileparts(mfilename('fullpath'));
     fcnDir = fullfile(here, 'core', 'functions');
     addpath(fcnDir);
 
-    %% ---- resolve output directory ------------------------------------
+    %% resolve output directory
     if strlength(string(cfg.batch.dataDir)) == 0
         cfg.batch.dataDir = string(fullfile(here, 'data'));
     end
     dataDir = char(cfg.batch.dataDir);
     if ~exist(dataDir, 'dir'), mkdir(dataDir); end
 
-    %% ---- parallel toolbox is mandatory --------------------------------
+    %% parallel toolbox is mandatory
     assertParallelAvailable();
 
-    %% ---- enumerate runs ------------------------------------------------
+    %% enumerate runs
     seeds = cfg.batch.seedRange(:)';
-    assert(~isempty(seeds), 'phase5_RunBatch:noSeeds', ...
+    assert(~isempty(seeds), 'phase7_RunBatch:noSeeds', ...
         'cfg.batch.seedRange is empty.');
     assert(all(seeds == round(seeds)) && all(isfinite(seeds)), ...
-        'phase5_RunBatch:nonIntegerSeeds', ...
+        'phase7_RunBatch:nonIntegerSeeds', ...
         'cfg.batch.seedRange must contain finite integers.');
     assert(numel(unique(seeds)) == numel(seeds), ...
-        'phase5_RunBatch:duplicateSeeds', ...
+        'phase7_RunBatch:duplicateSeeds', ...
         'cfg.batch.seedRange contains duplicates; run identities would collide.');
 
     cycle = string(cfg.batch.scenarioCycle(:))';
-    assert(~isempty(cycle), 'phase5_RunBatch:noScenarios', ...
+    assert(~isempty(cycle), 'phase7_RunBatch:noScenarios', ...
         'cfg.batch.scenarioCycle is empty.');
 
     nRuns = min(numel(seeds), cfg.batch.maxRuns);
     seeds = seeds(1:nRuns);
     scenarios = cycle(mod((0:nRuns-1), numel(cycle)) + 1);
 
-    %% ---- resolve every run configuration up front -----------------------
-    % Generating on the client fails fast on a bad configuration (SRS
-    % capacity, altitude below the overlay floor, run shorter than a
-    % window) before a pool is started, and gives the manifest its
-    % population figures even for skipped or failed runs.
+    %% resolve every run configuration up front
+    % Doing this on the client catches a bad config before a pool is started.
     runCfgs = cell(1, nRuns);
     metas   = cell(1, nRuns);
     for i = 1:nRuns
-        [runCfgs{i}, metas{i}] = phase5_ScenarioGen(cfg, seeds(i), scenarios(i));
+        [runCfgs{i}, metas{i}] = phase7_ScenarioGen(cfg, seeds(i), scenarios(i));
         runCfgs{i}.outputDir = string(dataDir);
     end
 
-    %% ---- classify runs already on disk -----------------------------------
-    % A run whose feature CSV exists is complete: the CSV is written once,
-    % after run() returns, so its presence means the run finished. There is
-    % no partial state to classify now that checkpointing has been removed,
-    % and a run interrupted before it finished simply leaves nothing behind
-    % and is enumerated again.
+    %% classify runs already on disk
+    % The CSV is written once, after run() returns, so its presence means the
+    % run finished.
     todo = true(1, nRuns);
     if cfg.batch.skipExisting
         for i = 1:nRuns
@@ -107,47 +83,38 @@ function manifest = phase5_RunBatch(cfg)
         end
     end
 
-    fprintf('Phase 5 batch: %d run(s) enumerated, %d to execute, %d complete on disk.\n', ...
+    fprintf('Phase 7 batch: %d run(s) enumerated, %d to execute, %d complete on disk.\n', ...
         nRuns, sum(todo), sum(~todo));
     fprintf('Scenario cycle: %s | seeds %d to %d | output %s\n', ...
         strjoin(cellstr(cycle), ', '), min(seeds), max(seeds), dataDir);
 
-    %% ---- pool ---------------------------------------------------------------
+    %% pool
     pool = startPool(cfg);
     fprintf('Parallel pool: %d worker(s).\n', pool.NumWorkers);
 
-    %% ---- progress reporting from the workers ---------------------------------
-    % phase5_Progress lives on the client and is mutated by the afterEach
-    % callback, which parfor services while it waits, so the readout keeps
-    % moving throughout the batch. Workers report their own simulated-time
-    % fraction periodically as well as completion, so overall progress is
-    % a mean over the running simulations rather than a count of finished
-    % ones. Without that a batch of long runs would sit at zero per cent,
-    % with no estimated time remaining, until the first worker returned.
+    %% progress reporting from the workers
+    % parfor services the afterEach callback while it waits, so the reporter
+    % keeps printing for the whole batch.
     labels = "" + scenarios + " seed " + string(seeds);
     useProgress = cfg.progress.enable;
 
-    % Cost-model prior for every run, measured from this machine's finished
-    % runs where any exist. The reporter needs an estimate for runs that have
-    % not started: on a pool smaller than the batch most of the queue has no
-    % measurements of its own for hours, and a mean-percentage extrapolation
-    % over runs sitting at zero reports a finish time roughly half the truth.
+    % The reporter needs a cost estimate for runs that have not started yet,
+    % or the ETA comes out around half the truth.
     nGNBv = cellfun(@(m) m.numGNB, metas);
     nUEv  = cellfun(@(m) m.numUE,  metas);
-    kInfo = phase5_CostModel('effective', cfg, pool.NumWorkers);
+    kInfo = phase7_CostModel('effective', cfg, pool.NumWorkers);
     priorWall = kInfo.k * cfg.window.simulationTime * nGNBv .* nUEv;
     reportCostModel(kInfo, priorWall, todo, pool.NumWorkers);
 
-    prog = phase5_Progress(labels, cfg.progress, ...
+    prog = phase7_Progress(labels, cfg.progress, ...
         struct('priorWall_s', priorWall, 'numWorkers', pool.NumWorkers));
-    progGuard = onCleanup(@() prog.close());   % close the bar on error too
     prog.markSkipped(~todo);
 
     q = parallel.pool.DataQueue;
     afterEach(q, @(msg) prog.update(msg));
     batchStart = tic;
 
-    %% ---- execute --------------------------------------------------------------
+    %% execute
     results = cell(1, nRuns);
     continueOnError = cfg.batch.continueOnError;
     parfor i = 1:nRuns
@@ -160,7 +127,7 @@ function manifest = phase5_RunBatch(cfg)
         rec = struct('status', "skipped", 'summary', [], 'error', "");
         if todo(i)
             try
-                rec.summary = phase5_Pipeline(rc);
+                rec.summary = phase7_Pipeline(rc);
                 rec.status  = "ok";
             catch err
                 rec.status = "failed";
@@ -169,9 +136,8 @@ function manifest = phase5_RunBatch(cfg)
                     rethrow(err);
                 end
             end
-            % The measured wall time travels with the completion message so
-            % the client can recalibrate the cost model during the batch
-            % rather than only after every run has finished.
+            % Send the measured wall time so the client can recalibrate the
+            % cost model mid-batch.
             wallDone = NaN;
             if isstruct(rec.summary) && isfield(rec.summary, 'wallTime_s')
                 wallDone = rec.summary.wallTime_s;
@@ -182,9 +148,9 @@ function manifest = phase5_RunBatch(cfg)
         results{i} = rec;
     end
     batchWall = toc(batchStart);
-    clear progGuard;   % batch finished: close the progress bar
+    prog.finish();     % DONE block: every run accounted for
 
-    %% ---- manifest -------------------------------------------------------------
+    %% manifest
     manifest = buildManifest(cfg, runCfgs, metas, results);
     if strlength(string(cfg.batch.tag)) == 0
         tag = char(datetime('now', 'Format', 'yyyyMMdd_HHmmss'));
@@ -194,13 +160,11 @@ function manifest = phase5_RunBatch(cfg)
     manifestPath = fullfile(dataDir, ['manifest_' tag '.csv']);
     writeManifest(manifest, manifestPath);
 
-    %% ---- cost model recalibration ----------------------------------------------
-    % Every finished run is a measurement of this machine at this pool size.
-    % Recording them means the next dry run, the next batch's queue estimate
-    % and the next ETA all start from measured cost instead of from the smoke
-    % run projection, which underestimated the real runs by more than 2x.
-    phase5_CostModel('record', cfg, manifest, pool.NumWorkers);
-    kAfter = phase5_CostModel('effective', cfg, pool.NumWorkers);
+    %% cost model recalibration
+    % Record every finished run so the next batch estimates from measured
+    % cost instead of the configured prior.
+    phase7_CostModel('record', cfg, manifest, pool.NumWorkers);
+    kAfter = phase7_CostModel('effective', cfg, pool.NumWorkers);
     if kAfter.n > 0
         fprintf(['Cost model: %.1f s per (sim-s x gNB x UE) from %d run(s) ' ...
             'at %d worker(s), spread %.1f to %.1f.\n'], kAfter.k, kAfter.n, ...
@@ -214,7 +178,7 @@ function manifest = phase5_RunBatch(cfg)
         end
     end
 
-    %% ---- summary ---------------------------------------------------------------
+    %% summary
     nOK   = sum(manifest.status == "ok");
     nSkip = sum(manifest.status == "skipped");
     nFail = sum(manifest.status == "failed");
@@ -232,13 +196,13 @@ function manifest = phase5_RunBatch(cfg)
             'skipped.\n']);
     end
     if nOK > 0
-        fprintf('Merge the per-run CSVs with: phase5_MergeDataset\n');
+        fprintf('Merge the per-run CSVs with: phase7_MergeDataset\n');
     end
 end
 
-%% ==========================================================================
+%% ------------------------------------------------------------------------
 function reportCostModel(kInfo, priorWall, todo, nWorkers)
-%reportCostModel State the cost basis and the projection before the batch runs.
+%reportCostModel Print the cost basis and the projection before the batch runs.
     switch kInfo.source
         case "measured"
             src = sprintf('measured from %d run(s) at %d worker(s)', ...
@@ -257,46 +221,20 @@ function reportCostModel(kInfo, priorWall, todo, nWorkers)
         fmtDuration(min(w)), fmtDuration(max(w)), fmtDuration(sum(w)), numel(w));
 end
 
-%% ==========================================================================
+%% ------------------------------------------------------------------------
 function pool = startPool(cfg)
-%startPool Open the pool, surviving the failures a long batch actually hits.
+%startPool Open the pool, retrying the failures a long batch hits.
 %
-%   parpool on the Processes profile starts one worker process per worker and
-%   connects to each over a localhost port from the range 27370 upward. That
-%   handshake fails for reasons that have nothing to do with this project:
-%   worker processes orphaned by a previous MATLAB session still holding the
-%   port, a firewall or security product blocking loopback sockets, stale
-%   job metadata in the local cluster job storage, or a machine too loaded to
-%   complete twelve handshakes inside the timeout. The symptom is
+%   The client binds a listening port from 27370 up, and that bind fails for
+%   reasons outside this project. The usual symptom is:
 %       Timed out opening port localhost:27370
-%   which is what killed the 12-worker launch on 28 July.
 %
-%   THE PORT RANGE IS THE FIRST THING TO CHANGE
-%   Validating the Processes profile on 28 July passed every stage that uses
-%   jobs, including a communicating job on twelve workers, and failed only on
-%   the interactive pool, at the client's own bind:
-%       parallel.internal.pool.SpfClientSession ...
-%       Timed out opening port localhost:27370
-%   Jobs working while the interactive pool cannot bind means the machine, not
-%   the toolbox, is refusing that port. On Windows the usual reason is a
-%   reserved exclusion block: Hyper-V, WSL and Docker reserve wide swathes of
-%   TCP ports at boot, and anything inside a reserved range cannot be bound
-%   even though nothing is listening on it. Check with
-%       netsh int ipv4 show excludedportrange protocol=tcp
-%   The fix in code is pctconfig, which moves the client's listening range;
-%   portrange 0 asks for ephemeral ports and so cannot collide with a fixed
-%   reservation at all. Each candidate range is tried in turn before the
-%   worker count is touched, because a blocked port is not a capacity problem
-%   and reducing workers will never cure it. pctconfig does not persist
-%   between sessions, which is why it is set here on every launch rather than
-%   left to a preference.
-%
-%   Beyond that this retries: it clears stale jobs from the cluster, waits,
-%   and only then steps the worker count down. A batch that runs on eight
-%   workers tonight is worth more than one that does not run at all, and the
-%   reduction is printed so the manifest's pool size is never a surprise. If
-%   nothing works the error names the specific things to check, because the
-%   default message points only at the profile manager.
+%   Recovery order:
+%     1. Try each port range via pctconfig, since a blocked port is not a
+%        capacity problem.
+%     2. Clear stale cluster jobs and retry.
+%     3. Halve the worker count and repeat.
+%   If none of that works the error names what to check.
     pool = gcp('nocreate');
     if ~isempty(pool)
         fprintf('Reusing the open pool (%d worker(s)).\n', pool.NumWorkers);
@@ -318,10 +256,8 @@ function pool = startPool(cfg)
         allowFewer = cfg.batch.allowFewerWorkers;
     end
 
-    % Oversubscription is legal and sometimes wanted, but it is not free: the
-    % runs are CPU bound, so twice the workers on the same cores is roughly
-    % twice the wall time per run, and each worker holds a full simulation in
-    % memory. Said once, here, rather than discovered from the wall times.
+    % The runs are CPU bound, so doubling workers on the same cores roughly
+    % doubles the wall time per run.
     nPhysical = feature('numcores');
     if want > nPhysical
         fprintf(['Note: %d workers requested on %d physical core(s). Runs ' ...
@@ -341,8 +277,8 @@ function pool = startPool(cfg)
     end
 
     ranges = portCandidates(cfg);
-    % The range in force when the batch started, so the "leave as configured"
-    % candidate means that and not whatever a previous failed attempt set.
+    % Remember the starting range so the "leave as configured" candidate
+    % means that, not whatever a failed attempt set.
     origRange = [];
     try
         pc = pctconfig();
@@ -357,11 +293,9 @@ function pool = startPool(cfg)
             for attempt = 0:retries
                 try
                     c = parcluster('Processes');
-                    % Raise the profile's ceiling if it is below the request,
-                    % which is a separate failure from the port timeout and
-                    % would otherwise stop a valid oversubscribed pool.
-                    % Wrapped on its own: if the property is not writable on
-                    % this release that must not consume the attempt.
+                    % Raise the profile's ceiling if it is below the
+                    % request, wrapped so an unwritable property does not
+                    % consume the attempt.
                     try
                         if c.NumWorkers < s, c.NumWorkers = s; end
                     catch
@@ -393,7 +327,7 @@ function pool = startPool(cfg)
         end
     end
 
-    error('phase5_RunBatch:poolStartFailed', ...
+    error('phase7_RunBatch:poolStartFailed', ...
         ['Could not start a parallel pool at any worker count or port range ' ...
          '(last error: %s).\n' ...
          'The client binds a listening port for the interactive pool, by ' ...
@@ -421,15 +355,11 @@ function pool = startPool(cfg)
          'unit of work and finished runs are skipped.'], lastErr.message);
 end
 
-%% ==========================================================================
+%% ------------------------------------------------------------------------
 function ranges = portCandidates(cfg)
 %portCandidates Client listening ranges to try, in order.
-%   [] means leave whatever is configured (the 27370-28370 default on a fresh
-%   session); 0 means ephemeral, which the OS assigns from what is actually
-%   free and therefore cannot land inside a fixed reservation; a two-element
-%   vector is an explicit range. The defaults walk from "as shipped" to
-%   ephemeral to two high fixed ranges, which covers both a reserved block
-%   over 27370 and a firewall rule that only permits certain ports.
+%   [] keeps the configured range, 0 asks for ephemeral ports, and a
+%   two-element vector is an explicit range.
     ranges = {[], 0, [40000 41000], [21000 22000]};
     if isfield(cfg.batch, 'poolPortRanges') && ~isempty(cfg.batch.poolPortRanges)
         ranges = cfg.batch.poolPortRanges;
@@ -439,8 +369,8 @@ end
 
 function applyPortRange(r, origRange)
 %applyPortRange Set the client port range for the next pool start.
-%   Failure here is reported and not fatal: an unusable range must fall
-%   through to the next candidate rather than end the batch.
+%   Failure is reported but not fatal, so an unusable range falls through to
+%   the next candidate.
     if isempty(r)
         r = origRange;                 % restore the session's own setting
         if isempty(r), return; end
@@ -463,12 +393,11 @@ function t = rangeText(r)
     end
 end
 
-%% ==========================================================================
+%% ------------------------------------------------------------------------
 function clearStalePool()
 %clearStalePool Best-effort removal of the state a failed start leaves behind.
-%   A half-opened pool and the job objects behind it keep their ports, so a
-%   retry without this usually fails the same way. Everything here is
-%   wrapped: a cleanup that throws would mask the error being recovered from.
+%   A half-opened pool keeps its ports, so a retry without this usually fails
+%   the same way.
     try
         p = gcp('nocreate');
         if ~isempty(p), delete(p); end
@@ -482,29 +411,26 @@ function clearStalePool()
     end
 end
 
-%% ==========================================================================
+%% ------------------------------------------------------------------------
 function assertParallelAvailable()
 %assertParallelAvailable Hard error if parfor cannot run in parallel.
-%   Deliberately not a fall back to serial execution: a batch that
-%   silently loses its parallelism looks like a hang rather than a
-%   misconfiguration.
+%   Deliberately not a fall back to serial, which would look like a hang.
     hasLicence = license('test', 'Distrib_Computing_Toolbox');
     hasInstall = ~isempty(ver('parallel'));
     if ~(hasLicence && hasInstall)
-        error('phase5_RunBatch:noParallelToolbox', ...
+        error('phase7_RunBatch:noParallelToolbox', ...
             ['The Parallel Computing Toolbox is required (licence: %d, ' ...
              'installed: %d). Install or license it, or run a single ' ...
-             'scenario directly with phase5_Pipeline(phase5_ScenarioGen(' ...
-             'phase5_Config, seed, "UMa")).'], hasLicence, hasInstall);
+             'scenario directly with phase7_Pipeline(phase7_ScenarioGen(' ...
+             'phase7_Config, seed, "UMa")).'], hasLicence, hasInstall);
     end
 end
 
-%% ==========================================================================
+%% ------------------------------------------------------------------------
 function M = buildManifest(cfg, runCfgs, metas, results)
-%buildManifest One row per run, recording the generation parameters (D5.5).
-%   simReached_s and truncated are kept although a run is now all-or-nothing:
-%   they are what phase5_CostModel divides the wall time by, and they leave
-%   the column set stable against the manifests already written.
+%buildManifest One row per run, recording the generation parameters.
+%   simReached_s and truncated stay in the column set because
+%   phase7_CostModel divides the wall time by them.
     n = numel(runCfgs);
     M = table();
     M.runIdx        = (1:n)';
@@ -573,23 +499,21 @@ function M = buildManifest(cfg, runCfgs, metas, results)
             if isfield(s, 'simReached_s'), M.simReached_s(i) = s.simReached_s; end
             if isfield(s, 'truncated'),    M.truncated(i) = double(s.truncated); end
         else
-            % Skipped or failed: name the CSV the run would have written. A
-            % skipped run's own manifest, from the batch that produced it,
-            % holds its row count and wall time.
+            % Skipped or failed, so just name the CSV the run would have
+            % written.
             M.csvFile(i) = string(fullfile(char(rc.outputDir), ...
                 sprintf('features_%s_seed%d.csv', rc.scenario, rc.seed)));
         end
     end
 end
 
-%% ==========================================================================
+%% ------------------------------------------------------------------------
 function writeManifest(M, outPath)
 %writeManifest Plain comma-separated manifest with quoted text fields.
-%   Written by hand rather than with writetable so the quoting of the
-%   error column is explicit and the file has no release-dependent
-%   formatting, matching the discipline used for the feature CSV.
+%   Written by hand so the quoting is explicit and the formatting does not
+%   vary with the release.
     fid = fopen(outPath, 'w');
-    assert(fid > 0, 'phase5_RunBatch:manifestOpenFailed', ...
+    assert(fid > 0, 'phase7_RunBatch:manifestOpenFailed', ...
         'Could not open %s for writing.', outPath);
     cleaner = onCleanup(@() fclose(fid)); %#ok<NASGU>
 
@@ -615,10 +539,8 @@ end
 
 function s = quoteField(s)
 %quoteField Wrap a text field in quotes when it needs it.
-%   The quote character is held in a variable rather than written inline,
-%   because a literal quote next to a closing parenthesis inside square
-%   brackets is the one place MATLAB's transpose and string syntaxes look
-%   alike to a reader.
+%   The quote character sits in a variable because a literal one next to a
+%   closing bracket reads ambiguously against MATLAB's transpose syntax.
     q = '"';
     s = strrep(s, sprintf('\n'), ' ');
     s = strrep(s, sprintf('\r'), ' ');

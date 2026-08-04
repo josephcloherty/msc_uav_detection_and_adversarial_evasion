@@ -7,11 +7,10 @@ function [channels, linkInfo] = createScenarioChannels(cfg, gNBs, UEs)
 %   and shadow-fading terms needed for pathloss at run time.
 %
 %   Per link (gNB-UE pair, one uplink and one downlink object):
-%     1. Geometry from the INITIAL node positions (d2D, d3D, hUT, LOS
-%        angles). The CDL objects are static for the whole run, matching
-%        the Phase 2 behaviour; mobility affects pathloss (recomputed per
-%        packet from live positions) but not the fast-fading geometry.
-%        Recorded in the deviations log as a known simplification.
+%     1. Geometry from the initial node positions (d2D, d3D, hUT, LOS
+%        angles). The CDL objects are static for the whole run: mobility
+%        affects pathloss, recomputed per packet from live positions, but not
+%        the fast-fading geometry. Recorded in the deviations log.
 %     2. LOS state drawn once from tr36777LOSProbability (TR 36.777
 %        Table B-1 / TR 38.901 Table 7.4.2-1) using a dedicated
 %        Threefry RandStream seeded from cfg.seed with one substream per
@@ -21,23 +20,15 @@ function [channels, linkInfo] = createScenarioChannels(cfg, gNBs, UEs)
 %        parameter row and the Step 5 ZOD offset) and is frozen with the
 %        CDL objects.
 %
-%   PHASE 5 CHANGE - the LOS state used for PATHLOSS is no longer frozen.
-%   LINKINFO now also carries spatially-consistent random fields
-%   (TR 38.901 clause 7.6.3.1 Option 2, correlation distances from
-%   Table 7.6.3.1-2), one per gNB for the LOS state and two per gNB for
-%   shadow fading (LOS and NLOS correlation distances). linkState samples
-%   them at the live UE position, so a UE that flies out of line of sight,
-%   or climbs above the Table B-1 100 % LOS altitude, changes state
-%   mid-run. Previously the state was drawn once from the INITIAL
-%   positions and held for the whole run, which for aerial UEs moving at
-%   15-30 m/s over a multi-minute run was plainly wrong: pLOS swept its
-%   full range while the state never moved.
+%   The LOS state used for pathloss is not frozen: LINKINFO also carries
+%   spatially-consistent fields, one per gNB for LOS and two per gNB for
+%   shadow fading, which linkState samples at the live UE position.
+%   So a UE that flies out of line of sight, or climbs above the 100% LOS
+%   altitude, changes state mid-run.
 %
-%   The fast-fading objects remain static, so a state change alters the
-%   pathloss branch and the shadow-fading sigma but not the CDL profile.
-%   That is a deliberate, documented narrowing of the deviation rather
-%   than its removal: rebuilding nrCDLChannel objects mid-run would cost
-%   more than the fidelity is worth at this stage.
+%   The fast-fading objects stay static, so a state change moves the pathloss
+%   branch and the shadow-fading sigma but not the CDL profile; rebuilding
+%   those mid-run costs more than the fidelity is worth.
 %
 %   Set cfg.dynamicLOS = false to restore the Phase 4 frozen behaviour.
 %     3. Fast fading:
@@ -69,15 +60,14 @@ function [channels, linkInfo] = createScenarioChannels(cfg, gNBs, UEs)
     linkInfo.los = false(numNodes, numNodes);   % indexed [gNB.ID, UE.ID]
     linkInfo.sf  = zeros(numNodes, numNodes);   % shadow fading (dB)
 
-    % gNB ID -> field index, so linkState can map a packet's node ID to a
-    % field in O(1) rather than searching per packet.
+    % Map gNB ID to field index, so linkState does not search per packet.
     linkInfo.gnbIDs = [gNBs.ID];
     linkInfo.gnbIdxByID = zeros(1, max([gNBs.ID, UEs.ID]));
     for i = 1:numel(gNBs)
         linkInfo.gnbIdxByID(gNBs(i).ID) = i;
     end
 
-    % ---- spatially-consistent fields (TR 38.901 clause 7.6.3.1) ---------
+    % Spatially-consistent fields, TR 38.901 clause 7.6.3.1.
     dynamicLOS = ~isfield(cfg, 'dynamicLOS') || cfg.dynamicLOS;
     linkInfo.dynamicLOS = dynamicLOS;
     linkInfo.losField = [];
@@ -88,9 +78,8 @@ function [channels, linkInfo] = createScenarioChannels(cfg, gNBs, UEs)
         [dcorSFLOS, dcorSFNLOS] = sfCorrelationDistance(cfg);
         linkInfo.extent  = extent;
         linkInfo.dcorLOS = dcorLOS;
-        % Substreams 10^6 and above are reserved for the fields so they
-        % can never collide with the per-link substreams used by the
-        % setup-time draw below (one per link, a few hundred at most).
+        % Reserve substreams from 10^6 up for the fields, so they cannot
+        % collide with the per-link ones used below.
         linkInfo.losField   = buildSpatialField(cfg.seed, 1000001, ...
             numel(gNBs), extent, dcorLOS);
         linkInfo.sfField{1} = buildSpatialField(cfg.seed, 1000002, ...
@@ -118,15 +107,12 @@ function [channels, linkInfo] = createScenarioChannels(cfg, gNBs, UEs)
             hUT = uPos(3);
             hBS = gPos(3);
 
-            % --- LOS state at t = 0 (one per gNB-UE pair; UL and DL share
-            % it). This selects the FAST-FADING profile, which is frozen
-            % for the run, so it must agree with the dynamic state at the
-            % initial position - otherwise a link would start as CDL-D
-            % (LOS) while the pathloss branch said NLOS. When the fields
-            % are active the state is therefore READ FROM THE FIELD rather
-            % than drawn independently; the per-link Threefry substream is
-            % kept for the frozen fallback so cfg.dynamicLOS = false
-            % reproduces Phase 4 exactly.
+            % LOS state at t = 0, shared by the UL and DL objects.
+            % It picks the frozen fast-fading profile, so it has to agree
+            % with the dynamic state at the initial position or a link starts
+            % CDL-D while pathloss says NLOS.
+            % With the fields active it is read from the field, and the
+            % per-link substream stays for the frozen fallback.
             pLOS = tr36777LOSProbability(cfg.scenario, hUT, d2D);
             if dynamicLOS
                 uLOS  = sampleSpatialField(linkInfo.losField, i, ...
@@ -139,10 +125,9 @@ function [channels, linkInfo] = createScenarioChannels(cfg, gNBs, UEs)
             linkInfo.los(gNBs(i).ID, UEs(u).ID) = isLOS;
             linkInfo.los(UEs(u).ID, gNBs(i).ID) = isLOS;
 
-            % --- Optional lognormal shadow fading -----------------------
-            % Same argument: sampled from the SF field at t = 0 when the
-            % fields are active, so the value stored here is the initial
-            % value of the same process linkState evaluates at run time.
+            % Optional lognormal shadow fading, sampled from the SF field at
+            % t = 0 so this is the initial value of the same process
+            % linkState evaluates at run time.
             if isfield(cfg, 'enableShadowFading') && cfg.enableShadowFading
                 sigma = tr36777ShadowFadingStd(cfg.scenario, isLOS, hUT, ...
                     cfg.zBoundary);
@@ -152,16 +137,15 @@ function [channels, linkInfo] = createScenarioChannels(cfg, gNBs, UEs)
                         i, uPos(1), uPos(2));
                     sfDB = sigma * zSF;
                 else
-                    % Stream position is already immediately after this
-                    % link's isLOS draw, so this randn is the same value
-                    % Phase 4 drew. Do not reset the substream here.
+                    % The stream already sits just after this link's isLOS
+                    % draw, so do not reset the substream here.
                     sfDB = sigma * randn(losStream);
                 end
                 linkInfo.sf(gNBs(i).ID, UEs(u).ID) = sfDB;
                 linkInfo.sf(UEs(u).ID, gNBs(i).ID) = sfDB;
             end
 
-            % --- LOS geometric angles (downlink convention: Tx = gNB) ----
+            % LOS geometric angles, downlink convention with Tx = gNB.
             aod = atan2d(dxy(2), dxy(1));                 % gNB -> UE azimuth
             aoa = wrapTo180(aod + 180);                   % UE -> gNB azimuth
             zod = acosd((hUT - hBS) / d3D);               % from zenith
@@ -170,10 +154,8 @@ function [channels, linkInfo] = createScenarioChannels(cfg, gNBs, UEs)
             aerialBand = hUT > cfg.zBoundary;
             if aerialBand && isfield(cfg, 'aerialChannelBuilder') ...
                     && ~isempty(cfg.aerialChannelBuilder)
-                % Fork-specific fast-fading builder (used by the UMi fork,
-                % whose Alternative 1 is NOT CDL-D based; see deviations
-                % log). The builder receives the link geometry and returns
-                % one nrCDLChannel per direction.
+                % Fork-specific builder, used by UMi whose Alternative 1 is
+                % not CDL-D based, returning one channel per direction.
                 g = struct('isLOS', isLOS, 'd2D', d2D, 'd3D', d3D, ...
                     'hBS', hBS, 'hUT', hUT, ...
                     'carrierFrequency', cfg.carrierFrequency, ...
@@ -195,7 +177,7 @@ function [channels, linkInfo] = createScenarioChannels(cfg, gNBs, UEs)
                 dl.linkDirection = 'downlink';
                 channels{gNBs(i).ID, UEs(u).ID} = cfg.aerialChannelBuilder(dl, cfg);
             elseif aerialBand
-                % ZOD offset per Annex B.1.1 Step 5 (LOS only; Step 6: 0)
+                % ZOD offset per Annex B.1.1 Step 5, LOS only.
                 if isLOS
                     switch upper(string(cfg.scenario))
                         case "RMA"   % eq B.1.1-1, ground reflection
@@ -228,9 +210,8 @@ function [channels, linkInfo] = createScenarioChannels(cfg, gNBs, UEs)
                     'carrierFrequency', cfg.carrierFrequency, ...
                     'sampleRate', sampleRate);
 
-                % Uplink object: Tx = UE, so departure-side quantities are
-                % the UE side. Angles and desired spreads are mirrored;
-                % the BS-side zenith dimension becomes ZoA.
+                % Uplink object has Tx = UE, so the departure side is the UE
+                % and the BS-side zenith dimension becomes ZoA.
                 ul = base;
                 ul.desiredAS = [av.ASA av.ASD av.ZSA av.ZSD];
                 ul.losAngles = [aoa aod zoa zod];
@@ -241,7 +222,7 @@ function [channels, linkInfo] = createScenarioChannels(cfg, gNBs, UEs)
                 ul.linkDirection = 'uplink';
                 channels{UEs(u).ID, gNBs(i).ID} = buildAerialCDL(ul);
 
-                % Downlink object: Tx = gNB.
+                % Downlink object has Tx = gNB.
                 dl = base;
                 dl.desiredAS = [av.ASD av.ASA av.ZSD av.ZSA];
                 dl.losAngles = [aod aoa zod zoa];
@@ -252,8 +233,8 @@ function [channels, linkInfo] = createScenarioChannels(cfg, gNBs, UEs)
                 dl.linkDirection = 'downlink';
                 channels{gNBs(i).ID, UEs(u).ID} = buildAerialCDL(dl);
             else
-                % Terrestrial band: built-in CDL profile, scenario median
-                % delay spread from TR 38.901 Table 7.5-6.
+                % Terrestrial band uses a built-in CDL profile at the
+                % scenario median delay spread from Table 7.5-6.
                 if isLOS
                     profile = 'CDL-D';
                 else

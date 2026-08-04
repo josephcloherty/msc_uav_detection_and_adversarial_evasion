@@ -1,42 +1,26 @@
 classdef rntiVerifier < handle
 %rntiVerifier In-flight check of the SRS RNTI offset, once per run.
 %
-%   The scheduler RNTI is resolved from the toolbox connection tables and
-%   needs no calibration (phase5_ResolveRNTI). The SRS RNTI does: the
-%   handover managers identify their UE's SRS events as
-%   UE.ID + cfg.rntiOffset, and that offset is an empirical constant. It
-%   has held at three, five and seven gNBs, but nothing enforces it, and
-%   a wrong value fails silently: the managers simply ingest nothing, and
-%   the run completes producing a full CSV of NaN SINR columns after
-%   hours of compute.
+%   The scheduler RNTI comes from the connection tables and needs no
+%   calibration, but the SRS one is an empirical constant: the managers
+%   identify their UE's events as UE.ID + cfg.rntiOffset.
+%   It has held at three, five and seven gNBs but nothing enforces it, and a
+%   wrong value fails silently with every SINR column NaN after hours.
 %
-%   Phases 2 and 3 calibrated the offset by hand and carried the number
-%   forward. That is exactly how a value correct for a three-cell layout
-%   came to be used unchallenged on larger ones. This class makes the
-%   check automatic and per run.
-%
-%   HOW IT WORKS
-%   A listener records the RNTI of every SRS reception until a one-shot
-%   check fires at CHECKTIME (default: the settle time, so the check
-%   window is inside the span the extraction discards anyway). At that
-%   point:
+%   A listener records every SRS reception until a one-shot check at
+%   CHECKTIME, by default the settle time, and then:
 %
 %     - every expected RNTI observed          pass, one confirmation line
-%     - none observed, but a single offset
-%       delta lines the two sets up           either correct the managers
-%                                             in place (autoCorrect) or
-%                                             abort naming the value
+%     - none observed, but a single offset    correct in place with
+%       delta lines the two sets up           autoCorrect, or abort naming
+%                                             the value
 %     - no consistent offset                  abort, listing both sets
 %
-%   The listener is deleted as soon as the check fires, so it costs
-%   nothing for the remaining hours of the run.
+%   The listener is deleted as soon as the check fires.
 %
-%   Auto-correction is off by default, in keeping with the rest of the
-%   pipeline preferring a loud failure to a silent repair. It is worth
-%   enabling for long unattended batches, where losing a thirteen hour
-%   run to a recalibratable constant is the worse outcome; the correction
-%   is applied inside the settle window, so no row in the dataset is
-%   computed from measurements taken under the wrong identifier.
+%   Auto-correction is off by default, but worth enabling for long unattended
+%   batches; it lands inside the settle window, so no dataset row is computed
+%   under the wrong identifier.
 
     properties
         expected                % 1 x numUE expected SRS RNTIs
@@ -80,10 +64,9 @@ classdef rntiVerifier < handle
         function check(obj, varargin)
             %check One-shot verdict, then stop listening.
             obj.done = true;
-            % addlistener over an ARRAY of gNBs returns an array of
-            % listeners, so isvalid() here is a vector and cannot go
-            % through &&. delete accepts an array and is a no-op on empty
-            % or already-invalid handles, so no scalar guard is needed.
+            % addlistener over an array of gNBs returns an array, so
+            % isvalid() would be a vector here and cannot go through &&.
+            % delete handles arrays and empties fine on its own.
             delete(obj.listener);
             obj.listener = [];
 
@@ -111,8 +94,8 @@ classdef rntiVerifier < handle
                 return;
             end
 
-            % One consistent shift would line the two sets up: report it
-            % as the correction rather than making the user derive it.
+            % If one shift lines the two sets up, report it as the
+            % correction rather than making the user work it out.
             delta = min(obs) - min(exp);
             consistent = all(ismember(exp + delta, obs));
 
@@ -149,7 +132,7 @@ classdef rntiVerifier < handle
                 ['%s: SRS RNTI mismatch with no single offset that ' ...
                  'explains it. Expected %s, observed %s. The identifiers ' ...
                  'are not a shifted node numbering on this configuration, ' ...
-                 'so run phase5_SchedulerDiag and re-derive the ' ...
+                 'so run phase7_SchedulerDiag and re-derive the ' ...
                  'convention rather than adjusting the offset.'], ...
                 obj.tag(), mat2str(exp), mat2str(obs));
         end
@@ -158,9 +141,8 @@ classdef rntiVerifier < handle
     methods (Access = private)
         function o = offsetOf(obj)
             %offsetOf The offset implied by the current expectation.
-            %   Computed from the stored UE node IDs rather than held as
-            %   its own field, so it stays correct after an
-            %   auto-correction shifts the expectation.
+            %   Derived from the stored node IDs rather than held as a field,
+            %   so it stays right after an auto-correction.
             if isempty(obj.expected) || isempty(obj.ueIDs)
                 o = 0;
             else

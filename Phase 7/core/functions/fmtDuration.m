@@ -1,14 +1,8 @@
 function s = fmtDuration(secs)
 %fmtDuration Human-readable duration string.
 %
-%   S = fmtDuration(SECS) formats a number of seconds as '42 s',
-%   '7 min 13 s' or '1 h 04 min 09 s'. Non-finite input returns '--',
-%   which is what an ETA reads before enough progress has accumulated to
-%   estimate one.
-%
-%   Promoted from a local function in phase3_Pipeline/phase4_Pipeline to
-%   a shared file for Phase 5, because the batch runner and the progress
-%   reporter both need it and neither is inside the pipeline.
+%   S = fmtDuration(SECS) gives '42 s', '7 min 13 s' or '1 h 04 min 09 s'.
+%   Non-finite input returns '--', which is what an ETA reads early on.
 
     if ~isfinite(secs)
         s = '--';

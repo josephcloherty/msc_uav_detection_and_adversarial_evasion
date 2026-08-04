@@ -4,8 +4,7 @@ function sigma = tr36777ShadowFadingStd(scenario, isLOS, hUT, zBoundary)
 %   SIGMA = tr36777ShadowFadingStd(SCENARIO, ISLOS, HUT, ZBOUNDARY)
 %   returns the lognormal shadow-fading standard deviation in dB.
 %
-%   Aerial band (hUT above ZBOUNDARY), from the embedded equations of
-%   TR 36.777 Table B-3 (verified against the source document):
+%   Aerial band (hUT above ZBOUNDARY), from TR 36.777 Table B-3:
 %     RMa-AV LOS:  4.2 * exp(-0.0046 * hUT)      (10 < hUT <= 300)
 %     RMa-AV NLOS: 6                              (10 < hUT <= 40)
 %     UMa-AV LOS:  4.64 * exp(-0.0066 * hUT)     (22.5 < hUT <= 300)

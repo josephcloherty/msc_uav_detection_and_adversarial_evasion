@@ -1,32 +1,18 @@
 function outPath = writeFeatureCSV(T, cfg)
-%writeFeatureCSV Schema-locked, byte-reproducible CSV export (D4.2).
+%writeFeatureCSV Schema-locked, byte-reproducible CSV export.
 %
-%   OUTPATH = writeFeatureCSV(T, CFG) writes the windowed feature table T
-%   (from extractWindowedFeatures) to
-%       <Phase 4>/data/features_<scenario>_seed<seed>.csv
-%   and returns the full path. CFG fields used: cfg.scenario, cfg.seed,
-%   and optionally cfg.outputDir (defaults to ../data relative to this
-%   file, i.e. the Phase 4/data folder).
+%   OUTPATH = writeFeatureCSV(T, CFG) writes the windowed feature table to
+%   <dataDir>/features_<scenario>_seed<seed>.csv and returns the path.
+%   Uses cfg.scenario, cfg.seed and optionally cfg.outputDir.
 %
-%   Phase 5 change: the assert now binds to phase5FeatureSchema (the
-%   Phase 4 columns plus the appended rank/CSI, resource, reliability,
-%   timing-advance, SINR-dynamics, cell-geometry, serving-history and
-%   extended-traffic blocks). The value formatting, file naming and
-%   binary-mode newline handling are unchanged from Phase 3, so a Phase 5
-%   file truncated to the Phase 4 columns is byte-identical to the
-%   corresponding Phase 4 file, which truncated to the Phase 3 columns is
-%   byte-identical to the Phase 3 file.
+%   The column set is asserted against phase5FeatureSchema, and a file
+%   truncated to the earlier columns matches the earlier file byte for byte.
 %
-%   The LOS state is deliberately NOT a column here. It is not an operator
-%   observable and is near-collinear with the label; it is written to the
-%   run diagnostics bundle instead. See phase5FeatureSchema.
+%   The LOS state is deliberately not a column, since it is not an operator
+%   observable and is near-collinear with the label.
 %
-%   Reproducibility contract (carried over from D3.1): running the same
-%   scenario script with the same seed must regenerate this file
-%   byte-for-byte. writetable is NOT used because its float formatting is
-%   version-dependent; instead every numeric value is printed with a fixed
-%   %.6f format, NaN prints literally as NaN, and lines end with a bare
-%   \n on every platform (file opened in binary 'w' mode so Windows does
+%   Same seed must regenerate this file byte for byte, which is why
+%   writetable is avoided: its float formatting varies with the release.
 %   not substitute \r\n).
 
     schema = phase5FeatureSchema();

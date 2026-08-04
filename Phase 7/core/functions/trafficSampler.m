@@ -1,37 +1,27 @@
 classdef trafficSampler < handle
-%trafficSampler Periodic per-UE traffic byte sampling (D4.1/D4.2 support).
+%trafficSampler Periodic per-UE traffic byte sampling.
 %
-%   Samples each UE's cumulative byte counters every samplePeriod seconds
-%   of simulation time, giving the time series that the windowed traffic
-%   features (volume, burstiness, DL/UL asymmetry, throughput) are
-%   computed from in extractWindowedFeatures. End-of-run statistics()
-%   totals cannot provide these: burstiness in particular needs the
-%   within-window increment series (the Phase 1 script phase1_singlecell_t
-%   already made this argument: constant and bursty sources look identical
-%   at run-level totals).
+%   Samples each UE's cumulative byte counters every samplePeriod seconds,
+%   which is what the windowed traffic features are computed from.
+%   End-of-run totals cannot serve here, since burstiness needs the
+%   within-window increments and constant and bursty sources look identical
+%   at run level.
 %
-%   Observability framing: the features are computed from the MAC-layer
-%   counters (MAC.TransmittedBytes / MAC.ReceivedBytes), i.e. the bytes
-%   that actually cross the radio interface, which is what a network
-%   operator meters. The App-layer counters are logged alongside purely
-%   for diagnostics (they are what the UE generated, not what the network
-%   saw). Field names confirmed against the Phase 1 statistics extraction
-%   (App.TransmittedBytes, App.ReceivedBytes, MAC.TransmittedBytes,
-%   MAC.ReceivedBytes on R2024b).
+%   The features use the MAC counters, which are the bytes that cross the
+%   radio interface and so what an operator meters. App counters are logged
+%   for diagnostics only.
 %
-%   Wiring (scenario pipeline):
+%   Wiring:
 %       sampler = trafficSampler(UEs, networkSimulator);
 %       scheduleAction(networkSimulator, @sampler.sample, [], ...
 %                      sampler.samplePeriod, sampler.samplePeriod);
-%
-%   New file for Phase 4 (standalone class, nothing upstream modified).
 
     properties
         samplePeriod = 0.1   % s; 100 samples per 10 s window
         UEs                  % nrUE array
         sim                  % wirelessNetworkSimulator handle
-        % log{u}: rows [time, appTxBytes, appRxBytes, macTxBytes, macRxBytes]
-        % (cumulative counters; extraction differences them per window)
+        % log{u}: rows [time, appTx, appRx, macTx, macRx], cumulative
+        % counters that the extraction differences per window
         log
     end
 
@@ -73,9 +63,8 @@ classdef trafficSampler < handle
 end
 
 function v = getf(s, layer, fld)
-%getf Defensive nested-field read: NaN when a counter is absent so a
-% renamed field surfaces as NaN columns (and a failed check) rather than
-% a hard error mid-run. phase4SchedulerCheck verifies the names once.
+%getf Nested-field read returning NaN when a counter is absent, so a renamed
+% field shows up as a NaN column instead of killing a run mid-way.
     if isfield(s, layer) && isfield(s.(layer), fld)
         v = double(s.(layer).(fld));
     else

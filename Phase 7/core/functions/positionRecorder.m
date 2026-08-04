@@ -1,14 +1,13 @@
 classdef positionRecorder < handle
     %positionRecorder Logs node positions over time for post-run replay.
-    %   Handle class so that the record() callback, invoked by
-    %   wirelessNetworkSimulator.scheduleAction, accumulates into the same
-    %   object rather than a value copy. Designed to be driven from a script.
+    %   A handle class, so the scheduled record() callback accumulates into
+    %   the same object rather than a value copy.
     %
-    %   Usage (in baseNetwork.m, BEFORE run):
+    %   Wire it up before run():
     %       rec = positionRecorder([num2cell(gNBs), num2cell(UEs)], networkSimulator);
     %       scheduleAction(networkSimulator, @rec.record, [], 1/rec.Rate, 1/rec.Rate);
-    %   After run, rec.Times and rec.XYZ hold the history, and
-    %   rec.toStruct() returns the posLog struct expected by replayScenario.
+    %
+    %   Afterwards rec.toStruct() gives the posLog replayScenario wants.
 
     properties
         AllNodes        % cell array of node objects (gNBs first, then UEs)
@@ -29,8 +28,7 @@ classdef positionRecorder < handle
 
         function record(obj, varargin)
             %record Snapshot all node positions at the current sim time.
-            %   Signature matches the scheduleAction callback contract
-            %   (extra args ignored).
+            %   Extra args are ignored, to match the scheduleAction contract.
             t = obj.Simulator.CurrentTime;
             N = numel(obj.AllNodes);
             frame = zeros(N, 3);
@@ -38,12 +36,8 @@ classdef positionRecorder < handle
                 frame(n, :) = obj.AllNodes{n}.Position;
             end
             obj.Times(end+1) = t;
-            % Empty-array append bug fix: for XYZ = [], size([],3) is 1, so
-            % XYZ(:,:,end+1) wrote to slab 2 and left slab 1 all zeros.
-            % That produced one more frame than timestamps, a spurious
-            % all-zero first frame (every node at the origin), and a one
-            % sample misalignment between times and positions in the
-            % replay. Found via run diagnostics; see deviations log.
+            % Do not use XYZ(:,:,end+1) on an empty XYZ, because size([],3)
+            % is 1 and it would leave a spurious all-zero first frame.
             if isempty(obj.XYZ)
                 obj.XYZ = frame;
             else

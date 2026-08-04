@@ -3,34 +3,26 @@ function channel = buildUMiAVChannel(link, cfg)
 %
 %   CHANNEL = buildUMiAVChannel(LINK, CFG) returns an nrCDLChannel for an
 %   aerial-band UMi-AV link. Per TR 36.777 Annex B.1.1 (final paragraph),
-%   UMi-AV Alternative 1 is NOT CDL-D based: "the fast fading model in
-%   Section 7.5 of [4] is reused with the angular spreads at the base
-%   station and UE interchanged" (the base station sits below the average
-%   rooftop while the aerial UE is well above it, hence "reverse UMa").
-%   This corrects the earlier project documentation, which wrongly assumed
-%   a CDL-D approach for UMi-AV; see the deviations log.
+%   UMi-AV Alternative 1 is not CDL-D based: "the fast fading model in
+%   Section 7.5 of [4] is reused with the angular spreads at the base station
+%   and UE interchanged" (the base station sits below the average rooftop
+%   while the aerial UE is well above it, hence "reverse UMa").
 %
-%   Implementation: single-link TR 38.901 clause 7.5 cluster generation
-%   (steps 4-8) with UMi - Street Canyon parameters (Table 7.5-6 Part-1
-%   and Table 7.5-8 of the provided 38901-j40 source document, values
-%   verified there), then the BS<->UE angular-spread interchange:
-%   ASD<->ASA and ZSD<->ZSA, applied to both the drawn large-scale spreads
-%   and the cluster-wise ray spreads. All other UMi parameters (delay
-%   distribution, cluster powers, per-cluster shadowing, number of
-%   clusters, XPR, ZOD offset) are reused unchanged, which is the literal
-%   reading of the TR sentence.
+%   Single-link clause 7.5 cluster generation (steps 4-8) with UMi Street
+%   Canyon parameters, then the BS/UE angular-spread interchange: ASD<->ASA
+%   and ZSD<->ZSA on both the large-scale spreads and the ray spreads.
+%   Everything else is reused unchanged, which is the literal reading of the
+%   TR sentence.
 %
-%   Deliberate simplifications, recorded in the deviations log:
-%     - Large-scale parameters are drawn INDEPENDENTLY (the Table 7.5-6
-%       cross-correlation matrix and spatial autocorrelation are not
-%       applied); this is a single-link model, not a system-level drop.
-%     - nrCDLChannel takes one scalar XPR, so the per-ray lognormal XPR of
-%       step 9 is replaced by the mu_XPR value.
-%     - LOS/NLOS state and geometry are fixed at setup (static CDL,
-%       matching the rest of the Phase 3 pipeline).
+%   Simplifications, all in the deviations log:
+%     - large-scale parameters are drawn independently, since this is a
+%       single-link model rather than a system-level drop
+%     - nrCDLChannel takes one scalar XPR, so step 9's per-ray lognormal is
+%       replaced by mu_XPR
+%     - LOS state and geometry are fixed at setup, as elsewhere in the
+%       pipeline
 %
-%   All randomness comes from a Threefry stream seeded with LINK.seed, so
-%   a fixed scenario seed regenerates the channel exactly.
+%   All randomness comes from a Threefry stream seeded with LINK.seed.
 %
 %   LINK fields: isLOS, d2D, d3D, hBS, hUT, losAngles [AoD AoA ZoD ZoA]
 %   (transmitter convention of the object being built), seed, sampleRate,
@@ -40,7 +32,7 @@ function channel = buildUMiAVChannel(link, cfg)
     fcGHz = max(link.carrierFrequency/1e9, 2);   % Table 7.5-6 Note 7
     lg1f = log10(1 + fcGHz);
 
-    % ---- Table 7.5-6 Part-1, UMi - Street Canyon (verified values) ------
+    % Table 7.5-6 Part-1, UMi Street Canyon.
     if link.isLOS
         muDS  = -0.18*lg1f - 7.28;   sdDS  = 0.39;
         muASD = -0.05*lg1f + 1.21;   sdASD = 0.08*lg1f + 0.29;
@@ -61,7 +53,7 @@ function channel = buildUMiAVChannel(link, cfg)
         zeta = 3;  xprDB = 8;
     end
 
-    % ---- Table 7.5-8: UMi ZSD and ZOD offset (verified values) ----------
+    % Table 7.5-8, UMi ZSD and ZOD offset.
     d2Dkm = link.d2D / 1000;
     if link.isLOS
         muZSD = max(-0.21, -14.8*d2Dkm + 0.01*abs(link.hUT - link.hBS) + 0.83);
@@ -72,7 +64,7 @@ function channel = buildUMiAVChannel(link, cfg)
     end
     sdZSD = 0.35;
 
-    % ---- Step 4: draw LSPs (independent lognormals; see header) ---------
+    % Step 4, draw the large-scale parameters as independent lognormals.
     DS  = 10^(muDS  + sdDS  * randn(rs));            % seconds
     ASD = min(10^(muASD + sdASD * randn(rs)), 104);  % clause 7.5 caps
     ASA = min(10^(muASA + sdASA * randn(rs)), 104);
@@ -84,17 +76,16 @@ function channel = buildUMiAVChannel(link, cfg)
         K = NaN;
     end
 
-    % ---- TR 36.777 interchange: BS-side <-> UE-side angular spreads -----
+    % TR 36.777 interchange of the BS-side and UE-side angular spreads.
     [ASD, ASA] = deal(ASA, ASD);
     [ZSD, ZSA] = deal(ZSA, ZSD);
-    % Cluster-wise ray spreads follow their large-scale counterparts.
-    % Standard UMi uses cZSD = (3/8)*10^muZSD (eq 7.5-20); after the
-    % interchange that value belongs to the arrival side.
+    % The ray spreads follow their large-scale counterparts, so the standard
+    % cZSD = (3/8)*10^muZSD now belongs to the arrival side.
     cZSD_used = cZSA;                    % was the UE-side value
     cZSA_used = (3/8) * 10^muZSD;        % was the BS-side value
     [cASD, cASA] = deal(cASA, cASD);
 
-    % ---- Step 5: cluster delays (eq 7.5-1/-2, LOS: eq 7.5-3/-4) ---------
+    % Step 5, cluster delays.
     tauP = -rTau * DS * log(rand(rs, N, 1));
     tau  = sort(tauP - min(tauP));
     if link.isLOS
@@ -104,7 +95,7 @@ function channel = buildUMiAVChannel(link, cfg)
         tauFinal = tau;
     end
 
-    % ---- Step 6: cluster powers (eq 7.5-5/-6, LOS: 7.5-7/-8) ------------
+    % Step 6, cluster powers.
     Zn = zeta * randn(rs, N, 1);
     P  = exp(-tau * (rTau - 1) / (rTau * DS)) .* 10.^(-Zn/10);
     P  = P / sum(P);                       % eq 7.5-6 powers (for -25 dB cut)
@@ -117,15 +108,15 @@ function channel = buildUMiAVChannel(link, cfg)
         P1LOS = 0;
     end
 
-    % Remove clusters more than 25 dB below the strongest (clause 7.5).
+    % Remove clusters more than 25 dB below the strongest.
     keep = 10*log10(P) >= (10*log10(max(P)) - 25);
     keep(1) = true;                        % never drop the first cluster
     tauFinal = tauFinal(keep);  Pn = Pn(keep);  P = P(keep);
     Nk = nnz(keep);
 
-    % ---- Step 7: cluster angles ------------------------------------------
-    % Scaling factors, Tables 7.5-2 / 7.5-4 (verified). Values for the two
-    % UMi cluster counts used here; interpolation covers dropped clusters.
+    % Step 7, cluster angles.
+    % Scaling factors from Tables 7.5-2 and 7.5-4, with interpolation
+    % covering dropped clusters.
     cphiTab = [4 0.779; 5 0.860; 6 0.921; 7 0.973; 8 1.018; 10 1.090; ...
                11 1.123; 12 1.146; 14 1.190; 15 1.211; 16 1.226; ...
                19 1.273; 20 1.289; 25 1.358];
@@ -138,8 +129,8 @@ function channel = buildUMiAVChannel(link, cfg)
         Cth  = Cth  * (1.3086 + 0.0339*K - 0.0077*K^2 + 0.0002*K^3);
     end
 
-    % Powers used for angle generation: eq 7.5-8 set in LOS (with the
-    % specular power on cluster 1), eq 7.5-6 set in NLOS.
+    % Angle generation uses the eq 7.5-8 powers in LOS and eq 7.5-6 in
+    % NLOS.
     Pang = Pn;
     if link.isLOS, Pang(1) = Pang(1) + P1LOS; end
 
@@ -151,7 +142,7 @@ function channel = buildUMiAVChannel(link, cfg)
     zoa = zenithAngles(rs, Pang, ZSA, Cth, losZoA, 0,        link.isLOS); % eq 7.5-14..-16
     zod = zenithAngles(rs, Pang, ZSD, Cth, losZoD, muOffZOD, link.isLOS); % eq 7.5-19
 
-    % ---- Assemble the nrCDLChannel custom profile ------------------------
+    % Assemble the nrCDLChannel custom profile.
     if link.isLOS
         p1  = Pn(1) + P1LOS;
         k1  = 10*log10(P1LOS / Pn(1));
@@ -208,7 +199,7 @@ function th = zenithAngles(rs, P, ZS, Cth, losAngle, muOff, isLOS)
     else
         th = Xn.*thP + Yn + losAngle + muOff;
     end
-    % Mirror into [0, 180] (clause 7.5 wrapping convention)
+    % Mirror into [0, 180], the clause 7.5 wrapping convention.
     th = mod(th, 360);
     over = th > 180;
     th(over) = 360 - th(over);
@@ -216,8 +207,8 @@ end
 
 % ----------------------------------------------------------------------------
 function w = wrapTo180(a)
-%wrapTo180 Wrap angles in degrees to (-180, 180]. Local shadow of the
-% Mapping Toolbox function so that toolbox is not a dependency.
+%wrapTo180 Wrap angles in degrees to (-180, 180].
+% Local copy so the Mapping Toolbox is not a dependency.
     w = mod(a + 180, 360) - 180;
     w(w == -180) = 180;
 end

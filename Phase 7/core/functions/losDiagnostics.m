@@ -12,35 +12,22 @@ function report = losDiagnostics(posLog, managers, cfg, linkInfo, sampleRateHz)
 %       .dynamic         whether the state came from the spatially
 %                        consistent field or the frozen setup-time draw
 %
-%   WHY THIS EXISTS, AND WHY IT IS NOT A FEATURE
-%   --------------------------------------------
-%   LOS state is not observable by an operator, and in this scenario set
-%   it is near-collinear with the aerial label (Table B-1 gives pLOS = 1
-%   above 100 m in UMa). It must therefore never enter the feature CSV,
-%   or every Phase 6 classifier score becomes meaningless. It is still
-%   worth having for ANALYSIS - to confirm the channel is behaving, to
-%   report LOS statistics in the write-up, and specifically to verify that
-%   the Phase 5 dynamic state actually moves.
+%   This is not a feature and must never enter the CSV, since an operator
+%   cannot observe LOS state and here it is near-collinear with the label.
+%   Keep it for analysis: checking the channel behaves, reporting LOS
+%   statistics, and confirming the dynamic state actually moves.
 %
-%   .transitions is the direct check. Before Phase 5 the state was drawn
-%   once from the initial positions and frozen, so this count was zero for
-%   every UE in every run by construction, while .pLOSmin and .pLOSmax
-%   showed the probability sweeping its full range. A run with a wide
-%   pLOS range and zero transitions is the frozen-state signature.
+%   .transitions is the direct check, since a wide pLOS range with zero
+%   transitions means a frozen state.
 %
-%   The result is plain data (a struct array of scalars and strings), so
-%   it crosses back from a parallel worker cheaply and can be stored in
-%   the replay bundle without bloating it.
+%   The result is plain data, so it crosses back from a worker cheaply.
 %
-%   SAMPLERATEHZ (default 5) decimates the position trace before
-%   evaluating. The recorder runs at 100 Hz, so a five-minute run holds
-%   30 000 frames per node; evaluating every frame for every UE would cost
-%   far more than the diagnostic is worth. The LOS state cannot change
-%   faster than the UE crosses a correlation cell, which at the 50-60 m
-%   correlation distances of Table 7.6.3.1-2 and a 30 m/s aerial speed is
-%   about 1.7 s, so 5 Hz oversamples the fastest possible transition by an
-%   order of magnitude. Raise it if the correlation distance is ever
-%   configured far below the standard values.
+%   SAMPLERATEHZ (default 5) decimates the position trace first, because the
+%   recorder runs at 100 Hz and evaluating every frame for every UE costs
+%   more than the diagnostic is worth.
+%   The state cannot change faster than the UE crosses a correlation cell,
+%   about 1.7 s at 30 m/s, so 5 Hz oversamples that by ten times.
+%   Raise it if the correlation distance is set far below standard.
 
     if nargin < 5 || isempty(sampleRateHz), sampleRateHz = 5; end
 
@@ -61,8 +48,8 @@ function report = losDiagnostics(posLog, managers, cfg, linkInfo, sampleRateHz)
     end
     times = allTimes(frameIdx);
 
-    % gNB node ID -> row in the position log, precomputed. Doing this with
-    % find() inside the frame loop turned the whole function quadratic.
+    % Precompute node ID to row, since find() inside the frame loop makes
+    % the whole function quadratic.
     nodeRowByID = zeros(1, max(posLog.nodeIDs));
     nodeRowByID(posLog.nodeIDs) = 1:numel(posLog.nodeIDs);
 
@@ -78,11 +65,10 @@ function report = losDiagnostics(posLog, managers, cfg, linkInfo, sampleRateHz)
         cTime  = strcmp(m.featureNames, 'time');
         cSrvID = strcmp(m.featureNames, 'servingGNB');
 
-        % Map every sampled instant to the last featureLog row at or
-        % before it, in one vectorised pass instead of a find() per frame.
-        % Duplicate scan timestamps are collapsed first, because discretize
-        % requires strictly increasing edges and would otherwise error on a
-        % run where two scans happened to land on the same simulated time.
+        % Map each sampled instant to the last featureLog row at or before
+        % it, in one pass rather than a find() per frame.
+        % Collapse duplicate timestamps first, since discretize needs
+        % strictly increasing edges.
         flTimes = fl(:, cTime);
         [uT, iu] = unique(flTimes, 'last');
         rowOf = discretize(times, [uT(:); Inf]);

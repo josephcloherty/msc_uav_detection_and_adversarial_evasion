@@ -2,37 +2,30 @@ function [u, z] = sampleSpatialField(F, k, x, y)
 %sampleSpatialField Sample a correlated random field at a horizontal point.
 %
 %   [U, Z] = sampleSpatialField(F, K, X, Y) evaluates field K of the grid
-%   built by buildSpatialField at the point (X, Y). Z is a standard normal
-%   variate and U is the corresponding uniform variate on (0,1).
+%   from buildSpatialField at (X, Y), giving a standard normal Z and the
+%   matching uniform U on (0,1).
 %
-%   Interpolation and the unit-variance correction
-%   ----------------------------------------------
-%   Plain bilinear interpolation of independent standard normals does NOT
-%   preserve the marginal distribution: the interpolated value has
-%   variance sum(w.^2), which swings between 0.25 at a cell centre and 1
-%   at a grid node. Left uncorrected, a LOS threshold test against this
-%   field would be biased by where in the cell the UE happens to sit.
+%   Plain bilinear interpolation of independent normals does not preserve the
+%   marginal: the value has variance sum(w.^2), which swings between 0.25 at
+%   a cell centre and 1 at a node, so a LOS threshold test would be biased by
+%   where in the cell the UE happens to sit.
+%   Dividing by sqrt(sum(w.^2)) fixes that exactly while keeping the spatial
+%   correlation that sharing grid nodes provides.
 %
-%   Dividing by sqrt(sum(w.^2)) restores exactly unit variance at every
-%   point, so Z ~ N(0,1) and U ~ Uniform(0,1) EXACTLY, everywhere, while
-%   the spatial correlation induced by sharing grid nodes is retained.
-%   The resulting autocorrelation falls to zero at a lag of one grid cell
-%   rather than following the exponential shape implied by TR 38.901; the
-%   correlation DISTANCE is matched, the correlation SHAPE is not. This is
-%   recorded in the deviations log.
+%   The autocorrelation then falls to zero at one grid cell rather than
+%   decaying exponentially, so the correlation distance is matched but the
+%   shape is not; see the deviations log.
 %
-%   U is produced with erfc rather than normcdf so that no Statistics and
-%   Machine Learning Toolbox licence is required at run time:
-%       Phi(z) = 0.5 * erfc(-z / sqrt(2))
+%   U comes from erfc rather than normcdf so no Statistics toolbox licence is
+%   needed at run time.
 %
 %   See also buildSpatialField, linkState.
 
     fx = (x - F.x0) / F.h;
     fy = (y - F.y0) / F.h;
 
-    % Clamp to the last full cell: a UE outside the padded grid is held at
-    % the boundary value rather than erroring, so an unexpected excursion
-    % degrades gracefully instead of killing a multi-hour run.
+    % Clamp to the last full cell, so a UE outside the padded grid gets the
+    % boundary value rather than an error.
     i0 = min(max(floor(fx), 0), F.nx - 2);
     j0 = min(max(floor(fy), 0), F.ny - 2);
     tx = min(max(fx - i0, 0), 1);

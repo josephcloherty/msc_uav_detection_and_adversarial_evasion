@@ -1,26 +1,20 @@
-function M = phase5_DryRun(cfg)
-%phase5_DryRun Expand the whole batch without simulating anything.
+function M = phase7_DryRun(cfg)
+%phase7_DryRun Expand the whole batch without simulating anything.
 %
-%   M = phase5_DryRun()      uses phase5_Config()
-%   M = phase5_DryRun(CFG)
+%   M = phase7_DryRun()      uses phase7_Config()
+%   M = phase7_DryRun(CFG)
 %
-%   Generates every run configuration the batch would execute, checks
-%   each one against the same assertions the real runner uses (SRS
-%   capacity, aerial altitude above the TR 36.777 overlay floor, run
-%   length against the window), and reports the resulting dataset shape:
-%   how many runs per scenario, the split of single-aerial and
-%   multi-aerial runs, the aerial fraction, and the estimated row count.
+%   Builds every run configuration the batch would execute, runs the same
+%   assertions the real runner uses, and reports the dataset shape and the
+%   projected wall time.
 %
-%   Cheap enough to run before every batch. It catches a misconfigured
-%   population or an impossible altitude range in a second rather than
-%   after the first worker has spent minutes on a doomed run, and it
-%   shows what the dataset will look like before any of it exists.
+%   Worth running before every batch, since it costs a second and catches a
+%   misconfigured population before a worker starts a doomed run.
 %
-%   Returns the same table the batch manifest is built from, with the
-%   run outcome columns left empty.
+%   Returns the table the manifest is built from, outcome columns empty.
 
     if nargin < 1 || isempty(cfg)
-        cfg = phase5_Config();
+        cfg = phase7_Config();
     end
     here = fileparts(mfilename('fullpath'));
     addpath(fullfile(here, 'core', 'functions'));
@@ -33,7 +27,7 @@ function M = phase5_DryRun(cfg)
 
     rows = cell(nRuns, 1);
     for i = 1:nRuns
-        [rc, mt] = phase5_ScenarioGen(cfg, seeds(i), scenarios(i));
+        [rc, mt] = phase7_ScenarioGen(cfg, seeds(i), scenarios(i));
         rows{i} = struct('runIdx', i, 'scenario', mt.scenario, ...
             'seed', mt.seed, 'numGNB', mt.numGNB, ...
             'siteRadius_m', mt.siteRadius_m, ...
@@ -48,16 +42,14 @@ function M = phase5_DryRun(cfg)
     end
     M = struct2table([rows{:}]);
 
-    % Rows per run: one per UE per window position after the settle gate.
-    % Approximate: the extraction anchors the first window on the first
-    % retained SCAN rather than on settleTime itself, so the true count
-    % can be one lower. Reported to show the dataset order of magnitude,
-    % not as a contract.
+    % One row per UE per window position after the settle gate.
+    % Approximate, because the extraction anchors the first window on the
+    % first retained scan rather than on settleTime.
     winPerUE = floor((cfg.window.simulationTime - cfg.window.settleTime - ...
         cfg.window.windowLen) / cfg.window.windowStride) + 1;
     estRows = sum(M.numUE) * winPerUE;
 
-    fprintf('\nPhase 5 dry run: %d run(s)\n', nRuns);
+    fprintf('\nPhase 7 dry run: %d run(s)\n', nRuns);
     fprintf('  seeds              %d to %d\n', min(seeds), max(seeds));
     for k = 1:numel(cycle)
         sel = M.scenario == cycle(k);
@@ -75,20 +67,14 @@ function M = phase5_DryRun(cfg)
     fprintf('  windows per UE     %d (approx)\n', winPerUE);
     fprintf('  estimated rows     %d (approx)\n', estRows);
 
-    %% ---- wall-time projection ------------------------------------------
-    % Runs are expensive enough that committing to a batch without an
-    % estimate is how a weekend disappears. The constant is calibrated in
-    % phase5_Config from measured smoke runs; treat the result as an
-    % order of magnitude, not a promise.
+    %% wall-time projection
+    % Treat this as an order of magnitude, not a promise.
     if isfield(cfg.batch, 'costModel')
         nW = cfg.batch.numWorkers;
         if isempty(nW), nW = feature('numcores'); end
         nW = nW(1);
-        % Measured cost for this pool size where it exists, the configured
-        % prior otherwise. The prior was calibrated on six second smoke runs
-        % and understated the first real batch by more than a factor of two,
-        % so a projection that ignores the measurements is not worth making.
-        kInfo = phase5_CostModel('effective', cfg, nW);
+        % Measured cost for this pool size if there is any, prior otherwise.
+        kInfo = phase7_CostModel('effective', cfg, nW);
         k = kInfo.k;
         perRun = k * cfg.window.simulationTime * M.numGNB .* M.numUE;
         totalCPU = sum(perRun);

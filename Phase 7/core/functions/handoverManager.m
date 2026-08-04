@@ -13,10 +13,8 @@ classdef handoverManager < handle
         hysteresis = 1             % Hysteresis margin (dB) for legacy instant A3
         sinrThreshold = 20         % SINR threshold (dB) for A5 event
 
-        % 3GPP mobility chain, TR 36.777 Table A.2.1-1 baseline values
-        % (agreed mobility evaluation parameters for aerial studies). The
-        % measurement metric here is uplink SRS SINR rather than DL RSRP,
-        % a documented substitution; see the deviations log.
+        % TR 36.777 Table A.2.1-1 baselines, but measured on uplink SRS SINR
+        % rather than DL RSRP; see the deviations log.
         useTr36777Mobility = true  % false = legacy instant A3 (1 dB, no TTT)
         a3Offset = 2               % dB, A3Offset
         ttt = 0.160                % s, TimeToTrigger
@@ -53,10 +51,8 @@ classdef handoverManager < handle
         featureNames = {}        % Column names for featureLog
         visThreshold = 0         % Min SINR (dB) for a gNB to count as "visible"
         sinrLog = []             % Per-scan per-gNB averaged SINR: one row per
-                                 % scan, [time, SINR_gNB1..SINR_gNBN] (dB, NaN
-                                 % for never-heard cells). Additive diagnostic
-                                 % log so link behaviour can be reviewed
-                                 % offline; nothing reads it during the run.
+                                 % scan, [time, SINR_gNB1..SINR_gNBN] in dB,
+                                 % NaN for never-heard cells; diagnostic only
 
         % Handover strategy pool
         handoverPolicy = {}       % Cell array storing different handover models
@@ -114,15 +110,14 @@ classdef handoverManager < handle
 
             obj.ulApp = ulApp;
             obj.dlApp = dlApp;
-            % Ground-truth label is supplied by the scenario, never inferred
-            % from features. Used only for labelling the feature rows.
+            % The label comes from the scenario and is never inferred from
+            % features; it only labels the rows.
             if nargin > 6
                 obj.ueLabel = string(varargin{2});
             end
-            % Expected SRS-event RNTI for THIS manager's UE, supplied by the
-            % scenario (baseNetwork knows the UE registration order). This
-            % replaces the fragile first-event pinning, which collided when two
-            % managers shared the same gNB event stream.
+            % The scenario supplies this because it knows the registration
+            % order; do not pin it from the first observed event, which
+            % collides when two managers share a gNB event stream.
             if nargin > 7
                 obj.ueRNTI = varargin{3};
             end
@@ -195,10 +190,8 @@ classdef handoverManager < handle
                strcmp(event.Data.SignalType, "SRS") && ...
                event.Data.CurrentTime * 1e3 > 70
 
-                % Only ingest SRS measurements belonging to THIS manager's UE.
-                % obj.ueRNTI is set at construction from the scenario's known
-                % UE-registration order (baseNetwork), so two managers sharing
-                % the same gNB event stream no longer cross-contaminate.
+                % Only take SRS measurements for this manager's own UE, so
+                % two managers on one gNB event stream stay separate.
                 if isempty(obj.ueRNTI) || event.Data.RNTI ~= obj.ueRNTI
                     return;
                 end
@@ -212,10 +205,10 @@ classdef handoverManager < handle
 
 %% Average each gNB's own most recent `win` samples (alignment-safe)
         function avgSINR = computeAverageSINR(obj, win)
-            % Rows of ulSINR are filled independently per gNB, so a global
-            % column window (end-3:end) mixes different time indices and
-            % zero-pads lagging cells. This averages each row over that gNB's
-            % OWN last `win` samples. Never-heard cells stay NaN.
+            % Rows fill independently per gNB, so a global column window
+            % would mix time indices and zero-pad lagging cells.
+            % Average each row over its own last `win` samples instead, and
+            % leave never-heard cells NaN.
             avgSINR = nan(obj.numCells, 1);
             for i = 1:obj.numCells
                 c = obj.gNBCount(i);
@@ -283,9 +276,8 @@ classdef handoverManager < handle
 
       %% Evaluate handover policy
       function checkHandoverPolicy(obj, ~, ~)
-            % Serving cell must have at least 4 of its OWN measurements before
-            % a decision is made. Other cells contribute whatever they have;
-            % cells never heard stay NaN and are treated as not visible.
+            % Wait for 4 of the serving cell's own measurements before
+            % deciding, and let other cells contribute whatever they have.
             currentIdx = find([obj.gNBs.ID] == obj.UE.GNBNodeID, 1);
             if isempty(currentIdx) || obj.gNBCount(currentIdx) < 4
                 return;   % not enough serving-cell measurements yet
@@ -299,8 +291,8 @@ classdef handoverManager < handle
             c = obj.gNBCount(currentIdx);
             obj.connectedulSINR = [obj.connectedulSINR, obj.ulSINR(currentIdx, c-3:c)];
             % --- Feature extraction: one operator-observable row per scan ---
-            % All quantities below come from network-side measurements only
-            % (per-gNB averaged SINR). The label is ground truth, not a feature.
+            % Everything below comes from network-side measurements only, and
+            % the label is ground truth rather than a feature.
             sinrVec = obj.ulSINRAverage(:);          % per-gNB averaged SINR
             servingSINR = sinrVec(currentIdx);
             neighbourMask = true(numel(sinrVec),1);
@@ -353,8 +345,7 @@ classdef handoverManager < handle
         function tr36777Mobility(obj)
         %tr36777Mobility L1/L3-filtered A3 with time-to-trigger and
         % handover preparation/execution delays.
-        %   Chain, per Table A.2.1-1 of TR 36.777 (verified against the
-        %   source document) and the TS 36.331 measurement model:
+        %   The chain, per Table A.2.1-1 and the TS 36.331 model:
         %     L1: linear average of each gNB's own SRS samples over the
         %         trailing l1WindowSec (measurement interval = scanPeriod
         %         = 10 ms, matching the table).
@@ -831,23 +822,14 @@ classdef handoverManager < handle
 
         %% Execute handover
 function executeHandover(obj, targetGNB)
-            % LOGICAL handover only. The stock nrScheduler does not support
-            % mid-simulation UE removal: its UEContext array is indexed by
-            % RNTI and several scheduling loops walk 1:NumUEs assuming every
-            % slot is a live, in-order UE. A physical disconnect/reconnect
-            % therefore cannot be done through public, documented APIs without
-            % editing sealed toolbox source. Handover is modelled at the
-            % decision layer instead. The logical serving cell (UE.GNBNodeID),
-            % handover count, and handover timestamps are updated. This is
-            % sufficient for the network-observable features under study
-            % (handover count, inter-handover timing, neighbour-cell SINR),
-            % none of which depends on the physical data link being moved.
+            % Logical handover only, because the stock nrScheduler cannot
+            % remove a UE mid-simulation without editing sealed source.
+            % Updating the serving cell, handover count and timestamps at the
+            % decision layer covers every feature under study anyway.
             currentGNBID = obj.UE.GNBNodeID;
 
-            % Update the logical serving cell. UE.GNBNodeID is writable on the
-            % patched nrUE (the patch widened the property to public), and all
-            % handover-policy methods read this field, so reassigning it
-            % redirects subsequent serving-cell logic to the target gNB.
+            % UE.GNBNodeID is writable on the patched nrUE and every policy
+            % method reads it, so reassigning redirects to the target gNB.
             obj.UE.GNBNodeID = targetGNB.ID;
 
             % Record the handover event for downstream feature extraction.
@@ -892,8 +874,8 @@ function executeHandover(obj, targetGNB)
                 [s.meanInterHO, s.stdInterHO, s.minInterHO, s.cvInterHO] = deal(NaN);
             end
 
-            % Ping-pong per TR 36.777 Table A.2.1-1: a handover back to the
-            % previous cell within the minimum time of stay (mtsPingPong).
+            % Ping-pong per Table A.2.1-1 is a handover back to the previous
+            % cell inside the minimum time of stay.
             pp = 0;
             for k = 2:n
                 if obj.handoverLog(k,2) == obj.handoverLog(k-1,1) ...  % A->B->A

@@ -5,16 +5,12 @@ function p = tr36777LOSProbability(scenario, hUT, d2D)
 %   probability for a link with UE height HUT (m, above ground) and 2D
 %   ground distance D2D (m). SCENARIO is 'UMa', 'RMa', or 'UMi'.
 %
-%   Below the aerial applicability floor the terrestrial TR 38.901
-%   Table 7.4.2-1 formula for the scenario is used (verified against the
-%   38901-j40 source document). Inside the aerial band the TR 36.777
-%   Table B-1 height-dependent p1/d1 formulas are used (verified against
-%   the 36777-f00 source document, including the 100% LOS bands: RMa-AV
-%   above 40 m and UMa-AV above 100 m; UMi-AV keeps its formula up to
-%   300 m).
+%   Below the aerial floor this uses the terrestrial TR 38.901 Table 7.4.2-1
+%   formula, and inside the aerial band the TR 36.777 Table B-1 p1/d1 ones.
+%   That includes the 100% LOS bands, RMa-AV above 40 m and UMa-AV above
+%   100 m; UMi-AV keeps its formula all the way to 300 m.
 %
-%   All values below were read directly from the source documents, not
-%   from secondary summaries:
+%   Values, read from the source documents:
 %     RMa-AV  (10 < hUT <= 40):  p1 = max(15021*log10(hUT) - 16053, 1000)
 %                                d1 = max(1350.8*log10(hUT) - 1602, 18)
 %     UMa-AV  (22.5 < hUT <= 100): p1 = 4300*log10(hUT) - 3800

@@ -1,5 +1,5 @@
 classdef tr36777ChannelModel
-    %tr36777ChannelModel Height-aware pathloss + CDL channel model (Phase 3).
+    %tr36777ChannelModel Height-aware pathloss + CDL channel model.
     %
     %   Adapted from the MathWorks helper hNRCustomChannelModel (Copyright
     %   2022-2023 The MathWorks, Inc.). The fast-fading application path
@@ -18,20 +18,15 @@ classdef tr36777ChannelModel
     %   the terrestrial to the aerial pathloss model mid-run, as TR 36.777
     %   Annex B intends.
     %
-    %   PHASE 5: the LOS state and shadow-fading term are ALSO recomputed
-    %   per packet, from the spatially-consistent fields built by
-    %   createScenarioChannels (TR 38.901 clause 7.6.3.1, correlation
-    %   distances from Table 7.6.3.1-2). Up to Phase 4 both were drawn once
-    %   at setup from the INITIAL positions and held for the whole run,
-    %   which meant an aerial UE crossing kilometres at 15-30 m/s kept its
-    %   starting LOS state for the entire flight while the underlying
-    %   Table B-1 probability swept its full range.
+    %   The LOS state and shadow-fading term are also recomputed per packet,
+    %   from the spatially-consistent fields built by createScenarioChannels.
+    %   Up to Phase 4 both were frozen at setup, so an aerial UE crossing
+    %   kilometres kept its starting LOS state for the whole flight.
     %
-    %   The state is evaluated by linkState, the same function the replay
-    %   renderer calls, so what is drawn on screen is by construction what
-    %   the simulator used. The per-link CDL objects remain static, so a
-    %   transition changes the pathloss branch and the shadow-fading sigma
-    %   but not the fast-fading profile; see the deviations log.
+    %   linkState does the evaluation, and the replay renderer calls the same
+    %   function, so what is on screen is what the simulator used.
+    %   The CDL objects stay static, so a transition moves the pathloss branch
+    %   and the shadow-fading sigma but not the fast-fading profile.
     %
     %   The z-boundary is 22.5 m for UMa/UMi and 10 m for RMa (TR 36.777
     %   Annex B.1); it is supplied by the scenario script via cfg.
@@ -120,9 +115,8 @@ classdef tr36777ChannelModel
             txPos = txData.TransmitterPosition(:).';
             rxPos = rxInfo.Position(:).';
 
-            % Identify the UE end of the link (uplink: transmitter,
-            % downlink: receiver); gNB-gNB packets fall back to the
-            % terrestrial model with the receiver treated as the UT.
+            % Find the UE end of the link, treating the receiver as the UT
+            % for gNB-gNB packets.
             isUEtx = ismember(txData.TransmitterID, obj.UENodeIDs);
             isUErx = ismember(rxInfo.ID, obj.UENodeIDs);
             if isUEtx
@@ -134,11 +128,10 @@ classdef tr36777ChannelModel
             end
             hUT = uePos(3);
 
-            % LOS state and shadow fading at the LIVE positions. Pure
-            % function of position, so evaluating it per packet is
-            % order-independent and the fixed-seed regeneration contract
-            % is preserved. Infrastructure-only links keep the frozen
-            % entry: there is no UE end for the field to be indexed by.
+            % Evaluate at the live positions, which is order-independent
+            % because the field depends only on position.
+            % Infrastructure-only links keep the frozen entry, since there is
+            % no UE end to index the field by.
             if isUEtx || isUErx
                 st    = linkState(obj.LinkInfo, obj.Cfg, gnbID, ueID, ...
                     bsPos, uePos);
@@ -149,9 +142,8 @@ classdef tr36777ChannelModel
                 sfDB  = obj.LinkInfo.sf(txData.TransmitterID, rxInfo.ID);
             end
 
-            % The aerial overlay only applies when one end is a UE; pure
-            % infrastructure links (gNB-gNB interference paths) always use
-            % the terrestrial model, whatever the mast height.
+            % The aerial overlay needs a UE at one end, so gNB-gNB paths use
+            % the terrestrial model whatever the mast height.
             if hUT > obj.Cfg.zBoundary && (isUEtx || isUErx)
                 d3D = max(norm(uePos - bsPos), 1);
                 pathLoss = tr36777AerialPathloss(obj.Cfg.scenario, isLOS, ...
