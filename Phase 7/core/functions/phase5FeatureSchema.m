@@ -5,20 +5,19 @@ function schema = phase5FeatureSchema()
 %   labelled feature CSV, built by calling phase4FeatureSchema and appending,
 %   so the earlier schemas stay exact prefixes.
 %
-%   Every column is something an operator already measures: per-cell uplink
-%   SRS SINR, handover and serving-cell history, scheduler CSI reports and
-%   grants, HARQ outcomes, timing advance and MAC byte counters.
-%   Nothing here uses UE position, velocity, altitude or the LOS state.
+%   Every column is an operator-side measurement: per-cell uplink SRS SINR,
+%   handover and serving-cell history, scheduler CSI reports and grants, HARQ
+%   outcomes, timing advance and MAC byte counters. Nothing uses UE position,
+%   velocity, altitude or the LOS state.
 %
-%   Do not add a LOS flag. An operator cannot observe it and here it is
-%   near-collinear with the aerial label, so it would leak ground truth.
-%   Its observable consequences are already covered by cqiSubbandSpread_mean,
-%   servSINR_autocorr1, servSINR_fadeRate_dBperS and rankOne_frac.
+%   Do not add a LOS flag: it is not observable and is near-collinear with
+%   the aerial label. Its observable consequences are covered by
+%   cqiSubbandSpread_mean, servSINR_autocorr1, servSINR_fadeRate_dBperS and
+%   rankOne_frac.
 %
 %   Appended columns, all per UE per window.
 %
-%   Rank and CSI structure, because an airborne UE sees little scattering so
-%   its rank collapses towards 1 and its subband CQI flattens:
+%   Rank and CSI structure:
 %     ri_mean                 mean reported DL rank indicator
 %     ri_var                  variance of the reported rank indicator
 %     rankOne_frac            fraction of reports with RI == 1
@@ -27,7 +26,7 @@ function schema = phase5FeatureSchema()
 %                             so not UE-falsifiable
 %     ulMcsCtx_var            variance of the same
 %
-%   Resource consumption, what the cell spends on this UE:
+%   Resource consumption:
 %     prbDL_mean, prbUL_mean  mean granted resource blocks per grant
 %     prbDL_sum,  prbUL_sum   total granted resource blocks in the window
 %     grantRateDL_perS        DL grants per second
@@ -35,19 +34,17 @@ function schema = phase5FeatureSchema()
 %     layers_mean             mean granted spatial layers
 %     spectralEff_bpsPerPRB   (UL+DL bits) / (UL+DL granted PRBs)
 %
-%   Reliability, a residual-BLER estimate and standard operator KPI:
+%   Reliability, a residual-BLER estimate:
 %     retxRateDL              DL retransmission grants / all DL grants
 %     retxRateUL              UL retransmission grants / all UL grants
 %     retxRate                combined; NaN when no grants at all
 %
-%   Timing advance, the best operator-side distance proxy once the serving
-%   cell is known, and NaN throughout when the release does not surface it:
+%   Timing advance, NaN throughout when the release does not surface it:
 %     ta_mean, ta_var         moments of the timing advance
 %     ta_trend_perS           least-squares slope of TA vs time
 %     ta_range                max minus min within the window
 %
-%   Serving-SINR dynamics, the shape of the trajectory rather than just its
-%   mean and variance:
+%   Serving-SINR dynamics:
 %     servSINR_trend_perS     least-squares slope of serving SINR (dB/s)
 %     servSINR_range_dB       max minus min
 %     servSINR_iqr_dB         interquartile range
@@ -56,8 +53,7 @@ function schema = phase5FeatureSchema()
 %     servSINR_autocorr1      lag-1 autocorrelation of the scan series
 %     servSINR_fadeRate_dBperS  mean |dSINR|/dt between consecutive scans
 %
-%   Cell geometry, because an elevated UE clears the clutter that isolates
-%   ground cells and so hears many cells at similar strength:
+%   Cell geometry:
 %     servMinusBestNbr_mean_dB  mean (serving - best neighbour) margin
 %     servMinusBestNbr_min_dB   worst margin in the window
 %     nbrSINR_max_var_dB2       variance of the best-neighbour SINR
@@ -70,7 +66,7 @@ function schema = phase5FeatureSchema()
 %     nbrWithin6dB_mean         same at 6 dB
 %     top3NbrSpread_mean_dB     mean spread across the three strongest
 %
-%   Serving-cell history, beyond a plain handover count:
+%   Serving-cell history:
 %     distinctServCells_win     distinct serving cells in the window
 %     servCellEntropy           Shannon entropy (bits) of the scan fractions
 %     pingPongCount_win         A -> B -> A serving-cell reversals
@@ -78,7 +74,7 @@ function schema = phase5FeatureSchema()
 %     timeSinceHO_mean_s        mean of the logged time-since-handover
 %     timeSinceHO_min_s         minimum of the same
 %
-%   Traffic, separating the directions and capturing duty cycle and drift:
+%   Traffic, per direction:
 %     ulThr_bps, dlThr_bps      per-direction mean throughput
 %     trafficIdle_frac          fraction of intervals with zero bytes
 %     ulVol_trend_Bps           least-squares slope of the UL byte rate

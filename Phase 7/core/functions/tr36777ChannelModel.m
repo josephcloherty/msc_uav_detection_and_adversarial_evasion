@@ -13,23 +13,16 @@ classdef tr36777ChannelModel
     %     - UE height above cfg.zBoundary: TR 36.777 Table B-2 aerial
     %       pathloss via tr36777AerialPathloss.
     %
-    %   Because the pathloss is recomputed from live positions per packet,
-    %   an aerial UE that climbs through the z-boundary transitions from
-    %   the terrestrial to the aerial pathloss model mid-run, as TR 36.777
-    %   Annex B intends.
-    %
-    %   The LOS state and shadow-fading term are also recomputed per packet,
-    %   from the spatially-consistent fields built by createScenarioChannels.
-    %   Up to Phase 4 both were frozen at setup, so an aerial UE crossing
-    %   kilometres kept its starting LOS state for the whole flight.
-    %
-    %   linkState does the evaluation, and the replay renderer calls the same
-    %   function, so what is on screen is what the simulator used.
-    %   The CDL objects stay static, so a transition moves the pathloss branch
-    %   and the shadow-fading sigma but not the fast-fading profile.
+    %   Pathloss is recomputed from live positions per packet, so an aerial
+    %   UE that climbs through the z-boundary switches model mid-run. The LOS
+    %   state and shadow-fading term are recomputed the same way, from the
+    %   spatially-consistent fields built by createScenarioChannels;
+    %   linkState does the evaluation. The CDL objects stay static, so a
+    %   transition moves the pathloss branch and the shadow-fading sigma but
+    %   not the profile.
     %
     %   The z-boundary is 22.5 m for UMa/UMi and 10 m for RMa (TR 36.777
-    %   Annex B.1); it is supplied by the scenario script via cfg.
+    %   Annex B.1), supplied via cfg.
 
     properties (SetAccess=private)
         %PHYAbstractionMethod "linkToSystemMapping" (abstract PHY) or "none"
@@ -65,11 +58,8 @@ classdef tr36777ChannelModel
 
     methods
         function obj = tr36777ChannelModel(channelModelMatrix, cfg, linkInfo, ueNodeIDs)
-            % channelModelMatrix - N-by-N cell matrix from createScenarioChannels
-            % cfg                - scenario config struct
-            % linkInfo           - LOS / shadow-fading struct from createScenarioChannels
-            % ueNodeIDs          - vector of UE node IDs
-
+        %tr36777ChannelModel channelModelMatrix and linkInfo both come from
+        % createScenarioChannels; ueNodeIDs is a vector of UE node IDs.
             obj.Cfg = cfg;
             obj.LinkInfo = linkInfo;
             obj.UENodeIDs = ueNodeIDs;
@@ -108,15 +98,12 @@ classdef tr36777ChannelModel
 
         function outputData = applyChannelModel(obj, rxInfo, txData)
             %applyChannelModel Apply pathloss and fast fading to a packet.
-
             outputData = txData;
 
-            % ---- Height-switched pathloss (TR 36.777 Annex B) -----------
             txPos = txData.TransmitterPosition(:).';
             rxPos = rxInfo.Position(:).';
 
-            % Find the UE end of the link, treating the receiver as the UT
-            % for gNB-gNB packets.
+            % Receiver counts as the UT for gNB-gNB packets.
             isUEtx = ismember(txData.TransmitterID, obj.UENodeIDs);
             isUErx = ismember(rxInfo.ID, obj.UENodeIDs);
             if isUEtx
@@ -128,10 +115,9 @@ classdef tr36777ChannelModel
             end
             hUT = uePos(3);
 
-            % Evaluate at the live positions, which is order-independent
-            % because the field depends only on position.
-            % Infrastructure-only links keep the frozen entry, since there is
-            % no UE end to index the field by.
+            % Order-independent, because the field depends only on position.
+            % Infrastructure-only links keep the frozen entry: there is no UE
+            % end to index the field by.
             if isUEtx || isUErx
                 st    = linkState(obj.LinkInfo, obj.Cfg, gnbID, ueID, ...
                     bsPos, uePos);
@@ -154,7 +140,7 @@ classdef tr36777ChannelModel
             end
             outputData.Power = outputData.Power - pathLoss - sfDB;
 
-            % ---- Fast fading (unchanged from hNRCustomChannelModel) -----
+            % Fast fading, unchanged from hNRCustomChannelModel.
             if ~isempty(obj.ChannelModelMatrix{txData.TransmitterID, rxInfo.ID})
                 obj.ChannelModelMatrix{txData.TransmitterID, rxInfo.ID}.InitialTime = outputData.StartTime;
                 if obj.PHYAbstractionMethodNum == 0 % Full PHY
@@ -173,7 +159,6 @@ classdef tr36777ChannelModel
                 outputData.Metadata.Channel.PathFilters = ...
                     obj.PathFilter{txData.TransmitterID, rxInfo.ID};
             else
-                % No channel model between the Tx and Rx node
                 outputData.Metadata.Channel.PathGains = permute(ones(outputData.NumTransmitAntennas,rxInfo.NumReceiveAntennas),[3 4 1 2]) / sqrt(rxInfo.NumReceiveAntennas);
                 outputData.Metadata.Channel.PathDelays = 0;
                 outputData.Metadata.Channel.PathFilters = 1;

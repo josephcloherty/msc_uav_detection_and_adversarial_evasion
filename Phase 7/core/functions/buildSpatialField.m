@@ -3,27 +3,20 @@ function F = buildSpatialField(seed, substream, numFields, extent, dcor)
 %
 %   F = buildSpatialField(SEED, SUBSTREAM, NUMFIELDS, EXTENT, DCOR) builds
 %   NUMFIELDS independent spatially-correlated fields over the horizontal
-%   plane, returned as a plain struct so it passes to workers cleanly.
+%   plane, returned as a plain struct.
 %
-%   This is Option 2 of clause 7.6.3.1: draw independent normals on a grid
-%   spaced at the correlation distance, then interpolate the four surrounding
-%   nodes. Points closer than DCOR share nodes and correlate, points further
-%   apart share none and are independent.
+%   Option 2 of clause 7.6.3.1: independent normals on a grid spaced at the
+%   correlation distance, interpolated from the four surrounding nodes.
 %
-%   Inputs:
 %     SEED      - run seed, fixes the whole field
 %     SUBSTREAM - substream index, separating this family from other
 %                 consumers of the same seed
-%     NUMFIELDS - one per gNB, so two UEs in the same place see the same
-%                 state for a given cell
+%     NUMFIELDS - one per gNB
 %     EXTENT    - [xMin xMax yMin yMax] in metres, padded by two grid cells
 %     DCOR      - correlation distance in metres, the grid spacing
 %
 %   The field is a pure function of its arguments and is never updated at run
 %   time, so sampling is order-independent.
-%   That matters because pathloss is evaluated per packet in whatever order
-%   the simulator delivers them, and an in-place Markov LOS state would make
-%   the result depend on packet ordering.
 %
 %   See also sampleSpatialField, linkState, createScenarioChannels.
 

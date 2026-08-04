@@ -2,19 +2,13 @@ function map = phase7_ResolveRNTI(cfg, gNBs, UEs, anchorIdx, printMap)
 %phase7_ResolveRNTI Resolve and check both RNTI conventions before a run.
 %
 %   MAP = phase7_ResolveRNTI(CFG, GNBS, UES, ANCHORIDX, PRINTMAP) returns one
-%   entry per UE for both identifiers the pipeline needs, and validates
-%   whatever can be validated before the simulation starts.
-%
-%   There are two conventions, and they are easy to confuse:
+%   entry per UE for both RNTI conventions:
 %     MAP.sched  the RNTI the scheduler logs use, read from the anchor gNB's
-%                own UENodeIDs and ConnectedUEs tables and so never assumed
-%     MAP.srs    the RNTI on SRS reception events, which is node derived as
-%                UE.ID + cfg.rntiOffset and still hand-calibrated
+%                UENodeIDs and ConnectedUEs tables
+%     MAP.srs    the RNTI on SRS reception events, UE.ID + cfg.rntiOffset
 %
-%   The SRS one cannot be checked here because no event exists yet, so
-%   rntiVerifier checks it in flight.
-%
-%   Checks done here, all cheap:
+%   MAP.srs cannot be checked here because no event exists yet; rntiVerifier
+%   checks it in flight. Checked here:
 %     - the connection tables exist on this release
 %     - every UE appears in its anchor gNB's table, exactly once
 %     - no two UEs at the same anchor share a scheduler RNTI
@@ -52,7 +46,7 @@ function map = phase7_ResolveRNTI(cfg, gNBs, UEs, anchorIdx, printMap)
         map.sched(u) = g.ConnectedUEs(k);
     end
 
-    % If two UEs on one anchor shared an RNTI, one would silently absorb the
+    % A shared RNTI on one anchor would let one UE silently absorb the
     % other's CQI, MCS and grants.
     for g = unique(anchorIdx)
         sel = anchorIdx == g;

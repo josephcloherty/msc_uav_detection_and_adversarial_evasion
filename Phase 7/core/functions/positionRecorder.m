@@ -1,7 +1,7 @@
 classdef positionRecorder < handle
     %positionRecorder Logs node positions over time for post-run replay.
     %   A handle class, so the scheduled record() callback accumulates into
-    %   the same object rather than a value copy.
+    %   one object.
     %
     %   Wire it up before run():
     %       rec = positionRecorder([num2cell(gNBs), num2cell(UEs)], networkSimulator);
@@ -20,7 +20,6 @@ classdef positionRecorder < handle
 
     methods
         function obj = positionRecorder(allNodes, simulator)
-            % allNodes: cell array of node objects. simulator: sim handle.
             obj.AllNodes = allNodes;
             obj.NodeIDs = cellfun(@(n) n.ID, allNodes);
             obj.Simulator = simulator;
@@ -36,8 +35,8 @@ classdef positionRecorder < handle
                 frame(n, :) = obj.AllNodes{n}.Position;
             end
             obj.Times(end+1) = t;
-            % Do not use XYZ(:,:,end+1) on an empty XYZ, because size([],3)
-            % is 1 and it would leave a spurious all-zero first frame.
+            % XYZ(:,:,end+1) on an empty XYZ would leave a spurious
+            % all-zero first frame, because size([],3) is 1.
             if isempty(obj.XYZ)
                 obj.XYZ = frame;
             else

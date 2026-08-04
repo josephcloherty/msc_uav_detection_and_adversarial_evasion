@@ -8,12 +8,8 @@ function outPath = writeFeatureCSV(T, cfg)
 %   The column set is asserted against phase5FeatureSchema, and a file
 %   truncated to the earlier columns matches the earlier file byte for byte.
 %
-%   The LOS state is deliberately not a column, since it is not an operator
-%   observable and is near-collinear with the label.
-%
-%   Same seed must regenerate this file byte for byte, which is why
-%   writetable is avoided: its float formatting varies with the release.
-%   not substitute \r\n).
+%   writetable is avoided because its float formatting varies with the
+%   release, and the same seed must regenerate this file byte for byte.
 
     schema = phase5FeatureSchema();
     assert(isequal(T.Properties.VariableNames, schema), ...

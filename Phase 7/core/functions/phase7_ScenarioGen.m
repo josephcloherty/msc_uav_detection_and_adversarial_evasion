@@ -4,23 +4,15 @@ function [runCfg, meta] = phase7_ScenarioGen(base, seed, scenarioName)
 %   [RUNCFG, META] = phase7_ScenarioGen(BASE, SEED, SCENARIONAME) flattens
 %   phase7_Config into the run configuration phase7_Pipeline expects.
 %
-%   The scenario supplies everything topological, identical across every
-%   replicate. The seed supplies the aerial UE count, UE start positions,
-%   aerial altitudes and per-UE traffic jitter.
+%   The scenario supplies everything topological. The seed supplies the
+%   aerial UE count, UE start positions, aerial altitudes and per-UE traffic
+%   jitter. META reports what was drawn, for the manifest.
 %
-%   Three different generators are in play so their draw sequences cannot
-%   alias: Philox here, Threefry in createScenarioChannels, and the global
-%   stream in the simulator.
-%
-%   Everything stochastic is resolved here and written into RUNCFG as fixed
-%   numbers, so the run is byte-reproducible from the seed alone.
-%
-%   META reports what was drawn, for the batch manifest.
-%
-%   The SRS capacity check is on the total UE count, not the count anchored
-%   to a cell, because every UE holds an uplink to every gNB.
+%   Three generators are used so their draw sequences cannot alias: Philox
+%   here, Threefry in createScenarioChannels, and the global stream in the
+%   simulator. Everything stochastic is resolved here and written into RUNCFG
+%   as fixed numbers.
 
-    %% scenario template
     scenarioName = string(scenarioName);
     assert(isfield(base.scenarios, scenarioName), ...
         'phase7_ScenarioGen:unknownScenario', ...
@@ -29,16 +21,13 @@ function [runCfg, meta] = phase7_ScenarioGen(base, seed, scenarioName)
     sc   = base.scenarios.(scenarioName);
     topo = sc.topology;
 
-    %% dedicated scenario stream
     s = RandStream('Philox', 'Seed', seed);
 
-    %% fixed topology
     gNBPositions = ringLayout(topo.numGNB, topo.siteRadius_m, ...
         topo.gnbHeight_m, topo.originOffset_m);
 
-    %% aerial population
-    % Take both draws unconditionally so the stream advances by the same
-    % amount whichever branch is taken.
+    % Both draws are taken unconditionally so the stream advances by the same
+    % amount whichever branch is used.
     isMulti  = rand(s) < base.population.pMultiAerial;
     swarmRng = base.population.aerialSwarmSizeRange;
     assert(numel(swarmRng) == 2 && swarmRng(1) >= 1 && swarmRng(2) >= swarmRng(1), ...
@@ -64,18 +53,32 @@ function [runCfg, meta] = phase7_ScenarioGen(base, seed, scenarioName)
              'deviations log.'], numUE, base.srs.maxUEsPerGNB);
     end
 
-    %% placement
     % Uniform over the square UE region, terrestrial UEs first then aerial.
     span = topo.ueAreaSpan_m;
     ctr  = topo.originOffset_m(:)';
     xy   = ctr + (rand(s, numUE, 2) - 0.5) * span;
 
-    assert(sc.aerialAltRange_m(1) > sc.zBoundary, ...
-        'phase7_ScenarioGen:altitudeBelowBoundary', ...
-        ['Scenario %s: aerialAltRange_m(1) = %.1f m is not above the ' ...
-         'TR 36.777 overlay floor zBoundary = %.1f m, so aerial UEs would ' ...
-         'be given the terrestrial channel.'], scenarioName, ...
-        sc.aerialAltRange_m(1), sc.zBoundary);
+    % Descending below the overlay floor is a configuration error for an
+    % honest run and the entire point of the descent branches, so the guard is
+    % gated rather than removed. Only applyEvasion grants the permission.
+    allowSubBoundary = isfield(base, 'evasion') && ...
+        isfield(base.evasion, 'allowSubBoundary') && base.evasion.allowSubBoundary;
+    if ~allowSubBoundary
+        assert(sc.aerialAltRange_m(1) > sc.zBoundary, ...
+            'phase7_ScenarioGen:altitudeBelowBoundary', ...
+            ['Scenario %s: aerialAltRange_m(1) = %.1f m is not above the ' ...
+             'TR 36.777 overlay floor zBoundary = %.1f m, so aerial UEs would ' ...
+             'be given the terrestrial channel. Set this deliberately only ' ...
+             'through an evasion condition.'], scenarioName, ...
+            sc.aerialAltRange_m(1), sc.zBoundary);
+    elseif sc.aerialAltRange_m(1) <= sc.zBoundary
+        % Stated once per run because it changes which propagation model the
+        % aerial links use, and that is the mechanism the result is about.
+        fprintf(['  %s: aerial band %.1f to %.1f m is at or below the %.1f m ' ...
+            'overlay floor, so aerial links take the terrestrial branch.\n'], ...
+            scenarioName, sc.aerialAltRange_m(1), sc.aerialAltRange_m(2), ...
+            sc.zBoundary);
+    end
 
     z = [repmat(sc.terrestrialAlt_m, numTerr, 1); ...
          sc.aerialAltRange_m(1) + ...
@@ -84,9 +87,8 @@ function [runCfg, meta] = phase7_ScenarioGen(base, seed, scenarioName)
     uePositions = [xy, z];
     ueIsAerial  = [false(1, numTerr), true(1, numAerial)];
 
-    %% per-UE traffic
-    % Draw three jitter factors per direction whether or not the profile can
-    % use them all, so the stream advances identically for every UE.
+    % Three jitter factors per direction are drawn whether or not the profile
+    % can use them all, so the stream advances identically for every UE.
     rj = base.traffic.rateJitterFrac;
     tj = base.traffic.timingJitterFrac;
     trafficPerUE = repmat(struct('ul', [], 'dl', []), 1, numUE);
@@ -99,9 +101,8 @@ function [runCfg, meta] = phase7_ScenarioGen(base, seed, scenarioName)
         jitterLog(u, :) = [fUL fDL];
     end
 
-    %% mobility bounds
-    % The "centre" convention is the one verified against the recorded
-    % Phase 3 trajectories.
+    % "centre" is the convention verified against the recorded Phase 3
+    % trajectories.
     switch lower(string(base.mobility.boundsConvention))
         case "centre"
             bounds = [ctr(1) ctr(2) span span];
@@ -112,12 +113,10 @@ function [runCfg, meta] = phase7_ScenarioGen(base, seed, scenarioName)
                 'cfg.mobility.boundsConvention must be "centre" or "corner".');
     end
 
-    %% assemble the run configuration
     runCfg = struct();
     runCfg.scenario = scenarioName;
     runCfg.seed     = seed;
 
-    % TR 36.777 overlay
     runCfg.zBoundary         = sc.zBoundary;
     runCfg.av                = sc.av;
     runCfg.avgBuildingHeight = sc.avgBuildingHeight;
@@ -127,24 +126,20 @@ function [runCfg, meta] = phase7_ScenarioGen(base, seed, scenarioName)
         runCfg.aerialChannelBuilder = [];
     end
 
-    % radio and geometry
     runCfg.carrierFrequency = base.radio.carrierFrequency;
     runCfg.radio            = base.radio;
     runCfg.gNBPositions     = gNBPositions;
     runCfg.uePositions      = uePositions;
     runCfg.ueIsAerial       = logical(ueIsAerial);
 
-    % mobility
     runCfg.enableMobility         = base.mobility.enable;
     runCfg.aerialSpeedRange       = base.mobility.aerialSpeedRange;
     runCfg.terrestrialSpeedRange  = base.mobility.terrestrialSpeedRange;
     runCfg.aerialBounds           = bounds;
     runCfg.terrestrialBounds      = bounds;
 
-    % traffic (per UE, already jittered and frozen)
     runCfg.trafficPerUE = trafficPerUE;
 
-    % measurement and handover chain
     runCfg.rntiOffset      = base.measurement.rntiOffset;
     runCfg.visThreshold    = base.measurement.visThreshold;
     runCfg.verifyRNTI      = getOr(base.measurement, 'verifyRNTI', true);
@@ -156,17 +151,15 @@ function [runCfg, meta] = phase7_ScenarioGen(base, seed, scenarioName)
         runCfg.handover = struct();
     end
 
-    % windowing
     runCfg.simulationTime = base.window.simulationTime;
     runCfg.windowLen      = base.window.windowLen;
     runCfg.windowStride   = base.window.windowStride;
     runCfg.settleTime     = base.window.settleTime;
 
-    % channel and SRS
     runCfg.enableShadowFading = base.channel.enableShadowFading;
 
-    % Default these here as well as in createScenarioChannels, so the value
-    % that governed a run ends up in the archived replay.
+    % Defaulted here as well as in createScenarioChannels, so the value that
+    % governed a run ends up in the archived replay.
     if isfield(base.channel, 'dynamicLOS')
         runCfg.dynamicLOS = base.channel.dynamicLOS;
     else
@@ -179,8 +172,8 @@ function [runCfg, meta] = phase7_ScenarioGen(base, seed, scenarioName)
     end
     runCfg.srs                = base.srs;
 
-    % Resolve an empty dataDir here, since writeFeatureCSV's own fallback is
-    % relative to its file location and would land in core/data.
+    % writeFeatureCSV's own fallback is relative to its file location and
+    % would land in core/data.
     if strlength(string(base.batch.dataDir)) == 0
         runCfg.outputDir = string(fullfile(fileparts(mfilename('fullpath')), ...
             '..', '..', 'data'));
@@ -203,7 +196,6 @@ function [runCfg, meta] = phase7_ScenarioGen(base, seed, scenarioName)
          '(%.2f s) or the run produces no feature rows.'], ...
         runCfg.simulationTime, runCfg.settleTime + runCfg.windowLen);
 
-    %% metadata for the manifest
     d = vecnorm(reshape(gNBPositions, [], 1, 3) - reshape(uePositions, 1, [], 3), 2, 3);
     [~, nearest] = min(d, [], 1);
     meta = struct();
@@ -223,15 +215,12 @@ function [runCfg, meta] = phase7_ScenarioGen(base, seed, scenarioName)
     meta.rateJitter      = jitterLog;
 end
 
-%% ------------------------------------------------------------------------
 function P = ringLayout(numGNB, radius, h, origin)
 %ringLayout Centre site plus a ring of sites evenly spaced over 360 deg.
-%   Deterministic given the scenario, with a site span of 2*radius.
-%
-%   The spacing adapts to the number of ring sites, so six give a hexagon,
-%   four a cross and five a pentagon.
-%   Do not take the first N angles from a fixed 60 degree grid instead: that
-%   leaves the 240-300 degree sector uncovered for five sites.
+%   Deterministic given the scenario, with a site span of 2*radius. The
+%   spacing adapts to the number of ring sites, so six give a hexagon, four a
+%   cross and five a pentagon. Taking the first N angles from a fixed 60
+%   degree grid instead would leave the 240-300 sector uncovered at five.
     assert(numGNB >= 1 && numGNB <= 13, 'phase7_ScenarioGen:numGNB', ...
         ['topology.numGNB must be between 1 and 13 (centre site plus a ' ...
          'ring of up to twelve). D5.1 specifies 5 to 7.']);
@@ -246,13 +235,11 @@ function P = ringLayout(numGNB, radius, h, origin)
     end
 end
 
-%% ------------------------------------------------------------------------
 function v = getOr(s, f, dflt)
 %getOr Field value with a default, so an older config still loads.
     if isfield(s, f), v = s.(f); else, v = dflt; end
 end
 
-%% ------------------------------------------------------------------------
 function [spec, rateFactor] = jitterSpec(spec, s, rateFrac, timeFrac)
 %jitterSpec Apply per-UE multiplicative jitter to one traffic specification.
 %   Always takes three draws so the stream advances by a fixed amount.

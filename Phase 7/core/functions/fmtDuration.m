@@ -2,7 +2,7 @@ function s = fmtDuration(secs)
 %fmtDuration Human-readable duration string.
 %
 %   S = fmtDuration(SECS) gives '42 s', '7 min 13 s' or '1 h 04 min 09 s'.
-%   Non-finite input returns '--', which is what an ETA reads early on.
+%   Non-finite input returns '--'.
 
     if ~isfinite(secs)
         s = '--';

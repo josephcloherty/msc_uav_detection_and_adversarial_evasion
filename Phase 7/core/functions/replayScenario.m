@@ -9,52 +9,28 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
 %   POSLOG    - struct with fields times (1xT), xyz (Nx3xT), nodeIDs (1xN),
 %               produced by positionRecorder.toStruct().
 %   GNBS      - array of nrGNB objects.
-%   UES       - array of nrUE objects (unused directly but kept for clarity).
-%   MANAGERS  - cell array of handoverManager objects. Each must expose
-%               featureLog, ueLabel and UE. The featureLog column order is
-%               assumed to match featureNames defined in the handover manager:
-%               {time, ueID, label_is_aerial, servingGNB, servingSINR,
-%                numVisible, maxNeighbourSINR, meanNeighbourSINR, sinrSpread,
-%                handoverCount, timeSinceLastHO, ...}.
-%   BUILDINGS - (optional) N-by-6 matrix, one row per building, columns
-%               [xmin xmax ymin ymax zmin zmax]. This is the same
-%               buildingsAABB matrix built in the scenario script, so adding
-%               a building there propagates here automatically. Omit or pass
-%               [] for no buildings.
-%   EXTRAS    - (optional) struct carrying the scenario config and
-%               link states so channel information can be shown inside the
-%               3D view. Fields:
-%                 .cfg      scenario config (scenario, zBoundary,
-%                           avgBuildingHeight, windowLen, settleTime,
-%                           replayCullTime, ...)
-%                 .linkInfo per-link LOS states from createScenarioChannels
-%               The replay drops the settle span and re-zeroes the clock,
-%               so playback opens after the attach and handover burst.
-%               cfg.replayCullTime can extend that cull but not shorten it.
-%               Saved replays keep the un-culled log and re-cull on reload,
-%               so the dataset and statistics keep absolute time.
-%               With EXTRAS, serving lines are coloured by LOS state and
-%               annotated with pLOS, geometric ZoD and the Step 5 ZOD
-%               offset, the readout gains a per-UE sliding-window block,
-%               the UE's trail is drawn in 3D, and settle-time instants are
-%               marked as such.
+%   UES       - array of nrUE objects, unused directly.
+%   MANAGERS  - cell array of handoverManager objects, each exposing
+%               featureLog, ueLabel and UE. featureLog column order must
+%               match handoverManager.featureNames.
+%   BUILDINGS - (optional) N-by-6, [xmin xmax ymin ymax zmin zmax] per row.
+%               Omit or pass [] for no buildings.
+%   EXTRAS    - (optional) struct with the scenario config (.cfg) and
+%               per-link LOS states from createScenarioChannels (.linkInfo).
+%               With it, serving lines are coloured by LOS state and
+%               annotated with pLOS, geometric ZoD and the Step 5 ZOD offset,
+%               and the readout gains a per-UE sliding-window block.
 %
-%   Drag the slider to scrub through simulation time.
-%   Each frame shows node positions, buildings, a line from each UE to its
-%   serving gNB, gold stars at past handovers, and the full per-UE readout.
+%   The replay drops the settle span and re-zeroes the clock.
+%   cfg.replayCullTime can extend that cull but not shorten it; saved replays
+%   keep the un-culled log and re-cull on reload.
 %
-%   SAVING / RELOADING A REPLAY
-%   ---------------------------
-%   Click "Save Replay..." to write every input into one .mat file, then
-%   pass that file back in to watch it again:
+%   Drag the slider to scrub. "Save Replay..." writes every input into one
+%   .mat file, which can be passed back in:
 %
 %       replayScenario('myReplay.mat')   % or replayScenario() to browse
-%
-%   The reload is identical to the original, since everything playback needs
-%   lives in those inputs.
 
-    % Reload mode: a single char/string path, or no arguments at all, loads
-    % the bundled data and replays it.
+    % Reload mode: a single path, or no arguments at all.
     if nargin <= 1 && (nargin == 0 || ischar(posLog) || isstring(posLog))
         if nargin == 0
             fname = '';
@@ -64,7 +40,7 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
         if isempty(fname) || exist(fname,'file') ~= 2
             [f,p] = uigetfile({'*.mat','Saved replay (*.mat)'}, ...
                 'Open saved replay');
-            if isequal(f,0), return; end   % user cancelled
+            if isequal(f,0), return; end
             fname = fullfile(p,f);
         end
         S = load(fname);
@@ -80,20 +56,19 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
     end
 
     if nargin < 5 || isempty(buildings)
-        buildings = zeros(0,6);   % no buildings
+        buildings = zeros(0,6);
     end
     if nargin < 6
         extras = [];              % Phase 2 replays carry no channel info
     end
 
-    % Sliding-window and settle settings from the scenario config (extras)
     winLen = 10;  settleT = 0;  hasExtras = isstruct(extras);
     if hasExtras && isfield(extras,'cfg')
         if isfield(extras.cfg,'windowLen'),  winLen  = extras.cfg.windowLen;  end
         if isfield(extras.cfg,'settleTime'), settleT = extras.cfg.settleTime; end
     end
 
-    % featureLog column indices (must match handoverManager.featureNames)
+    % Must match handoverManager.featureNames.
     COL_TIME    = 1;
     COL_SERVGNB = 4;
     COL_SERVSINR= 5;
@@ -104,21 +79,13 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
     COL_HO      = 10;
     COL_TSINCE  = 11;
 
-    % Start-up cull: drop the first cfg.replayCullTime seconds and re-zero
-    % the clock, so the replay opens after the attach burst has resolved.
-    % The originals are kept for saving, so a reload re-culls the same way.
-    % Replays (no
-    % extras) are untouched.
-    % Legacy repair: old recordings carry a spurious all-zero first frame,
-    % so dropping it realigns times and positions. Recordings
-    % made after the fix are unaffected.
+    % Legacy repair: old recordings carry a spurious all-zero first frame.
     if size(posLog.xyz, 3) == numel(posLog.times) + 1
         posLog.xyz(:,:,1) = [];
     end
 
     posLogRaw = posLog;               % saved verbatim by saveReplay
-    % Always cull at least the settle span, so settle-gated data never
-    % appears in the viewer either.
+    % At least the settle span, so settle-gated data never reaches the viewer.
     cull = 0;
     if hasExtras && isfield(extras,'cfg')
         if isfield(extras.cfg,'settleTime')
@@ -137,8 +104,8 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
         settleT = max(settleT - cull, 0);
     end
 
-    % Local time-shifted copies of the per-UE logs, since the managers are
-    % never modified and the dataset uses absolute time.
+    % Local copies: the managers are never modified and the dataset keeps
+    % absolute time.
     featLogs = cell(numel(managers),1);
     hoLists  = cell(numel(managers),1);
     sinrLogs = cell(numel(managers),1);   % per-gNB SINR, [t, gNB1..N]
@@ -151,8 +118,7 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
         featLogs{kk} = flk;
         ht = managers{kk}.handoverTimes(:);
         hoLists{kk} = ht(ht >= cull) - cull;
-        % Per-gNB SINR log, empty for older saves.
-        slk = [];
+        slk = [];   % per-gNB SINR log, empty for older saves
         if isprop(managers{kk}, 'sinrLog') && ~isempty(managers{kk}.sinrLog)
             slk = managers{kk}.sinrLog;
             slk = slk(slk(:,1) >= cull, :);
@@ -167,10 +133,8 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
             'Position log is empty. Enable the position recorder before run.');
     end
 
-    % Compress the z aspect so altitude reads against the wide X-Y span.
-    zAspect = 0.3;
+    zAspect = 0.3;   % compresses z so altitude reads against the X-Y span
 
-    % Layout: axes top-left, controls bottom-left, readout on the right.
     fig = uifigure('Name','Scenario Replay','Position',[100 100 1220 770]);
     g = uigridlayout(fig,[2 2], ...
         'RowHeight',{'1x',60}, 'ColumnWidth',{'1x',360});
@@ -181,13 +145,12 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
     xlabel(ax,'X (m)'); ylabel(ax,'Y (m)'); zlabel(ax,'Z (m)');
     grid(ax,'on'); view(ax,3);
 
-    % The readout spans both rows, so it gets full height and does not clip.
+    % Spans both rows, so it gets full height and does not clip.
     readout = uitextarea('Parent',g, 'Editable','off', ...
         'FontName','monospaced', 'FontSize',12);
     readout.Layout.Row = [1 2];
     readout.Layout.Column = 2;
 
-    % Controls sit under the axes only
     ctrl = uigridlayout(g,[1 4], ...
         'ColumnWidth',{80,110,110,'1x'},'Padding',[2 2 2 2]);
     ctrl.Layout.Row = 2; ctrl.Layout.Column = 1;
@@ -205,7 +168,7 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
     function saveReplay()
         [f,p] = uiputfile({'*.mat','Saved replay (*.mat)'}, ...
             'Save replay and simulation data', 'scenarioReplay.mat');
-        if isequal(f,0), return; end       % user cancelled
+        if isequal(f,0), return; end
         replayData = struct( ...
             'posLog',    posLogRaw, ...   % un-culled: reload re-culls once
             'gNBs',      gNBs, ...
@@ -224,20 +187,19 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
         end
     end
 
-    % Plot selected variables over time, one panel per variable and one line
-    % per UE.
-    % A series the save cannot support just plots nothing.
     function names = plottableNames()
+    %plottableNames Series offered in the plot dialog; a series the save
+    % cannot supply simply plots nothing.
         names = { ...
             'servingSINR','maxNeighbourSINR','meanNeighbourSINR', ...
             'sinrMargin','sinrSpread','numVisible','servingGNB', ...
             'handoverCount','timeSinceLastHO','label_is_aerial'};
-        for gg = 1:numel(gNBs)                    % per-gNB SINR series
+        for gg = 1:numel(gNBs)
             names{end+1} = sprintf('SINR_gNB%d', gNBs(gg).ID); %#ok<AGROW>
         end
         names = [names, {'altitude_m','speed2D_mps','dist2D_serving_m', ...
             'dist3D_serving_m'}];
-        for gg = 1:numel(gNBs)                    % per-gNB distances
+        for gg = 1:numel(gNBs)
             names{end+1} = sprintf('dist2D_gNB%d_m', gNBs(gg).ID); %#ok<AGROW>
         end
         if hasExtras
@@ -250,8 +212,8 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
 
     function [ts, ys] = getSeries(vname, k)
     %getSeries Time base and values of one derived series for manager k.
-    %   Everything uses the culled, re-zeroed clock, and returns empty when
-    %   the save cannot supply the series.
+    %   Uses the culled, re-zeroed clock; returns empty when the save cannot
+    %   supply the series.
         ts = []; ys = [];
         fl = featLogs{k};
         m = managers{k};
@@ -337,9 +299,8 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
                             extras.cfg.scenario, uP(3), d2);
                     end
                 case 'losState_serving'
-                    % The actual state from the same linkState the channel
-                    % model used, so plotting it against pLOS_serving shows
-                    % at a glance whether the state is frozen.
+                    % Same linkState the channel model used, so plotting it
+                    % against pLOS_serving shows whether the state is frozen.
                     if hasExtras && isfield(extras,'linkInfo') ...
                             && isfield(extras,'cfg') ...
                             && exist('linkState','file') == 2
@@ -371,7 +332,7 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
     end
 
     function [ts, ys] = windowedSeries(vname, k)
-    %windowedSeries The sliding-window features at every scan time, so the
+    %windowedSeries Sliding-window features at every scan time, so the
     % plotted curves are exactly what the dataset windows sample.
         fl = featLogs{k};
         ts = fl(:,COL_TIME);
@@ -417,7 +378,7 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
         delete(dlg);
 
         n = numel(selNames);
-        if n <= 4, nc = 1; else, nc = 2; end      % two columns when many
+        if n <= 4, nc = 1; else, nc = 2; end
         nr = ceil(n / nc);
         f = figure('Name','Replay - selected variables over time', ...
             'Position',[120 80 560*nc 190*nr + 90]);
@@ -446,11 +407,11 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
         end
         xlabel(tl, 'Time (s)');
         title(tl, 'Replay time series (settle culled, re-zeroed clock)');
-        figure(f);   % bring to front
+        figure(f);
     end
 
     function scrub(tSel)
-        if playBtn.Value                  % user grabbed slider mid-playback
+        if playBtn.Value   % slider grabbed mid-playback
             playBtn.Value = false;
             playBtn.Text = 'Play';
             stop(playTimer);
@@ -458,19 +419,17 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
         redraw(tSel);
     end
 
-    % Real-time playback
-    uiRate = 20;                          % UI refresh rate (Hz)
+    uiRate = 20;                          % Hz
     playTimer = timer('ExecutionMode','fixedSpacing', ...
         'Period',1/uiRate, 'TimerFcn',@(~,~) playTick());
     lastTic = [];                         % wall-clock anchor for real-time stepping
 
     playBtn.ValueChangedFcn = @(s,~) togglePlay(s.Value);
-    fig.CloseRequestFcn = @(~,~) cleanUp();   % stop timer on window close
+    fig.CloseRequestFcn = @(~,~) cleanUp();
 
     function togglePlay(isPlaying)
         if isPlaying
             playBtn.Text = 'Pause';
-            % If at the end, restart from the beginning.
             if slider.Value >= posLog.times(end) - eps
                 slider.Value = posLog.times(1);
             end
@@ -488,7 +447,7 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
         tNew = slider.Value + dt;
         if tNew >= posLog.times(end)
             tNew = posLog.times(end);
-            playBtn.Value = false;        % auto-pause at the end
+            playBtn.Value = false;
             playBtn.Text = 'Play';
             stop(playTimer);
         end
@@ -501,8 +460,8 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
         delete(fig);
     end
 
-    % Fix the axis limits from the whole history, so the view does not jump
-    % while scrubbing and tall buildings are not clipped.
+    % Fixed from the whole history, so the view does not jump while
+    % scrubbing and tall buildings are not clipped.
     allX = squeeze(posLog.xyz(:,1,:)); allY = squeeze(posLog.xyz(:,2,:));
     allZ = squeeze(posLog.xyz(:,3,:));
     pad = 50;
@@ -516,54 +475,48 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
     yL = [min(ysAll)-pad, max(ysAll)+pad];
     zL = [0, max(zsAll)+pad];
 
-    % Precompute the time and UE position of each handover.
-    hoEvents = [];   % columns: [time x y z]
+    hoEvents = [];   % [time x y z] per handover
     for k = 1:numel(managers)
         fl = featLogs{k};   % culled/re-zeroed copy
         if size(fl,1) < 2, continue; end
-        hoIdx = find(diff(fl(:,COL_HO)) > 0) + 1;   % rows where count increments
+        hoIdx = find(diff(fl(:,COL_HO)) > 0) + 1;
         ueID = managers{k}.UE.ID;
         for j = hoIdx'
             tHO = fl(j,COL_TIME);
-            [~,fI] = min(abs(posLog.times - tHO));          % nearest logged frame
+            [~,fI] = min(abs(posLog.times - tHO));   % nearest logged frame
             p = posLog.xyz(posLog.nodeIDs == ueID, :, fI);
             hoEvents(end+1,:) = [tHO p]; %#ok<AGROW>
         end
     end
 
-    redraw(posLog.times(1));   % initial frame
+    redraw(posLog.times(1));
 
     function redraw(tSel)
-        % Snap to nearest logged frame
-        [~,fIdx] = min(abs(posLog.times - tSel));
+        [~,fIdx] = min(abs(posLog.times - tSel));   % nearest logged frame
         t = posLog.times(fIdx);
         frame = posLog.xyz(:,:,fIdx);    % N x 3
 
         cla(ax); hold(ax,'on');
         xlim(ax,xL); ylim(ax,yL); zlim(ax,zL);
 
-        % Pick a colour with contrast against the active theme, since the
-        % default black text is unreadable in dark mode.
         lblCol = fgColour(ax, fig);
 
-        % Buildings, redrawn each frame because cla wipes them.
+        % Redrawn each frame because cla wipes them.
         drawBuildings(ax, buildings);
 
-        % gNBs, the first numel(gNBs) entries of the node list.
         nG = numel(gNBs);
         for i = 1:nG
             gID = gNBs(i).ID;
             gPos = frame(posLog.nodeIDs == gID, :);
             scatter3(ax,gPos(1),gPos(2),gPos(3),90,'^','filled', ...
                 'MarkerFaceColor',[0.20 0.40 0.80]);
-            % Mast from the gNB straight down to ground level.
+            % Mast down to ground level.
             plot3(ax,[gPos(1) gPos(1)],[gPos(2) gPos(2)],[gPos(3) 0], ...
                 '-','Color',lblCol,'LineWidth',1.5);
             text(ax,gPos(1),gPos(2),gPos(3)+8,"gNB"+gID, ...
                 'FontSize',8,'HorizontalAlignment','center','Color',lblCol);
         end
 
-        % UEs + serving line + per-UE readout
         lines = {};
         for k = 1:numel(managers)
             m = managers{k};
@@ -574,9 +527,7 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
             text(ax,uPos(1),uPos(2),uPos(3)+8,m.ueLabel, ...
                 'FontSize',8,'HorizontalAlignment','center','Color',lblCol);
 
-            % Gold trail showing the UE's path over the trailing feature
-            % window.
-            % with a marker at the window start.
+            % Gold trail over the trailing feature window, marked at its start.
             inWin = posLog.times >= (t - winLen) & posLog.times <= t;
             if nnz(inWin) > 1
                 tr = squeeze(posLog.xyz(posLog.nodeIDs == ueID, :, inWin));
@@ -605,11 +556,8 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
                     gIdx = find([gNBs.ID] == servGNB, 1);
                     if ~isempty(gIdx)
                         gPos = frame(posLog.nodeIDs == servGNB, :);
-                        % Colour the serving line by the LOS state at this
-                        % instant, from the same linkState the channel model
+                        % Coloured from the same linkState the channel model
                         % calls, so it cannot disagree with the pathloss.
-                        % An archived run with no field falls back to the
-                        % frozen state and the annotation says so.
                         lineSpec = {'b-'};
                         st = [];
                         if hasExtras && isfield(extras,'linkInfo') ...
@@ -625,10 +573,6 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
                         end
                         plot3(ax,[uPos(1) gPos(1)],[uPos(2) gPos(2)], ...
                             [uPos(3) gPos(3)],lineSpec{1},'LineWidth',1.5);
-                        % Annotate the midpoint with the live LOS state and
-                        % its probability, the geometric ZoD and the Step 5
-                        % ZOD offset at the current
-                        % positions.
                         note = linkAnnotation(extras, gPos, uPos, st);
                         if ~isempty(note)
                             mid = (uPos + gPos)/2;
@@ -641,7 +585,6 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
                 end
             end
 
-            % One multi-line block per UE, with every logged statistic.
             lines{end+1,1} = sprintf('%s  [%s]', m.UE.Name, m.ueLabel);     %#ok<AGROW>
             lines{end+1,1} = sprintf('   serve gNB%g   SINR %5.1f dB   vis %g', ...
                 servGNB, servSINR, numVis);                                  %#ok<AGROW>
@@ -650,9 +593,8 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
             lines{end+1,1} = sprintf('   HO %g   t_sinceHO %.3f s', ...
                 hoCount, tSince);                                            %#ok<AGROW>
 
-            % Windowed features over the trailing winLen seconds, computed
-            % live from the same log the dataset uses and excluding settle
-            % scans, so it matches extractWindowedFeatures.
+            % Computed live from the same log the dataset uses, excluding
+            % settle scans, so it matches extractWindowedFeatures.
             if hasExtras && ~isempty(fl)
                 w0 = t - winLen;
                 inW = fl(:,COL_TIME) >= max(w0, settleT) & fl(:,COL_TIME) <= t;
@@ -677,7 +619,6 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
             lines{end+1,1} = '';                                             %#ok<AGROW>
         end
 
-        % Handover markers, shown once their time has passed.
         if ~isempty(hoEvents)
             past = hoEvents(hoEvents(:,1) <= t, :);
             if ~isempty(past)
@@ -702,12 +643,10 @@ function replayScenario(posLog, gNBs, UEs, managers, buildings, extras)
     end
 end
 
-% ----------------------------------------------------------------------------
 function c = fgColour(ax, fig)
 %fgColour Text and mast colour with contrast against the active theme.
 %   Reads the background luminance and returns near-white on dark and
-%   near-black on light, so labels stay
-%   readable in both light and dark mode.
+%   near-black on light.
     bg = ax.Color;
     if ~isnumeric(bg) || numel(bg) < 3
         bg = fig.Color;
@@ -722,7 +661,6 @@ function c = fgColour(ax, fig)
     end
 end
 
-% ----------------------------------------------------------------------------
 function drawBuildings(ax, buildings)
 %drawBuildings Draw each axis-aligned building as a translucent grey box.
 %   BUILDINGS is N-by-6, [xmin xmax ymin ymax zmin zmax] per row.
@@ -745,24 +683,17 @@ function drawBuildings(ax, buildings)
     end
 end
 
-% ----------------------------------------------------------------------------
 function note = linkAnnotation(extras, gPos, uPos, st)
 %linkAnnotation One-line channel summary for a serving link.
 %   Computed live at the current positions: LOS state and probability, the
 %   geometric ZoD, and the Step 5 ZOD offset, which is zero below the
-%   z-boundary and for UMi. Returns '' for replays with no extras, or when
-%   the helpers are not on
-%   the path.
+%   z-boundary and for UMi. Returns '' when there are no extras or the
+%   helpers are not on the path.
 %
-%   ST is the linkState struct for this link at this instant, or [] when
-%   no link info is available. The state is printed as LOS or NLOS and
-%   tagged "frozen" when it came from the setup-time draw rather than the
-%   spatially-consistent field, so an archived Phase 4 replay cannot be
-%   mistaken for a run whose state simply never happened to change.
-%
-%   The fast-fading objects were built from the INITIAL geometry and stay
-%   static for the run; these values show what the pathloss and state
-%   models give at the scrubbed instant.
+%   ST is the linkState struct for this link, or [] when no link info is
+%   available. The state is tagged "frozen" when it came from the setup-time
+%   draw rather than the spatially-consistent field, so an archived Phase 4
+%   replay cannot be mistaken for a state that never happened to change.
     note = '';
     if nargin < 4, st = []; end
     if ~isstruct(extras) || ~isfield(extras,'cfg') ...
@@ -800,7 +731,6 @@ function note = linkAnnotation(extras, gPos, uPos, st)
         band, state, pLOS, zodGeo, off);
 end
 
-% ----------------------------------------------------------------------------
 function v = safeCol(rowVec, idx)
 %safeCol Return rowVec(idx) or NaN if that column does not exist.
     if numel(rowVec) >= idx

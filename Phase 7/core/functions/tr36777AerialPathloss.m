@@ -7,9 +7,8 @@ function PL = tr36777AerialPathloss(scenario, isLOS, fcGHz, hUT, d3D)
 %   carrier frequency in GHz; HUT the UE height in m; D3D the 3D distance
 %   in m.
 %
-%   Covers the aerial band only, so below the floor the caller must use the
-%   terrestrial TR 38.901 model instead.
-%   Formulas from TR 36.777 Table B-2:
+%   Aerial band only; below the floor the caller must use the terrestrial
+%   TR 38.901 model. Formulas from TR 36.777 Table B-2:
 %
 %     RMa-AV LOS:   max(23.9 - 1.8*log10(hUT), 20)*log10(d3D)
 %                     + 20*log10(40*pi*fc/3)

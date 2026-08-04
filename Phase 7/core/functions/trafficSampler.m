@@ -1,15 +1,11 @@
 classdef trafficSampler < handle
 %trafficSampler Periodic per-UE traffic byte sampling.
 %
-%   Samples each UE's cumulative byte counters every samplePeriod seconds,
-%   which is what the windowed traffic features are computed from.
-%   End-of-run totals cannot serve here, since burstiness needs the
-%   within-window increments and constant and bursty sources look identical
-%   at run level.
+%   Samples each UE's cumulative byte counters every samplePeriod seconds.
+%   The windowed traffic features are computed from these; end-of-run totals
+%   cannot serve, as burstiness needs the within-window increments.
 %
-%   The features use the MAC counters, which are the bytes that cross the
-%   radio interface and so what an operator meters. App counters are logged
-%   for diagnostics only.
+%   The features use the MAC counters; App counters are diagnostic.
 %
 %   Wiring:
 %       sampler = trafficSampler(UEs, networkSimulator);
@@ -26,7 +22,7 @@ classdef trafficSampler < handle
     end
 
     properties (Access = private)
-        n                    % filled rows per UE (chunk preallocation)
+        n                    % filled rows per UE; the log grows in chunks
     end
 
     methods
@@ -64,7 +60,7 @@ end
 
 function v = getf(s, layer, fld)
 %getf Nested-field read returning NaN when a counter is absent, so a renamed
-% field shows up as a NaN column instead of killing a run mid-way.
+% field gives a NaN column instead of killing a run mid-way.
     if isfield(s, layer) && isfield(s.(layer), fld)
         v = double(s.(layer).(fld));
     else

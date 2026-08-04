@@ -1,23 +1,19 @@
 classdef phase7_Progress < handle
 %phase7_Progress Command-line batch progress reporter.
 %
-%   Runs execute on workers with no display, so the client collects progress
-%   and prints it. Nothing is drawn in a figure.
+%   The client collects progress from the workers and prints it. Nothing is
+%   drawn in a figure.
 %
 %   Workers send two kinds of message down a parallel.pool.DataQueue:
 %     struct('kind',"progress",'run',i,'frac',f,'wall',w)  periodic
 %     struct('kind',"done",'run',i,'status',s,'wall',w)    once per run
 %
-%   What gets printed:
-%     - an aggregate line whenever the overall percentage moves
-%     - one line per run as it finishes
-%     - a DONE block from finish()
+%   Printed: an aggregate line whenever the overall percentage moves, one
+%   line per run as it finishes, and a DONE block from finish().
 %
 %   Each run's rate is an exponentially weighted mean of simulated fraction
-%   per worker-second, so a run that slows down is followed rather than
-%   averaged over its whole history. Runs that have not started are
-%   estimated from the cost model and then queued onto workers longest
-%   first.
+%   per worker-second. Runs that have not started are estimated from the cost
+%   model and queued onto workers longest first.
 %
 %   Usage:
 %       prog = phase7_Progress(labels, cfg.progress, opts);
@@ -30,27 +26,27 @@ classdef phase7_Progress < handle
 %   Reads enable, updatesPerRun, rateAlpha and minPrint_s from cfg.progress.
 
     properties
-        nRuns                       % number of enumerated runs
+        nRuns
         labels          string      % 1 x nRuns, e.g. "UMa seed 7"
         frac            double      % 1 x nRuns, simulated-time fraction
         state           string      % pending | running | ok | failed | skipped
         skipped         logical     % excluded from the progress denominator
-        startTic                    % batch wall clock
+        startTic
         enabled         = true      % false: no aggregate lines
         minPrint        = 5         % s, minimum gap between aggregate lines
         lastPrintTic
-        lastTextPct     = -1        % last percentage printed
+        lastTextPct     = -1
         doneCount       = 0
 
-        % cost and ETA state, all 1 x nRuns
+        % Cost and ETA state, all 1 x nRuns.
         priorWall       double      % cost-model estimate per run, s
         selfWall        double      % last wall time reported by the worker
         lastFrac        double      % fraction at that wall time
         rate            double      % EWMA of fraction per worker-second
         ratio           double      % measured cost / prior cost, per run
         ratioW          double      % confidence weight for that ratio
-        rateAlpha       = 0.35      % EWMA weight on the newest sample
-        numWorkers      = 1         % pool size, for the batch estimate
+        rateAlpha       = 0.35
+        numWorkers      = 1
     end
 
     methods
@@ -103,8 +99,7 @@ classdef phase7_Progress < handle
             %update Handle one message from a worker.
             switch string(msg.kind)
                 case "progress"
-                    % max() guards against out-of-order delivery.
-                    i = msg.run;
+                    i = msg.run;   % max() guards out-of-order delivery
                     obj.frac(i)  = max(obj.frac(i), msg.frac);
                     obj.state(i) = "running";
                     obj.observe(i, msg);
@@ -116,8 +111,7 @@ classdef phase7_Progress < handle
                     obj.closeOut(msg);
                     obj.printRunLine(msg.run);
                 otherwise
-                    % Ignore unknown kinds, since the reporter must never be
-                    % able to take down a running batch.
+                    % Ignored: the reporter must never take down a batch.
             end
         end
 
@@ -173,8 +167,8 @@ classdef phase7_Progress < handle
             obj.selfWall(i) = w;
             obj.lastFrac(i) = f;
 
-            % Weight the recalibration by fraction completed, so an early
-            % guess counts for little.
+            % Weighted by fraction completed, so an early guess counts for
+            % little.
             if obj.rate(i) > 0 && isfinite(obj.priorWall(i)) && obj.priorWall(i) > 0
                 obj.ratio(i)  = (1/obj.rate(i)) / obj.priorWall(i);
                 obj.ratioW(i) = max(f, 0);
@@ -275,12 +269,12 @@ classdef phase7_Progress < handle
             free(1:nOcc) = rem(1:nOcc);
             spill = 0;
             if numel(rem) > nW
-                % Cannot happen under parfor, but handle it so a bookkeeping
-                % slip cannot produce a short ETA.
+                % Cannot happen under parfor, but a bookkeeping slip must not
+                % produce a short ETA.
                 spill = sum(rem(nW+1:end)) / nW;
             end
 
-            % Pending work, longest first onto the earliest free worker.
+            % Longest first onto the earliest free worker.
             q = arrayfun(@(i) obj.expectedWall(i), pending);
             q = q(isfinite(q) & q > 0);
             q = sort(q, 'descend');
@@ -300,7 +294,7 @@ classdef phase7_Progress < handle
             elapsed = toc(obj.startTic);
             overall = mean(obj.frac(active));
             if overall <= 0
-                e = NaN;                        % nothing to estimate from yet
+                e = NaN;   % nothing to estimate from yet
             else
                 e = elapsed/overall - elapsed;
             end
@@ -314,7 +308,6 @@ classdef phase7_Progress < handle
             else
                 overall = 1;
             end
-            % Show the calibration factor once it has moved off 1.
             sc = obj.calScale();
             if abs(sc - 1) > 0.05 && any(isfinite(obj.priorWall))
                 cal = sprintf('  |  cost x%.2f vs model', sc);
@@ -331,8 +324,8 @@ classdef phase7_Progress < handle
             %print Aggregate line, throttled by percentage and by time.
             %   Progress is the mean simulated-time fraction over the runs
             %   being executed rather than a count of finished ones, so a
-            %   batch of long runs does not sit at zero for hours.
-            %   Skipped runs stay out of the denominator.
+            %   batch of long runs does not sit at zero for hours. Skipped
+            %   runs stay out of the denominator.
             if ~obj.enabled
                 return;
             end

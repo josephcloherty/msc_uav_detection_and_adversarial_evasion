@@ -5,9 +5,8 @@ function summary = phase7_Pipeline(cfg)
 %   small plain-data summary, where CFG comes from phase7_ScenarioGen.
 %
 %   The radio behaviour, measurement chain, feature extraction and CSV writer
-%   are unchanged from Phase 4, so a row is comparable column for column.
-%   What differs is what a batch runner needs:
-%     - headless, since the run executes on a worker with no display
+%   are unchanged from Phase 4. Differences from the Phase 4 script:
+%     - headless; the run executes on a worker with no display
 %     - per-UE traffic from CFG.trafficPerUE rather than one spec per class
 %     - radio parameters read from CFG.radio instead of hard-coded
 %     - optional SRS periodicity override for more than 16 UEs per gNB
@@ -21,10 +20,8 @@ function summary = phase7_Pipeline(cfg)
 
     quiet = isfield(cfg, 'quiet') && cfg.quiet;
 
-    %% initialise networkSim
     networkSimulator = wirelessNetworkSimulator.init;
 
-    %% create gNBs
     r = cfg.radio;
     numgNB = size(cfg.gNBPositions, 1);
     gNBNames = "gNB-" + (1:numgNB);
@@ -34,14 +31,13 @@ function summary = phase7_Pipeline(cfg)
         NumReceiveAntennas=r.gnbRxAntennas, ReceiveGain=r.gnbReceiveGain, ...
         DuplexMode=char(r.duplexMode));
 
-    %% per-gNB CQI/MCS-logging schedulers (before ANY connectUE)
+    % Must be configured before any connectUE.
     scheds = cell(1, numgNB);
     for g = 1:numgNB
         scheds{g} = cqiLoggingScheduler;
         configureScheduler(gNBs(g), Scheduler=scheds{g});
     end
 
-    %% create UEs
     numsUE = size(cfg.uePositions, 1);
     UENames = "UE-" + (1:numsUE);
     UEs = nrUE(Name=UENames, Position=cfg.uePositions, ...
@@ -54,9 +50,9 @@ function summary = phase7_Pipeline(cfg)
         'phase7_Pipeline:trafficMismatch', ...
         'cfg.trafficPerUE must have one entry per UE.');
 
-    %% dedicated SRS links to every non-serving gNB
-    % The override branch runs the same loop with an explicit nrSRSConfig,
-    % and must be recorded in the deviations log when used.
+    % Dedicated SRS links to every non-serving gNB. The override branch runs
+    % the same loop with an explicit nrSRSConfig and must be recorded in the
+    % deviations log when used.
     srsOverride = [];
     if isfield(cfg, 'srs') && ~isempty(cfg.srs.periodicitySlots)
         srsOverride = nrSRSConfig(SRSPeriod=[cfg.srs.periodicitySlots 0]);
@@ -69,7 +65,7 @@ function summary = phase7_Pipeline(cfg)
         end
     end
 
-    %% connect UEs to nearest gNB (= the anchor cell for the whole run)
+    % Nearest gNB is the anchor cell for the whole run.
     rlcBearerConfig = nrRLCBearerConfig(SNFieldLength=6, BucketSizeDuration=10);
     anchorIdx = zeros(1, numsUE);
     for u = 1:numsUE
@@ -84,24 +80,21 @@ function summary = phase7_Pipeline(cfg)
         anchorIdx(u) = gIdx;
     end
 
-    %% RNTI resolution and pre-run check
     % The SRS offset cannot be checked until events exist, so that part
     % happens in flight below.
     printMap = ~isfield(cfg, 'printRNTIMap') || cfg.printRNTIMap;
     rntiMap = phase7_ResolveRNTI(cfg, gNBs, UEs, anchorIdx, printMap);
     schedRNTI = rntiMap.sched;
 
-    %% add nodes
     addNodes(networkSimulator, gNBs);
     addNodes(networkSimulator, UEs);
 
-    %% channel: TR 38.901 terrestrial + TR 36.777 aerial overlay
+    % TR 38.901 terrestrial with the TR 36.777 aerial overlay.
     [channels, linkInfo] = createScenarioChannels(cfg, gNBs, UEs);
     channelModel = tr36777ChannelModel(channels, cfg, linkInfo, [UEs.ID]);
     addChannelModel(networkSimulator, ...
         @(rxInfo, txData) channelModel.applyChannelModel(rxInfo, txData));
 
-    %% UE mobility
     if cfg.enableMobility
         for u = 1:numsUE
             if cfg.ueIsAerial(u)
@@ -114,7 +107,6 @@ function summary = phase7_Pipeline(cfg)
         end
     end
 
-    %% per-UE traffic sources (frozen specifications from the generator)
     ulApps = cell(1, numsUE);
     dlApps = cell(1, numsUE);
     for u = 1:numsUE
@@ -124,7 +116,6 @@ function summary = phase7_Pipeline(cfg)
         addTrafficSource(gNBs(anchorIdx(u)), dlApps{u}, DestinationNode=UEs(u));
     end
 
-    %% handover managers (SRS-driven per-gNB SINR, feature logging)
     managers = cell(numsUE, 1);
     for u = 1:numsUE
         if cfg.ueIsAerial(u), lbl = 'aerial'; else, lbl = 'terrestrial'; end
@@ -135,8 +126,8 @@ function summary = phase7_Pipeline(cfg)
         applyHandoverConfig(managers{u}, cfg);
     end
 
-    %% in-flight SRS RNTI check, one shot inside the settle window
-    % A wrong offset otherwise fails silently and wastes the whole run.
+    % One shot inside the settle window; a wrong offset otherwise fails
+    % silently and wastes the whole run.
     if ~isfield(cfg, 'verifyRNTI') || cfg.verifyRNTI
         vOpts = struct('checkTime', cfg.settleTime, ...
             'autoCorrect', isfield(cfg, 'autoCorrectRNTI') && cfg.autoCorrectRNTI, ...
@@ -146,17 +137,13 @@ function summary = phase7_Pipeline(cfg)
             managers, vOpts); %#ok<NASGU>
     end
 
-    %% traffic sampler (0.1 s cumulative byte counters per UE)
     sampler = trafficSampler(UEs, networkSimulator);
     scheduleAction(networkSimulator, @sampler.sample, [], ...
         sampler.samplePeriod, sampler.samplePeriod);
 
-    %% position recorder for post-run replay
     rec = positionRecorder([num2cell(gNBs), num2cell(UEs)], networkSimulator);
     scheduleAction(networkSimulator, @rec.record, [], 1/rec.Rate, 1/rec.Rate);
 
-    %% progress reporting to the batch client
-    % Send this run's simulated-time fraction to the client, which prints it.
     % With no queue, as when a single run is driven directly, nothing is
     % scheduled.
     if isfield(cfg, 'progressQueue') && ~isempty(cfg.progressQueue)
@@ -170,8 +157,6 @@ function summary = phase7_Pipeline(cfg)
         period   = totalSim / nUpdates;
         % Ping 0% straight away so the run shows as started within seconds
         % rather than after the first simulated period elapses.
-        % Each report carries the worker's own wall time, which is the only
-        % honest basis for a per-run ETA.
         send(pq, struct('kind', "progress", 'run', thisRun, 'frac', 0, ...
             'wall', toc(wallStart)));
         scheduleAction(networkSimulator, ...
@@ -182,11 +167,9 @@ function summary = phase7_Pipeline(cfg)
             [], period, period);
     end
 
-    %% run
-    % One run() call for the whole simulation, with the CSV written once
-    % afterwards from the completed logs.
-    % If you ever add checkpointing, do it with a periodic scheduleAction:
-    % run() takes a duration and cannot be called twice before R2026a.
+    % One run() call for the whole simulation. Checkpointing would have to go
+    % through a periodic scheduleAction: run() takes a duration and cannot be
+    % called twice before R2026a.
     if ~quiet
         fprintf('[%s seed %d] running %.2f s, %d gNB, %d UE (%d aerial)\n', ...
             cfg.scenario, cfg.seed, cfg.simulationTime, numgNB, numsUE, ...
@@ -198,22 +181,18 @@ function summary = phase7_Pipeline(cfg)
         numgNB, numsUE, anchorIdx, schedRNTI);
     simWall = toc(wallStart);
 
-    %% handover summary (kept as plain numbers for the manifest)
     S = cellfun(@(m) m.getHandoverStats(), managers);
     hoCount = [S.count];
     ppCount = [S.pingPongCount];
 
-    %% LOS diagnostics, for analysis only and never a feature column
-    % Zero transitions across every UE while pLOS swept a wide range means
-    % the state is frozen.
+    % Analysis only, never a feature column.
     posLog  = rec.toStruct();
     losDiag = losDiagnostics(posLog, managers, cfg, linkInfo);
 
-    %% replay bundle
     replayPath = "";
     if isfield(cfg, 'replay') && cfg.replay.save
-        % Strip runtime-only fields, since the progress queue is a live
-        % parallel object with no meaning in an archived replay.
+        % The progress queue is a live parallel object with no meaning in an
+        % archived replay.
         cfgSave = cfg;
         for f = {'progressQueue', 'runIdx'}
             if isfield(cfgSave, f{1}), cfgSave = rmfield(cfgSave, f{1}); end
@@ -224,7 +203,6 @@ function summary = phase7_Pipeline(cfg)
             managers, extras);
     end
 
-    %% plain-data summary (nothing large crosses back from a worker)
     summary = struct();
     summary.scenario      = string(cfg.scenario);
     summary.seed          = cfg.seed;
@@ -240,11 +218,11 @@ function summary = phase7_Pipeline(cfg)
     summary.hoCountAerial = sum(hoCount(cfg.ueIsAerial));
     summary.pingPongTotal = sum(ppCount);
     summary.matlabRelease = string(version('-release'));
-    summary.simReached_s  = cfg.simulationTime;   % run() returned: full length
+    summary.simReached_s  = cfg.simulationTime;   % run() returned, so full
     summary.truncated     = false;
 
-    % A batch whose losTransitions is zero everywhere has a frozen channel
-    % state and should not be trusted for anything LOS-sensitive.
+    % losTransitions zero everywhere means a frozen channel state, which is
+    % not trustworthy for anything LOS-sensitive.
     if isempty(losDiag)
         summary.losFractionMean = NaN;
         summary.losTransitions  = NaN;
@@ -261,7 +239,6 @@ function summary = phase7_Pipeline(cfg)
     end
 end
 
-%% ------------------------------------------------------------------------
 function [T, csvPath] = extractAndWrite(managers, cfg, scheds, sampler, ...
         numgNB, numsUE, anchorIdx, schedRNTI)
 %extractAndWrite Extract windowed features from the logs and write the CSV.
@@ -278,7 +255,6 @@ function [T, csvPath] = extractAndWrite(managers, cfg, scheds, sampler, ...
     csvPath = writeFeatureCSV(T, cfg);
 end
 
-%% ------------------------------------------------------------------------
 function app = makeOnOff(spec)
 %makeOnOff One networkTrafficOnOff from a frozen traffic specification.
 %   Fixed On/Off scalars keep the source deterministic at run time.
@@ -287,7 +263,6 @@ function app = makeOnOff(spec)
         DataRate=spec.dataRate_kbps, PacketSize=spec.packetSize_B);
 end
 
-%% ------------------------------------------------------------------------
 function applyHandoverConfig(mgr, cfg)
 %applyHandoverConfig Push the configured mobility-chain values onto one manager.
 %   Every field must name a real handoverManager property, so a typo is
@@ -312,7 +287,6 @@ function applyHandoverConfig(mgr, cfg)
     end
 end
 
-%% ------------------------------------------------------------------------
 function connectSRSLinks(UE, gNBs, srsCfg)
 %connectSRSLinks configureULforSRS with an explicit SRS configuration.
 %   Same contract as configureULforSRS, with the periodicity override

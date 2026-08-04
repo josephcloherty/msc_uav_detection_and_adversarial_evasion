@@ -3,14 +3,11 @@ function varargout = phase7_CostModel(action, cfg, varargin)
 %
 %   A run costs roughly
 %       wall_s = k * simulatedSeconds * numGNB * numUE
-%   because per-packet channel filtering and SRS reception at every gNB both
-%   scale with that product.
 %
-%   The constant in phase7_Config is only a prior, so this helper keeps the
-%   measurements from finished runs on disk and estimates from those.
-%
-%   k is measured under contention, so every measurement records its pool
-%   size and 'effective' prefers ones taken at the size being asked about.
+%   The constant in phase7_Config is a prior; measurements from finished runs
+%   are kept on disk and preferred. k is measured under contention, so every
+%   measurement records its pool size and 'effective' prefers ones taken at
+%   the size being asked about.
 %
 %   Actions:
 %     phase7_CostModel('record', cfg, manifest, numWorkers)
@@ -23,8 +20,8 @@ function varargout = phase7_CostModel(action, cfg, varargin)
 %     T = phase7_CostModel('table', cfg)
 %         The measurement table, empty if none.
 %
-%   The store is data/costmodel_measured.csv, plain text so you can correct
-%   it by hand, and every action falls back to the prior when it is missing.
+%   The store is data/costmodel_measured.csv, plain text and safe to edit by
+%   hand. Every action falls back to the prior when it is missing.
 
     switch string(action)
         case "record"
@@ -41,7 +38,6 @@ function varargout = phase7_CostModel(action, cfg, varargin)
     end
 end
 
-%% ------------------------------------------------------------------------
 function p = storePath(cfg)
     if isfield(cfg, 'batch') && isfield(cfg.batch, 'dataDir') && ...
             strlength(string(cfg.batch.dataDir)) > 0
@@ -52,7 +48,6 @@ function p = storePath(cfg)
     p = fullfile(d, 'costmodel_measured.csv');
 end
 
-%% ------------------------------------------------------------------------
 function k = priorK(cfg)
     k = 14.9;
     if isfield(cfg, 'batch') && isfield(cfg.batch, 'costModel') && ...
@@ -61,7 +56,6 @@ function k = priorK(cfg)
     end
 end
 
-%% ------------------------------------------------------------------------
 function T = readTable(cfg)
 %readTable Measurements on disk, or an empty table with the right columns.
     T = emptyTable();
@@ -70,13 +64,13 @@ function T = readTable(cfg)
     try
         R = readtable(p, 'TextType', 'string');
     catch
-        return;   % unreadable store is treated as no store
+        return;   % an unreadable store is treated as no store
     end
     need = ["scenario" "seed" "simTime_s" "numGNB" "numUE" "numWorkers" ...
             "wallTime_s" "k"];
     if ~all(ismember(need, string(R.Properties.VariableNames))), return; end
-    % readtable types these columns differently depending on release and
-    % content, which breaks the vertcat that appends a new row.
+    % readtable types these differently by release and content, which breaks
+    % the vertcat that appends a new row.
     if ~isstring(R.scenario), R.scenario = string(R.scenario); end
     if ismember('recordedOn', R.Properties.VariableNames)
         R.recordedOn = string(R.recordedOn);
@@ -93,7 +87,6 @@ function T = emptyTable()
         'numUE', 'numWorkers', 'wallTime_s', 'k', 'recordedOn'});
 end
 
-%% ------------------------------------------------------------------------
 function T = recordRuns(cfg, manifest, numWorkers)
 %recordRuns Append the completed runs of a manifest to the store.
     if nargin < 3 || isempty(numWorkers), numWorkers = NaN; end
@@ -101,8 +94,7 @@ function T = recordRuns(cfg, manifest, numWorkers)
 
     keep = (manifest.status == "ok" | manifest.status == "salvaged") & ...
         isfinite(manifest.wallTime_s) & manifest.wallTime_s > 0;
-    % Divide a truncated run's cost by the simulated time it actually
-    % reached, not the nominal length.
+    % A truncated run's cost is divided by the time it actually reached.
     idx = find(keep)';
     stamp = string(datetime('now', 'Format', 'yyyy-MM-dd HH:mm:ss'));
     for i = idx
@@ -135,7 +127,6 @@ function T = recordRuns(cfg, manifest, numWorkers)
     end
 end
 
-%% ------------------------------------------------------------------------
 function e = effectiveK(cfg, numWorkers)
 %effectiveK The constant to estimate with, and where it came from.
     if nargin < 2, numWorkers = NaN; end
@@ -153,22 +144,21 @@ function e = effectiveK(cfg, numWorkers)
     if any(sel)
         e.source = "measured";
     else
-        sel = true(height(T), 1);       % any pool size is better than a guess
+        sel = true(height(T), 1);   % any pool size beats a guess
         e.source = "measured-other-poolsize";
     end
     ks = T.k(sel);
     ks = ks(isfinite(ks) & ks > 0);
     if isempty(ks), e.source = "prior"; return; end
 
-    % Median, not mean, so one run that hit a thermal limit does not drag
-    % every later estimate with it.
+    % Median, not mean, so one thermally throttled run does not drag every
+    % later estimate with it.
     e.k = median(ks);
     e.n = numel(ks);
     e.spread = [min(ks) max(ks)];
     e.scaleVsPrior = e.k / kP;
 end
 
-%% ------------------------------------------------------------------------
 function w = predictWall(cfg, numGNB, numUE, numWorkers)
 %predictWall Expected wall seconds per run under the effective constant.
     if nargin < 4, numWorkers = NaN; end

@@ -4,12 +4,8 @@ function schema = phase3FeatureSchema()
 %   SCHEMA = phase3FeatureSchema() returns the ordered column names for the
 %   labelled feature CSV.
 %
-%   This list is final for every later phase, and changing it invalidates
-%   every CSV already generated, so it is the single source of truth that
-%   extractWindowedFeatures and writeFeatureCSV both assert against.
-%
-%   The scenario column is in the schema so all three forks emit identical
-%   column sets and their CSVs concatenate without rework.
+%   extractWindowedFeatures and writeFeatureCSV both assert against this
+%   list. Changing it invalidates every CSV already generated.
 
     schema = { ...
         'scenario', ...              % UMa | RMa | UMi

@@ -9,19 +9,16 @@ function outPath = saveReplayFile(cfg, posLog, gNBs, UEs, managers, extras)
 %       phase7_ReplayRun("UMa", 7)
 %
 %   Workers have no display, so the bundle is written directly rather than
-%   through the viewer.
-%
-%   POSLOG is stored un-culled and replayScenario re-culls on load, which
-%   keeps the file independent of the settle settings used at generation.
+%   through the viewer. POSLOG is stored un-culled and replayScenario
+%   re-culls on load.
 %
 %   CFG.replay fields used:
-%     .format        save format, "-v7.3" by default because these bundles
-%                    run past the 2 GB v7 limit
-%     .includeNodes  false drops the node objects, and with them the node
-%                    markers, but keeps the logs the statistics panel needs
+%     .format        save format, "-v7.3" by default; these bundles run past
+%                    the 2 GB v7 limit
+%     .includeNodes  false drops the node objects and their markers but
+%                    keeps the logs the statistics panel needs
 %
-%   buildings is written empty because these scenarios carry no explicit
-%   building geometry.
+%   buildings is written empty; these scenarios carry no building geometry.
 
     if isfield(cfg, 'outputDir') && ~isempty(cfg.outputDir) && ...
             strlength(string(cfg.outputDir)) > 0

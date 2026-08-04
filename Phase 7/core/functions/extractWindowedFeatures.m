@@ -7,10 +7,8 @@ function T = extractWindowedFeatures(managers, cfg, sched, trafficLogs)
 %
 %   Every feature comes from network-side observables only, never from UE
 %   position, velocity, altitude, identity or the simulator's LOS state.
-%
-%   The windowing rules, settle gating and column definitions are unchanged
-%   from Phase 4, so a CSV truncated to those columns still matches byte for
-%   byte; see phase5FeatureSchema for the full list.
+%   Windowing rules, settle gating and column definitions are unchanged from
+%   Phase 4; phase5FeatureSchema holds the full column list.
 %
 %   SCHED wires the scheduler logs to UEs:
 %     sched.ctx       one ctxLog matrix per gNB, from
@@ -25,23 +23,14 @@ function T = extractWindowedFeatures(managers, cfg, sched, trafficLogs)
 %                     SRS events
 %
 %   Getting sched.rnti wrong empties the whole CQI and MCS block at five and
-%   seven gNBs, because the two conventions only coincide on small layouts.
+%   seven gNBs; the two conventions only coincide on small layouts.
 %
 %   TRAFFICLOGS holds one matrix per UE of cumulative byte counters at 0.1 s
-%   spacing, differenced at the window edges here.
+%   spacing, differenced at the window edges here. The cell-geometry block
+%   also reads MANAGERS{k}.sinrLog.
 %
-%   The cell-geometry block also reads MANAGERS{k}.sinrLog, which is what
-%   supports the "how many cells does this UE hear at comparable strength"
-%   features.
-%
-%   Windows are anchored at the first retained scan, so nothing from the
-%   settle span lands inside one.
-%
-%   A NaN means no observation of that kind in that window, never zero; a
-%   genuine zero count or rate is written as 0.
-%
-%   Every feature is a deterministic function of the logs, so the fixed-seed
-%   regeneration contract carries over.
+%   Windows are anchored at the first retained scan. A NaN means no
+%   observation of that kind in that window; a genuine zero is written as 0.
 
     if ~isfield(cfg, 'windowLen'),    cfg.windowLen = 10;   end
     if ~isfield(cfg, 'windowStride'), cfg.windowStride = 1; end
@@ -60,7 +49,6 @@ function T = extractWindowedFeatures(managers, cfg, sched, trafficLogs)
             continue;
         end
 
-        % Bind column indices to the names declared upstream.
         names = m.featureNames;
         cTime   = strcmp(names, 'time');
         cServ   = strcmp(names, 'servingSINR');
@@ -75,7 +63,6 @@ function T = extractWindowedFeatures(managers, cfg, sched, trafficLogs)
             'extractWindowedFeatures:schemaMismatch', ...
             'handoverManager.featureNames does not contain the expected columns.');
 
-        % Discard the warm-up period.
         keepRows = fl(:, cTime) >= cfg.settleTime;
         fl = fl(keepRows, :);
         if isempty(fl)
@@ -90,20 +77,19 @@ function T = extractWindowedFeatures(managers, cfg, sched, trafficLogs)
         hoTimes = m.handoverTimes(:);
         hoTimes = hoTimes(hoTimes >= cfg.settleTime);
 
-        % Filter the SINR snapshots on their own clock, so this does not
-        % quietly depend on the two logs being appended in lockstep.
+        % Filtered on their own clock, so this does not depend on the two
+        % logs being appended in lockstep.
         sl = m.sinrLog;
         if ~isempty(sl)
             sl = sl(sl(:,1) >= cfg.settleTime, :);
         end
         gnbIDs = [m.gNBs.ID];
 
-        % Compute the cell-crowding series once per UE and average it inside
-        % each window, since doing it per window is quadratic in run length.
+        % Once per UE then averaged per window; per-window would be
+        % quadratic in run length.
         [crowd3, crowd6, crowdTop3] = ...
             crowdingSeries_(sl, gnbIDs, t, fl(:, cSrvID));
 
-        % Per-UE scheduler and traffic sources
         ctx    = sched.ctx{sched.anchorIdx(k)};
         grants = sched.grants{sched.anchorIdx(k)};
         rnti = sched.rnti(k);
@@ -111,7 +97,7 @@ function T = extractWindowedFeatures(managers, cfg, sched, trafficLogs)
         grants = grants(grants(:, 2) == rnti, :);
         traf = trafficLogs{k};                     % [t appTx appRx macTx macRx]
 
-        % Window start times, a deterministic grid anchored at the first scan.
+        % Deterministic grid anchored at the first scan.
         tFirst = t(1); tLast = t(end);
         span = tLast - tFirst;
         if span < cfg.windowLen
@@ -146,7 +132,7 @@ function T = extractWindowedFeatures(managers, cfg, sched, trafficLogs)
                 meanInterHO = NaN;
             end
 
-            % CQI and MCS, from the anchor gNB's scheduler logs.
+            % CQI and MCS from the anchor gNB's scheduler logs.
             cin = ctx(ctx(:,1) >= s0 & ctx(:,1) <= s1, :);
             cqi = cin(~isnan(colOr_(cin, 3)), [1 3]);   % [t cqi]
             if isempty(cqi)
@@ -169,7 +155,6 @@ function T = extractWindowedFeatures(managers, cfg, sched, trafficLogs)
             [mcsDLmean, mcsDLvar] = moments_(mdl);
             [mcsULmean, mcsULvar] = moments_(mul);
 
-            % Traffic, from the MAC counters by step interpolation.
             [ulVol, dlVol, burstCV, idleFrac, ulTrend, dlTrend] = ...
                 trafficWindow_(traf, s0, s1);
             tot = ulVol + dlVol;
@@ -181,7 +166,6 @@ function T = extractWindowedFeatures(managers, cfg, sched, trafficLogs)
             thr = tot * 8 / winLen;
 
 
-            % Rank and CSI structure.
             [riMean, riVar] = moments_(dropNaN_(colOr_(cin, 4)));
             riAll = dropNaN_(colOr_(cin, 4));
             if isempty(riAll)
@@ -192,7 +176,6 @@ function T = extractWindowedFeatures(managers, cfg, sched, trafficLogs)
             sbSpread = meanOrNaN_(dropNaN_(colOr_(cin, 6)));
             [ulMcsCtxMean, ulMcsCtxVar] = moments_(dropNaN_(colOr_(cin, 5)));
 
-            % Resource consumption.
             prbDLv = dropNaN_(subset_(colOr_(gin, 5), isDL));
             prbULv = dropNaN_(subset_(colOr_(gin, 5), isUL));
             prbDLmean = meanOrNaN_(prbDLv);
@@ -209,7 +192,7 @@ function T = extractWindowedFeatures(managers, cfg, sched, trafficLogs)
                 specEff = NaN;
             end
 
-            % Reliability, where the retransmission fraction is residual BLER.
+            % The retransmission fraction is residual BLER.
             retxDLv = dropNaN_(subset_(colOr_(gin, 6), isDL));
             retxULv = dropNaN_(subset_(colOr_(gin, 6), isUL));
             retxRateDL = meanOrNaN_(retxDLv);
@@ -217,7 +200,6 @@ function T = extractWindowedFeatures(managers, cfg, sched, trafficLogs)
             retxAll    = dropNaN_(colOr_(gin, 6));
             retxRate   = meanOrNaN_(retxAll);
 
-            % Timing advance.
             taRows = cin(~isnan(colOr_(cin, 7)), :);
             if isempty(taRows)
                 taMean = NaN; taVar = NaN; taTrend = NaN; taRange = NaN;
@@ -229,7 +211,6 @@ function T = extractWindowedFeatures(managers, cfg, sched, trafficLogs)
                 taRange = max(taV) - min(taV);
             end
 
-            % Serving SINR dynamics.
             servTrend = slope_(tw - s0, serv);
             servRange = rangeOrNaN_(serv);
             servIQR   = iqr_(serv);
@@ -238,7 +219,6 @@ function T = extractWindowedFeatures(managers, cfg, sched, trafficLogs)
             servAC1   = autocorr1_(serv);
             servFade  = fadeRate_(tw, serv);
 
-            % Cell geometry.
             margin = serv - maxN;
             marginMean = meanOrNaN_(dropNaN_(margin));
             marginMin  = minOrNaN_(margin);
@@ -252,7 +232,6 @@ function T = extractWindowedFeatures(managers, cfg, sched, trafficLogs)
             w6   = meanOrNaN_(dropNaN_(crowd6(in)));
             top3 = meanOrNaN_(dropNaN_(crowdTop3(in)));
 
-            % Serving-cell history.
             srvValid = srvID(~isnan(srvID));
             if isempty(srvValid)
                 distinctCells = NaN; cellEntropy = NaN; pingPong = NaN;
@@ -268,7 +247,6 @@ function T = extractWindowedFeatures(managers, cfg, sched, trafficLogs)
             tSinceMean = meanOrNaN_(dropNaN_(tSince));
             tSinceMin  = minOrNaN_(tSince);
 
-            % Traffic extensions.
             ulThr = ulVol * 8 / winLen;
             dlThr = dlVol * 8 / winLen;
 
@@ -317,14 +295,11 @@ function T = extractWindowedFeatures(managers, cfg, sched, trafficLogs)
         return;
     end
 
-    % Deterministic row order, sorted by ueID then window start.
-    rows = sortrows(rows, [2 4]);
+    rows = sortrows(rows, [2 4]);   % deterministic: ueID then window start
 
     T = [table(repmat(scen, size(rows,1), 1), 'VariableNames', schema(1)), ...
          array2table(rows, 'VariableNames', schema(2:end))];
 end
-
-%% local functions
 
 function [mu, va] = moments_(x)
     if isempty(x)
@@ -410,8 +385,8 @@ end
 function r = autocorr1_(y)
 %autocorr1_ Lag-1 autocorrelation of a scan series.
 %   A LOS-dominated link fades slowly and a scattered one decorrelates
-%   faster, which is why this stands in for the unobservable LOS flag.
-%   NaN for fewer than three samples or a constant series.
+%   faster, so this stands in for the unobservable LOS flag. NaN for fewer
+%   than three samples or a constant series.
     y = dropNaN_(y);
     n = numel(y);
     if n < 3, r = NaN; return; end
@@ -436,9 +411,8 @@ end
 function n = pingPongCount_(srvSeq)
 %pingPongCount_ A -> B -> A serving-cell reversals inside the window.
 %   Collapses the sequence to its transitions first, so a cell held for many
-%   scans counts once, then counts triples whose ends match.
-%   The run-level statistic in handoverManager uses a minimum-time-of-stay
-%   rule instead.
+%   scans counts once. The run-level statistic in handoverManager uses a
+%   minimum-time-of-stay rule instead.
     ch = srvSeq([true; diff(srvSeq(:)) ~= 0]);
     if numel(ch) < 3, n = 0; return; end
     n = sum(ch(1:end-2) == ch(3:end));
@@ -451,13 +425,8 @@ function [n3, n6, sp] = crowdingSeries_(sl, gnbIDs, t, srvID)
 %     SP      SINR spread across the three strongest neighbours
 %
 %   An elevated UE clears the clutter that isolates ground cells, so it hears
-%   many cells at once and at similar strength.
-%
-%   Each row is matched to the last snapshot at or before its time, which in
-%   practice is exact, and the lookup is vectorised so the mapping costs one
-%   pass rather than a search per row.
-%
-%   NaN where no snapshot is available.
+%   many cells at once and at similar strength. Each row is matched to the
+%   last snapshot at or before its time; NaN where none is available.
 
     n = numel(t);
     n3 = nan(n,1); n6 = nan(n,1); sp = nan(n,1);
@@ -507,15 +476,14 @@ function [ulVol, dlVol, burstCV, idleFrac, ulTrend, dlTrend] = ...
         trafficWindow_(traf, s0, s1)
 %trafficWindow_ Byte deltas, burstiness, duty cycle and drift.
 %   Step-interpolates the cumulative counters at the window edges, so the
-%   deltas are exact to one sample period and fully deterministic.
-%   Burstiness is the coefficient of variation of the per-interval UL+DL
-%   increments, near 0 for a steady stream and large for on/off traffic.
+%   deltas are exact to one sample period. Burstiness is the coefficient of
+%   variation of the per-interval UL+DL increments, near 0 for a steady
+%   stream and large for on/off traffic.
 %
 %     idleFrac  fraction of intervals with no bytes either way, which
-%               separates a continuous uplink video stream from bursty app
-%               traffic even when both have a similar CV
-%     ulTrend / dlTrend  slope of the per-interval byte rate against time,
-%               so a stream ramping up or tailing off is visible
+%               separates a steady uplink stream from bursty app traffic
+%               even when both have a similar CV
+%     ulTrend / dlTrend  slope of the per-interval byte rate against time
     ulVol = NaN; dlVol = NaN; burstCV = NaN;
     idleFrac = NaN; ulTrend = NaN; dlTrend = NaN;
     if isempty(traf), return; end

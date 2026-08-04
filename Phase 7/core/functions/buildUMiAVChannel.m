@@ -5,22 +5,18 @@ function channel = buildUMiAVChannel(link, cfg)
 %   aerial-band UMi-AV link. Per TR 36.777 Annex B.1.1 (final paragraph),
 %   UMi-AV Alternative 1 is not CDL-D based: "the fast fading model in
 %   Section 7.5 of [4] is reused with the angular spreads at the base station
-%   and UE interchanged" (the base station sits below the average rooftop
-%   while the aerial UE is well above it, hence "reverse UMa").
+%   and UE interchanged".
 %
 %   Single-link clause 7.5 cluster generation (steps 4-8) with UMi Street
-%   Canyon parameters, then the BS/UE angular-spread interchange: ASD<->ASA
-%   and ZSD<->ZSA on both the large-scale spreads and the ray spreads.
-%   Everything else is reused unchanged, which is the literal reading of the
-%   TR sentence.
+%   Canyon parameters, then the interchange: ASD<->ASA and ZSD<->ZSA on both
+%   the large-scale and ray spreads. Everything else is reused unchanged.
 %
 %   Simplifications, all in the deviations log:
-%     - large-scale parameters are drawn independently, since this is a
+%     - large-scale parameters are drawn independently, as this is a
 %       single-link model rather than a system-level drop
 %     - nrCDLChannel takes one scalar XPR, so step 9's per-ray lognormal is
 %       replaced by mu_XPR
-%     - LOS state and geometry are fixed at setup, as elsewhere in the
-%       pipeline
+%     - LOS state and geometry are fixed at setup
 %
 %   All randomness comes from a Threefry stream seeded with LINK.seed.
 %
@@ -64,7 +60,7 @@ function channel = buildUMiAVChannel(link, cfg)
     end
     sdZSD = 0.35;
 
-    % Step 4, draw the large-scale parameters as independent lognormals.
+    % Step 4: independent lognormals.
     DS  = 10^(muDS  + sdDS  * randn(rs));            % seconds
     ASD = min(10^(muASD + sdASD * randn(rs)), 104);  % clause 7.5 caps
     ASA = min(10^(muASA + sdASA * randn(rs)), 104);
@@ -79,7 +75,7 @@ function channel = buildUMiAVChannel(link, cfg)
     % TR 36.777 interchange of the BS-side and UE-side angular spreads.
     [ASD, ASA] = deal(ASA, ASD);
     [ZSD, ZSA] = deal(ZSA, ZSD);
-    % The ray spreads follow their large-scale counterparts, so the standard
+    % Ray spreads follow their large-scale counterparts, so the standard
     % cZSD = (3/8)*10^muZSD now belongs to the arrival side.
     cZSD_used = cZSA;                    % was the UE-side value
     cZSA_used = (3/8) * 10^muZSD;        % was the BS-side value
@@ -108,15 +104,13 @@ function channel = buildUMiAVChannel(link, cfg)
         P1LOS = 0;
     end
 
-    % Remove clusters more than 25 dB below the strongest.
     keep = 10*log10(P) >= (10*log10(max(P)) - 25);
     keep(1) = true;                        % never drop the first cluster
     tauFinal = tauFinal(keep);  Pn = Pn(keep);  P = P(keep);
     Nk = nnz(keep);
 
-    % Step 7, cluster angles.
-    % Scaling factors from Tables 7.5-2 and 7.5-4, with interpolation
-    % covering dropped clusters.
+    % Step 7: scaling factors from Tables 7.5-2 and 7.5-4, interpolated to
+    % cover dropped clusters.
     cphiTab = [4 0.779; 5 0.860; 6 0.921; 7 0.973; 8 1.018; 10 1.090; ...
                11 1.123; 12 1.146; 14 1.190; 15 1.211; 16 1.226; ...
                19 1.273; 20 1.289; 25 1.358];
@@ -129,8 +123,7 @@ function channel = buildUMiAVChannel(link, cfg)
         Cth  = Cth  * (1.3086 + 0.0339*K - 0.0077*K^2 + 0.0002*K^3);
     end
 
-    % Angle generation uses the eq 7.5-8 powers in LOS and eq 7.5-6 in
-    % NLOS.
+    % eq 7.5-8 powers in LOS, eq 7.5-6 in NLOS.
     Pang = Pn;
     if link.isLOS, Pang(1) = Pang(1) + P1LOS; end
 
@@ -142,7 +135,6 @@ function channel = buildUMiAVChannel(link, cfg)
     zoa = zenithAngles(rs, Pang, ZSA, Cth, losZoA, 0,        link.isLOS); % eq 7.5-14..-16
     zod = zenithAngles(rs, Pang, ZSD, Cth, losZoD, muOffZOD, link.isLOS); % eq 7.5-19
 
-    % Assemble the nrCDLChannel custom profile.
     if link.isLOS
         p1  = Pn(1) + P1LOS;
         k1  = 10*log10(P1LOS / Pn(1));
@@ -174,7 +166,6 @@ function channel = buildUMiAVChannel(link, cfg)
         link.linkDirection);
 end
 
-% ----------------------------------------------------------------------------
 function phi = azimuthAngles(rs, P, AS, Cphi, losAngle, isLOS)
 %azimuthAngles Clause 7.5 step 7 azimuth generation (eq 7.5-9 to 7.5-12).
     phiP = 2 * (AS/1.4) * sqrt(-log(P / max(P))) / Cphi;   % eq 7.5-9
@@ -199,16 +190,15 @@ function th = zenithAngles(rs, P, ZS, Cth, losAngle, muOff, isLOS)
     else
         th = Xn.*thP + Yn + losAngle + muOff;
     end
-    % Mirror into [0, 180], the clause 7.5 wrapping convention.
+    % Clause 7.5 wrapping convention.
     th = mod(th, 360);
     over = th > 180;
     th(over) = 360 - th(over);
 end
 
-% ----------------------------------------------------------------------------
 function w = wrapTo180(a)
 %wrapTo180 Wrap angles in degrees to (-180, 180].
-% Local copy so the Mapping Toolbox is not a dependency.
+%   Local copy so the Mapping Toolbox is not a dependency.
     w = mod(a + 180, 360) - 180;
     w(w == -180) = 180;
 end

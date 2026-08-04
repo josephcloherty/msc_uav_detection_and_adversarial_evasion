@@ -4,26 +4,9 @@ function manifest = phase7_RunBatch(cfg)
 %   manifest = phase7_RunBatch()      uses phase7_Config()
 %   manifest = phase7_RunBatch(CFG)   uses a modified configuration
 %
-%   This is the only script you need to run. Progress goes to the command
-%   window.
-%
-%   Run i uses seed cfg.batch.seedRange(i) and scenario
-%   cfg.batch.scenarioCycle(mod(i-1, nCycle)+1). Because a run is identified
-%   by (scenario, seed), you can split a seed range across machines.
-%
-%   Writes into cfg.batch.dataDir (default <Phase 7>/data):
-%     features_<scenario>_seed<seed>.csv   labelled feature rows
-%     replay_<scenario>_seed<seed>.mat     replay bundle, if enabled
-%     manifest_<tag>.csv                   one row per run
-%
-%   Run phase7_DryRun first to see the dataset shape without simulating.
-%   Merge the per-run CSVs afterwards with phase7_MergeDataset.
-%
-%   Needs the Parallel Computing Toolbox; missing it is a hard error rather
-%   than a silent fall back to serial.
-%
-%   Safe to re-run: finished runs are skipped, so a batch that lost some of
-%   its runs is completed by launching it again.
+%   A run is one (condition, seed) pair, so the batch is the cross product of
+%   cfg.evasion.conditions with cfg.batch.seedRange. Scenario is a function of
+%   the seed, so each run is seed-matched to its honest Phase 5 match.
 
     if nargin < 1 || isempty(cfg)
         cfg = phase7_Config();
@@ -33,17 +16,14 @@ function manifest = phase7_RunBatch(cfg)
     fcnDir = fullfile(here, 'core', 'functions');
     addpath(fcnDir);
 
-    %% resolve output directory
     if strlength(string(cfg.batch.dataDir)) == 0
         cfg.batch.dataDir = string(fullfile(here, 'data'));
     end
     dataDir = char(cfg.batch.dataDir);
     if ~exist(dataDir, 'dir'), mkdir(dataDir); end
 
-    %% parallel toolbox is mandatory
     assertParallelAvailable();
 
-    %% enumerate runs
     seeds = cfg.batch.seedRange(:)';
     assert(~isempty(seeds), 'phase7_RunBatch:noSeeds', ...
         'cfg.batch.seedRange is empty.');
@@ -58,48 +38,86 @@ function manifest = phase7_RunBatch(cfg)
     assert(~isempty(cycle), 'phase7_RunBatch:noScenarios', ...
         'cfg.batch.scenarioCycle is empty.');
 
-    nRuns = min(numel(seeds), cfg.batch.maxRuns);
-    seeds = seeds(1:nRuns);
-    scenarios = cycle(mod((0:nRuns-1), numel(cycle)) + 1);
+    % Defaulted rather than required, so a caller with no evasion block (the
+    % smoke test, or a single honest control batch) still runs.
+    if isfield(cfg, 'evasion') && isfield(cfg.evasion, 'conditions')
+        conds = string(cfg.evasion.conditions(:))';
+    else
+        conds = "honest";
+    end
+    assert(~isempty(conds), 'phase7_RunBatch:noConditions', ...
+        'cfg.evasion.conditions is empty.');
+    assert(numel(unique(conds)) == numel(conds), ...
+        'phase7_RunBatch:duplicateConditions', ...
+        'cfg.evasion.conditions contains duplicates; outputs would collide.');
 
-    %% resolve every run configuration up front
-    % Doing this on the client catches a bad config before a pool is started.
+    % Seed-major, so a batch stopped early leaves the conditions equally
+    % covered rather than some complete and others untouched.
+    nSeed = numel(seeds);
+    nCond = numel(conds);
+    runSeed = repelem(seeds, nCond);
+    runCond = repmat(conds, 1, nSeed);
+
+    % Keyed to the seed, not the run index, which no longer tracks the seed
+    % once there is more than one condition.
+    runScen = cycle(mod(runSeed - 1, numel(cycle)) + 1);
+
+    nRuns = min(numel(runSeed), cfg.batch.maxRuns);
+    runSeed = runSeed(1:nRuns);
+    runCond = runCond(1:nRuns);
+    runScen = runScen(1:nRuns);
+    seeds = runSeed; scenarios = runScen;   % names the rest of the file uses
+
+    % Resolved on the client so a bad config fails before a pool is started.
     runCfgs = cell(1, nRuns);
     metas   = cell(1, nRuns);
+    evInfo  = cell(1, nRuns);
+    condDir = strings(1, nRuns);
     for i = 1:nRuns
-        [runCfgs{i}, metas{i}] = phase7_ScenarioGen(cfg, seeds(i), scenarios(i));
-        runCfgs{i}.outputDir = string(dataDir);
+        [condCfg, evInfo{i}] = applyEvasion(cfg, runCond(i));
+        [runCfgs{i}, metas{i}] = phase7_ScenarioGen(condCfg, runSeed(i), runScen(i));
+        % Nested only when there is more than one condition, so a
+        % single-condition batch writes where it always did.
+        if nCond > 1
+            condDir(i) = string(fullfile(dataDir, char(runCond(i))));
+            if ~exist(condDir(i), 'dir'), mkdir(condDir(i)); end
+        else
+            condDir(i) = string(dataDir);
+        end
+        runCfgs{i}.outputDir = condDir(i);
+        runCfgs{i}.condition = runCond(i);
+        metas{i}.condition   = runCond(i);
     end
 
-    %% classify runs already on disk
     % The CSV is written once, after run() returns, so its presence means the
     % run finished.
     todo = true(1, nRuns);
     if cfg.batch.skipExisting
         for i = 1:nRuns
-            f = fullfile(dataDir, sprintf('features_%s_seed%d.csv', ...
-                scenarios(i), seeds(i)));
+            f = fullfile(char(condDir(i)), sprintf('features_%s_seed%d.csv', ...
+                runScen(i), runSeed(i)));
             todo(i) = ~isfile(f);
         end
     end
 
-    fprintf('Phase 7 batch: %d run(s) enumerated, %d to execute, %d complete on disk.\n', ...
-        nRuns, sum(todo), sum(~todo));
-    fprintf('Scenario cycle: %s | seeds %d to %d | output %s\n', ...
-        strjoin(cellstr(cycle), ', '), min(seeds), max(seeds), dataDir);
+    fprintf(['Phase 7 batch: %d condition(s) x %d seed(s) = %d run(s), ' ...
+        '%d to execute, %d complete on disk.\n'], nCond, nSeed, nRuns, ...
+        sum(todo), sum(~todo));
+    fprintf('Conditions: %s\n', strjoin(cellstr(conds), ', '));
+    fprintf('Scenario cycle: %s | seeds %d to %d | simTime %.1f s | output %s\n', ...
+        strjoin(cellstr(cycle), ', '), min(seeds), max(seeds), ...
+        cfg.window.simulationTime, dataDir);
 
-    %% pool
     pool = startPool(cfg);
     fprintf('Parallel pool: %d worker(s).\n', pool.NumWorkers);
 
-    %% progress reporting from the workers
     % parfor services the afterEach callback while it waits, so the reporter
     % keeps printing for the whole batch.
-    labels = "" + scenarios + " seed " + string(seeds);
+    labels = "" + runCond + " " + scenarios + " seed " + string(seeds);
     useProgress = cfg.progress.enable;
 
-    % The reporter needs a cost estimate for runs that have not started yet,
-    % or the ETA comes out around half the truth.
+    % Without a cost estimate for runs that have not started, the ETA comes
+    % out around half the truth.
     nGNBv = cellfun(@(m) m.numGNB, metas);
     nUEv  = cellfun(@(m) m.numUE,  metas);
     kInfo = phase7_CostModel('effective', cfg, pool.NumWorkers);
@@ -114,7 +132,6 @@ function manifest = phase7_RunBatch(cfg)
     afterEach(q, @(msg) prog.update(msg));
     batchStart = tic;
 
-    %% execute
     results = cell(1, nRuns);
     continueOnError = cfg.batch.continueOnError;
     parfor i = 1:nRuns
@@ -136,8 +153,7 @@ function manifest = phase7_RunBatch(cfg)
                     rethrow(err);
                 end
             end
-            % Send the measured wall time so the client can recalibrate the
-            % cost model mid-batch.
+            % Measured wall time lets the client recalibrate mid-batch.
             wallDone = NaN;
             if isstruct(rec.summary) && isfield(rec.summary, 'wallTime_s')
                 wallDone = rec.summary.wallTime_s;
@@ -148,10 +164,9 @@ function manifest = phase7_RunBatch(cfg)
         results{i} = rec;
     end
     batchWall = toc(batchStart);
-    prog.finish();     % DONE block: every run accounted for
+    prog.finish();
 
-    %% manifest
-    manifest = buildManifest(cfg, runCfgs, metas, results);
+    manifest = buildManifest(cfg, runCfgs, metas, results, evInfo);
     if strlength(string(cfg.batch.tag)) == 0
         tag = char(datetime('now', 'Format', 'yyyyMMdd_HHmmss'));
     else
@@ -160,10 +175,11 @@ function manifest = phase7_RunBatch(cfg)
     manifestPath = fullfile(dataDir, ['manifest_' tag '.csv']);
     writeManifest(manifest, manifestPath);
 
-    %% cost model recalibration
-    % Record every finished run so the next batch estimates from measured
-    % cost instead of the configured prior.
-    phase7_CostModel('record', cfg, manifest, pool.NumWorkers);
+    % phase7_CostModel de-duplicates on (scenario, seed, pool size), so the
+    % condition is folded into the scenario field to keep all three branches.
+    costManifest = manifest;
+    costManifest.scenario = manifest.scenario + "_" + manifest.condition;
+    phase7_CostModel('record', cfg, costManifest, pool.NumWorkers);
     kAfter = phase7_CostModel('effective', cfg, pool.NumWorkers);
     if kAfter.n > 0
         fprintf(['Cost model: %.1f s per (sim-s x gNB x UE) from %d run(s) ' ...
@@ -178,7 +194,6 @@ function manifest = phase7_RunBatch(cfg)
         end
     end
 
-    %% summary
     nOK   = sum(manifest.status == "ok");
     nSkip = sum(manifest.status == "skipped");
     nFail = sum(manifest.status == "failed");
@@ -189,8 +204,8 @@ function manifest = phase7_RunBatch(cfg)
         fprintf('Failed runs:\n');
         bad = find(manifest.status == "failed")';
         for k = bad
-            fprintf('  %s seed %d: %s\n', manifest.scenario(k), ...
-                manifest.seed(k), manifest.errorMessage(k));
+            fprintf('  %s %s seed %d: %s\n', manifest.condition(k), ...
+                manifest.scenario(k), manifest.seed(k), manifest.errorMessage(k));
         end
         fprintf(['Re-run this script to retry them: the finished runs are ' ...
             'skipped.\n']);
@@ -200,7 +215,80 @@ function manifest = phase7_RunBatch(cfg)
     end
 end
 
-%% ------------------------------------------------------------------------
+function [cfg, info] = applyEvasion(cfg, condition)
+%applyEvasion Overlay one evasion condition onto the base configuration.
+%   Returns the configuration for one adversarial branch, plus a record of
+%   what was changed for the manifest.
+%
+%   Applied to the BASE configuration, before phase7_ScenarioGen expands it,
+%   so the generator keeps one code path. Seed matching holds only if the
+%   overlay leaves the number and order of random draws untouched, which is
+%   why cfg.population must not be touched and altitude is pinned by making
+%   the range degenerate rather than removing the draw.
+    condition = string(condition);
+    info = struct('condition', condition, 'altitude_m', NaN, ...
+        'trafficReshaped', false, 'speedReduced', false);
+
+    % Captured before the overlay: a caller may legitimately run a modified
+    % population, but the overlay may not change one.
+    populationIn = cfg.population;
+
+    if ~isfield(cfg, 'evasion'), cfg.evasion = struct(); end
+    if ~isfield(cfg.evasion, 'lowAltitude_m'), cfg.evasion.lowAltitude_m = 15; end
+
+    % Cleared first, granted only by the descending branches, so an honest run
+    % can never inherit permission to fly below the overlay floor.
+    cfg.evasion.allowSubBoundary = false;
+    z = cfg.evasion.lowAltitude_m;
+
+    switch condition
+        case "lowAltitude"
+            cfg = setAerialAltitude(cfg, z);
+            cfg.evasion.allowSubBoundary = true;
+            info.altitude_m = z;
+
+        case "trafficReshaping"
+            cfg.traffic.aerial = cfg.traffic.terrestrial;
+            info.trafficReshaped = true;
+
+        case "combined"
+            cfg = setAerialAltitude(cfg, z);
+            cfg.evasion.allowSubBoundary = true;
+            cfg.traffic.aerial = cfg.traffic.terrestrial;
+            cfg.mobility.aerialSpeedRange = cfg.mobility.terrestrialSpeedRange;
+            info.altitude_m      = z;
+            info.trafficReshaped = true;
+            info.speedReduced    = true;
+
+        case "honest"
+            % No overlay; present so a control branch can be re-simulated at
+            % Phase 7 run length rather than truncated.
+
+        otherwise
+            error('phase7_RunBatch:unknownCondition', ...
+                ['Unknown evasion condition "%s". Defined conditions are: ' ...
+                 'honest, lowAltitude, trafficReshaping, combined.'], condition);
+    end
+
+    % The failure this prevents is silent: a desynchronised run still writes
+    % plausible rows, but it is no longer the same scenario as its twin.
+    assert(isequal(cfg.population, populationIn), ...
+        'phase7_RunBatch:populationChanged', ...
+        ['Condition "%s" altered cfg.population. Population parameters drive ' ...
+         'the placement draw, so changing them desynchronises the scenario ' ...
+         'stream from the honest run of the same seed and destroys the seed ' ...
+         'match.'], condition);
+end
+
+function cfg = setAerialAltitude(cfg, z)
+%setAerialAltitude Pin every scenario's aerial band to a single altitude.
+%   The range is made degenerate rather than removed, so phase7_ScenarioGen
+%   still draws one rand per aerial UE and the stream stays aligned.
+    for s = string(fieldnames(cfg.scenarios))'
+        cfg.scenarios.(s).aerialAltRange_m = [z z];
+    end
+end
+
 function reportCostModel(kInfo, priorWall, todo, nWorkers)
 %reportCostModel Print the cost basis and the projection before the batch runs.
     switch kInfo.source
@@ -221,20 +309,13 @@ function reportCostModel(kInfo, priorWall, todo, nWorkers)
         fmtDuration(min(w)), fmtDuration(max(w)), fmtDuration(sum(w)), numel(w));
 end
 
-%% ------------------------------------------------------------------------
 function pool = startPool(cfg)
 %startPool Open the pool, retrying the failures a long batch hits.
 %
 %   The client binds a listening port from 27370 up, and that bind fails for
-%   reasons outside this project. The usual symptom is:
-%       Timed out opening port localhost:27370
-%
-%   Recovery order:
-%     1. Try each port range via pctconfig, since a blocked port is not a
-%        capacity problem.
-%     2. Clear stale cluster jobs and retry.
-%     3. Halve the worker count and repeat.
-%   If none of that works the error names what to check.
+%   reasons outside this project ("Timed out opening port localhost:27370").
+%   Recovery order: try each port range via pctconfig, clear stale cluster
+%   jobs and retry, then halve the worker count and repeat.
     pool = gcp('nocreate');
     if ~isempty(pool)
         fprintf('Reusing the open pool (%d worker(s)).\n', pool.NumWorkers);
@@ -277,8 +358,8 @@ function pool = startPool(cfg)
     end
 
     ranges = portCandidates(cfg);
-    % Remember the starting range so the "leave as configured" candidate
-    % means that, not whatever a failed attempt set.
+    % Remembered so the "leave as configured" candidate means the session's
+    % own setting, not whatever a failed attempt left behind.
     origRange = [];
     try
         pc = pctconfig();
@@ -293,9 +374,8 @@ function pool = startPool(cfg)
             for attempt = 0:retries
                 try
                     c = parcluster('Processes');
-                    % Raise the profile's ceiling if it is below the
-                    % request, wrapped so an unwritable property does not
-                    % consume the attempt.
+                    % Wrapped so an unwritable property does not consume the
+                    % attempt.
                     try
                         if c.NumWorkers < s, c.NumWorkers = s; end
                     catch
@@ -355,7 +435,6 @@ function pool = startPool(cfg)
          'unit of work and finished runs are skipped.'], lastErr.message);
 end
 
-%% ------------------------------------------------------------------------
 function ranges = portCandidates(cfg)
 %portCandidates Client listening ranges to try, in order.
 %   [] keeps the configured range, 0 asks for ephemeral ports, and a
@@ -372,7 +451,7 @@ function applyPortRange(r, origRange)
 %   Failure is reported but not fatal, so an unusable range falls through to
 %   the next candidate.
     if isempty(r)
-        r = origRange;                 % restore the session's own setting
+        r = origRange;
         if isempty(r), return; end
     end
     try
@@ -393,7 +472,6 @@ function t = rangeText(r)
     end
 end
 
-%% ------------------------------------------------------------------------
 function clearStalePool()
 %clearStalePool Best-effort removal of the state a failed start leaves behind.
 %   A half-opened pool keeps its ports, so a retry without this usually fails
@@ -411,7 +489,6 @@ function clearStalePool()
     end
 end
 
-%% ------------------------------------------------------------------------
 function assertParallelAvailable()
 %assertParallelAvailable Hard error if parfor cannot run in parallel.
 %   Deliberately not a fall back to serial, which would look like a hang.
@@ -426,17 +503,20 @@ function assertParallelAvailable()
     end
 end
 
-%% ------------------------------------------------------------------------
-function M = buildManifest(cfg, runCfgs, metas, results)
+function M = buildManifest(cfg, runCfgs, metas, results, evInfo)
 %buildManifest One row per run, recording the generation parameters.
 %   simReached_s and truncated stay in the column set because
 %   phase7_CostModel divides the wall time by them.
     n = numel(runCfgs);
     M = table();
     M.runIdx        = (1:n)';
+    M.condition     = strings(n, 1);
     M.scenario      = strings(n, 1);
     M.seed          = zeros(n, 1);
     M.status        = strings(n, 1);
+    M.evasionAlt_m  = nan(n, 1);
+    M.trafficReshaped = zeros(n, 1);
+    M.speedReduced  = zeros(n, 1);
     M.simReached_s  = nan(n, 1);
     M.truncated     = nan(n, 1);
     M.numGNB        = zeros(n, 1);
@@ -465,7 +545,11 @@ function M = buildManifest(cfg, runCfgs, metas, results)
     M.errorMessage  = strings(n, 1);
 
     for i = 1:n
-        rc = runCfgs{i}; mt = metas{i}; rs = results{i};
+        rc = runCfgs{i}; mt = metas{i}; rs = results{i}; ev = evInfo{i};
+        M.condition(i)        = ev.condition;
+        M.evasionAlt_m(i)     = ev.altitude_m;
+        M.trafficReshaped(i)  = double(ev.trafficReshaped);
+        M.speedReduced(i)     = double(ev.speedReduced);
         M.scenario(i)       = mt.scenario;
         M.seed(i)           = mt.seed;
         M.status(i)         = rs.status;
@@ -499,15 +583,13 @@ function M = buildManifest(cfg, runCfgs, metas, results)
             if isfield(s, 'simReached_s'), M.simReached_s(i) = s.simReached_s; end
             if isfield(s, 'truncated'),    M.truncated(i) = double(s.truncated); end
         else
-            % Skipped or failed, so just name the CSV the run would have
-            % written.
+            % Skipped or failed: name the CSV the run would have written.
             M.csvFile(i) = string(fullfile(char(rc.outputDir), ...
                 sprintf('features_%s_seed%d.csv', rc.scenario, rc.seed)));
         end
     end
 end
 
-%% ------------------------------------------------------------------------
 function writeManifest(M, outPath)
 %writeManifest Plain comma-separated manifest with quoted text fields.
 %   Written by hand so the quoting is explicit and the formatting does not
@@ -539,8 +621,8 @@ end
 
 function s = quoteField(s)
 %quoteField Wrap a text field in quotes when it needs it.
-%   The quote character sits in a variable because a literal one next to a
-%   closing bracket reads ambiguously against MATLAB's transpose syntax.
+    % The quote character sits in a variable because a literal one next to a
+    % closing bracket reads ambiguously against MATLAB's transpose syntax.
     q = '"';
     s = strrep(s, sprintf('\n'), ' ');
     s = strrep(s, sprintf('\r'), ' ');

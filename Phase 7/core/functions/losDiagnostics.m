@@ -12,22 +12,12 @@ function report = losDiagnostics(posLog, managers, cfg, linkInfo, sampleRateHz)
 %       .dynamic         whether the state came from the spatially
 %                        consistent field or the frozen setup-time draw
 %
-%   This is not a feature and must never enter the CSV, since an operator
-%   cannot observe LOS state and here it is near-collinear with the label.
-%   Keep it for analysis: checking the channel behaves, reporting LOS
-%   statistics, and confirming the dynamic state actually moves.
+%   Analysis only; this must never enter the CSV. A wide pLOSmin/pLOSmax
+%   range with zero transitions means a frozen state.
 %
-%   .transitions is the direct check, since a wide pLOS range with zero
-%   transitions means a frozen state.
-%
-%   The result is plain data, so it crosses back from a worker cheaply.
-%
-%   SAMPLERATEHZ (default 5) decimates the position trace first, because the
-%   recorder runs at 100 Hz and evaluating every frame for every UE costs
-%   more than the diagnostic is worth.
-%   The state cannot change faster than the UE crosses a correlation cell,
-%   about 1.7 s at 30 m/s, so 5 Hz oversamples that by ten times.
-%   Raise it if the correlation distance is set far below standard.
+%   SAMPLERATEHZ (default 5) decimates the 100 Hz position trace. The state
+%   cannot change faster than the UE crosses a correlation cell, about 1.7 s
+%   at 30 m/s; raise it if the correlation distance is set far below standard.
 
     if nargin < 5 || isempty(sampleRateHz), sampleRateHz = 5; end
 
@@ -48,8 +38,7 @@ function report = losDiagnostics(posLog, managers, cfg, linkInfo, sampleRateHz)
     end
     times = allTimes(frameIdx);
 
-    % Precompute node ID to row, since find() inside the frame loop makes
-    % the whole function quadratic.
+    % find() inside the frame loop would make this quadratic.
     nodeRowByID = zeros(1, max(posLog.nodeIDs));
     nodeRowByID(posLog.nodeIDs) = 1:numel(posLog.nodeIDs);
 
@@ -65,10 +54,9 @@ function report = losDiagnostics(posLog, managers, cfg, linkInfo, sampleRateHz)
         cTime  = strcmp(m.featureNames, 'time');
         cSrvID = strcmp(m.featureNames, 'servingGNB');
 
-        % Map each sampled instant to the last featureLog row at or before
-        % it, in one pass rather than a find() per frame.
-        % Collapse duplicate timestamps first, since discretize needs
-        % strictly increasing edges.
+        % Each sampled instant maps to the last featureLog row at or before
+        % it. Duplicate timestamps are collapsed first, since discretize
+        % needs strictly increasing edges.
         flTimes = fl(:, cTime);
         [uT, iu] = unique(flTimes, 'last');
         rowOf = discretize(times, [uT(:); Inf]);

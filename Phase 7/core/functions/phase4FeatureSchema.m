@@ -8,10 +8,9 @@ function schema = phase4FeatureSchema()
 %   Appended columns, all per UE per 10 s window.
 %
 %   CQI and MCS. wbCQI is the UE-reported wideband DL CQI (TS 38.214 clause
-%   5.2.2.1, index 0-15), which is spoofable and flagged as such for the Q3
-%   threat model. The MCS columns are the gNB's own link-adaptation output
-%   per granted TTI (TS 38.214 Tables 5.1.3.1 DL / 6.1.4 UL, index 0-28), and
-%   only the UL side is safe from a falsified CQI.
+%   5.2.2.1, index 0-15) and is spoofable; the MCS columns are the gNB's own
+%   link-adaptation output per granted TTI (TS 38.214 Tables 5.1.3.1 DL /
+%   6.1.4 UL, index 0-28).
 %     cqi_mean            mean wideband DL CQI over the window
 %     cqi_var             variance of wideband DL CQI
 %     cqi_trend_perS      least-squares slope of CQI vs time (CQI/s)
@@ -20,11 +19,10 @@ function schema = phase4FeatureSchema()
 %     mcsUL_mean          mean granted UL MCS index
 %     mcsUL_var           variance of granted UL MCS index
 %
-%   Traffic, from the MAC byte counters, which is what an operator meters:
+%   Traffic, from the MAC byte counters:
 %     ulVol_bytes         UL bytes sent by the UE inside the window
 %     dlVol_bytes         DL bytes received by the UE inside the window
-%     dlulAsym            (DL-UL)/(DL+UL); -1 is pure uplink, the
-%                         video-streaming-drone signature
+%     dlulAsym            (DL-UL)/(DL+UL); -1 is pure uplink
 %     trafficBurstiness_cv  std/mean of the per-interval byte increments,
 %                         near 0 for a steady stream
 %     thr_mean_bps        mean total throughput over the window

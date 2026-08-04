@@ -10,24 +10,17 @@ function st = linkState(linkInfo, cfg, gnbID, ueID, gnbPos, uePos)
 %                  field, false when it fell back to the setup-time draw
 %       ST.d2D, ST.d3D, ST.hUT  the geometry the state was evaluated at
 %
-%   This is the single source of truth for LOS state, called by both the
-%   runtime pathloss and the replay renderer, so a link's colour in the
-%   replay cannot disagree with what the simulator used.
+%   Called by both the runtime pathloss and the replay renderer, so the two
+%   cannot disagree.
 %
 %   The state is the threshold test isLOS = U(x, y) < pLOS(hUT, d2D), where U
 %   is a spatially-consistent uniform field with the Table 7.6.3.1-2
-%   correlation distance and one independent field per gNB.
-%   Since U depends only on position, a UE flying through the cell changes
-%   state on the right spatial scale instead of flickering per packet.
+%   correlation distance, one independent field per gNB. pLOS uses the live
+%   height and distance.
 %
-%   pLOS uses the live height and 2D distance, so a UE climbing above 100 m
-%   in UMa reaches pLOS = 1 and latches to LOS.
-%
-%   Shadow fading follows the live state, so a LOS transition steps the
-%   shadow-fading term; that discontinuity is noted in the deviations log.
-%
-%   When LINKINFO carries no field, as in an archived replay or with
-%   cfg.dynamicLOS false, this falls back to the setup-time draw.
+%   Shadow fading follows the live state, so a transition steps the
+%   shadow-fading term; that discontinuity is in the deviations log. With no
+%   field in LINKINFO this falls back to the setup-time draw.
 %
 %   See also buildSpatialField, sampleSpatialField, createScenarioChannels.
 
@@ -56,13 +49,13 @@ function st = linkState(linkInfo, cfg, gnbID, ueID, gnbPos, uePos)
         st.isLOS = u < st.pLOS;
         st.dynamic = true;
     else
-        % Frozen setup-time draw, for archived runs or dynamic LOS off
+        % Frozen setup-time draw: archived run, or dynamic LOS off.
         st.isLOS = linkInfo.los(gnbID, ueID);
         st.sfDB  = linkInfo.sf(gnbID, ueID);
         return;
     end
 
-    % Shadow fading, with sigma selected by the live state.
+    % sigma is selected by the live state.
     if isfield(cfg, 'enableShadowFading') && cfg.enableShadowFading
         if isfield(linkInfo, 'sfField') && ~isempty(linkInfo.sfField)
             if st.isLOS, which = 1; else, which = 2; end

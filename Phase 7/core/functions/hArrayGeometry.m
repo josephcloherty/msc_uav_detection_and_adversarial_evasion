@@ -18,7 +18,6 @@ function cdl = hArrayGeometry(cdl,NTxAnts,NRxAnts,varargin)
         rxArray = bsArrayGeometry(cdl.ReceiveAntennaArray,NRxAnts);
     end
 
-    % Update CDL channel arrays configuration
     cdl.TransmitAntennaArray = txArray;
     cdl.ReceiveAntennaArray = rxArray;
 
@@ -28,14 +27,9 @@ end
 
 function array = bsArrayGeometry(array,nBsAnts)
 
-    % Setup the base station antenna geometry
-    % Table of antenna panel array configurations
-    % M:  no. of rows in each antenna panel
-    % N:  no. of columns in each antenna panel
-    % P:  no. of polarizations (1 or 2)
-    % Mg: no. of rows in the array of panels
-    % Ng: no. of columns in the array of panels
-    % Row format: [M  N   P   Mg  Ng]
+    % Panel configurations, [M N P Mg Ng]: rows and columns per panel,
+    % polarizations, then rows and columns in the array of panels.
+    %             [M  N   P   Mg  Ng]
     antArraySizes = ...
        [1   1   1   1   1;   % 1 ants
         1   1   2   1   1;   % 2 ants
@@ -51,7 +45,7 @@ function array = bsArrayGeometry(array,nBsAnts)
     antselected = min(1+ceil(log2(nBsAnts)),size(antArraySizes,1));
     array.Size = antArraySizes(antselected,:);
 
-    % Adjust element spacing to avoid panel overlaps
+    % Spacing adjusted to avoid panel overlaps.
     array.ElementSpacing(3) = array.Size(1)*array.ElementSpacing(1);
     array.ElementSpacing(4) = array.Size(2)*array.ElementSpacing(2);
 
@@ -59,18 +53,9 @@ end
 
 function array = ueArrayGeometry(array,nUeAnts)
 
-    % Setup the UE antenna geometry
     if nUeAnts == 1
-        % In the following settings, the number of rows in antenna array, 
-        % columns in antenna array, polarizations, row array panels and the
-        % columns array panels are all 1
         arraySize = ones(1,5);
     else
-        % In the following settings, the no. of rows in antenna array is
-        % nUeAnts/2, the no. of columns in antenna array is 1, the no.
-        % of polarizations is 2, the no. of row array panels is 1 and the
-        % no. of column array panels is 1. The values can be changed to
-        % create alternative antenna setups
         arraySize = [ceil(nUeAnts/2),1,2,1,1];
     end
     array.Size = arraySize;

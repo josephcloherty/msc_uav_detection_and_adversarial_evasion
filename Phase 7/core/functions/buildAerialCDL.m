@@ -23,29 +23,22 @@ function channel = buildAerialCDL(link)
 %       .sampleRate, .carrierFrequency, .seed
 %       .numTxAnts, .numRxAnts, .linkDirection ('uplink'|'downlink')
 %
-%   Implementation notes, clause references to TR 38.901 (38901-j40).
-%
-%   The built-in DelayProfile='CDL-D' does not expose per-cluster ZOD, which
-%   Step 5 needs, so the cluster table is supplied through
-%   DelayProfile='Custom' and the three scalings are applied here:
+%   Clause references are to TR 38.901 (38901-j40). DelayProfile='CDL-D'
+%   does not expose per-cluster ZOD, so the cluster table is supplied through
+%   DelayProfile='Custom' and three scalings are applied here:
 %     K-factor  clause 7.7.6, then delay re-normalisation to DS = 1
 %     delay     clause 7.7.3
-%     angle     clause 7.7.5.1, LOS-preserving variant, which is the right
-%               form because Step 3 sets the desired mean angles to the
-%               actual LOS angles
+%     angle     clause 7.7.5.1, LOS-preserving variant; the scale factor is
+%               solved numerically per Annex A.5 and the ray spreads take
+%               the same factor
 %
-%   The angle scale factor is solved numerically per Annex A.5, which
-%   reproduces the published Table 7.7.5.1-1 factors exactly, and the ray
-%   spreads take the same factor as Step 3 requires.
-%
-%   The Step 5 ZOD offset goes on clusters 2..13 only, because a custom
-%   profile makes the first cluster's specular and diffuse parts share one
-%   angle set. Cluster 1's diffuse part is 13.3 dB down, so the error is
-%   small; recorded in the deviations log.
+%   The Step 5 ZOD offset goes on clusters 2..13 only; cluster 1's specular
+%   and diffuse parts share one angle set under a custom profile. In the
+%   deviations log.
 
-    % CDL-D, TR 38.901 Table 7.7.1-4.
-    % Cluster 1 is specular LOS at -0.2 dB plus a Laplacian part at -13.5 dB
-    % on the same delay and angles, and the rows below are the Laplacians.
+    % CDL-D, TR 38.901 Table 7.7.1-4. Cluster 1 is specular LOS at -0.2 dB
+    % plus a Laplacian part at -13.5 dB on the same delay and angles; the
+    % rows below are the Laplacians.
     %            delay    P_dB    AOD     AOA     ZOD    ZOA
     lap = [      0        -13.5     0    -180     98.5   81.5
                  0.035    -18.8    89.2    89.2   85.5   86.9
@@ -72,8 +65,7 @@ function channel = buildAerialCDL(link)
     % Clause 7.7.6, K-factor scaling.
     kModel_dB = pLOS_dB - 10*log10(sum(10.^(pN_dB/10)));   % eq 7.7.6-2
     pN_dB = pN_dB - (link.desiredK_dB - kModel_dB);        % eq 7.7.6-1
-    % Delay re-normalisation to DS = 1, over the specular ray and all
-    % clusters together.
+    % Re-normalise to DS = 1 over the specular ray and all clusters together.
     pAll = [10^(pLOS_dB/10); 10.^(pN_dB/10)];
     tAll = [0; tauN];
     mu   = sum(pAll .* tAll) / sum(pAll);
@@ -83,10 +75,9 @@ function channel = buildAerialCDL(link)
     % Clause 7.7.3, delay scaling to the desired delay spread.
     tau = tauN * link.desiredDS_s;                          % eq 7.7-1
 
-    % Clause 7.7.5.1, LOS-preserving angle scaling.
-    % The factor is the smallest x >= 0 at which the circular angular spread
-    % equals the desired one, solved per Annex A.5 because a simple linear
-    % spread ratio does not reproduce the published factors.
+    % Clause 7.7.5.1, LOS-preserving angle scaling. The factor is solved per
+    % Annex A.5 because a linear spread ratio does not reproduce the
+    % published factors.
     angScaled = ang;
     cScaled   = cSpread;
     pModelLin = 10.^(lap(:,2)/10);          % original CDL-D cluster powers
@@ -94,8 +85,8 @@ function channel = buildAerialCDL(link)
     for d = 1:4
         s = solveAngleScale(link.desiredAS(d), ...
             wrapTo180(ang(:,d) - losRow(d)), pModelLin, pLOSLin);
-        % Scale the cluster offsets about the model LOS ray, then translate
-        % to the geometric LOS direction.
+        % Offsets are scaled about the model LOS ray, then translated to
+        % the geometric LOS direction.
         delta = wrapTo180(ang(:,d) - losRow(d));
         angScaled(:,d) = link.losAngles(d) + s * delta;
         cScaled(d) = cSpread(d) * s;    % ray-level scaling, Step 3 note
@@ -118,7 +109,6 @@ function channel = buildAerialCDL(link)
         angScaled(over,zc) = 360 - angScaled(over,zc);
     end
 
-    % Assemble the custom profile.
     % The first path carries the specular ray plus the first Laplacian
     % cluster, split by KFactorFirstCluster, at the geometric LOS angles.
     k1_dB = pLOS_dB - pN_dB(1);   % specular over (scaled) diffuse, cluster 1
@@ -144,7 +134,6 @@ function channel = buildAerialCDL(link)
         link.linkDirection);
 end
 
-% --------------------------------------------------------------------------
 function s = solveAngleScale(asDesired, offsetsDeg, pClusters, pLOS)
 %solveAngleScale Scale factor per TR 38.901 Annex A.5.
 %   Finds the smallest x >= 0 with AS(x) = asDesired, where
@@ -169,10 +158,9 @@ function s = solveAngleScale(asDesired, offsetsDeg, pClusters, pLOS)
     s = (lo + hi)/2;
 end
 
-% ----------------------------------------------------------------------------
 function w = wrapTo180(a)
 %wrapTo180 Wrap angles in degrees to (-180, 180].
-% Local copy so the Mapping Toolbox is not a dependency.
+%   Local copy so the Mapping Toolbox is not a dependency.
     w = mod(a + 180, 360) - 180;
     w(w == -180) = 180;
 end

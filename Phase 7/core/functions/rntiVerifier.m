@@ -1,11 +1,9 @@
 classdef rntiVerifier < handle
 %rntiVerifier In-flight check of the SRS RNTI offset, once per run.
 %
-%   The scheduler RNTI comes from the connection tables and needs no
-%   calibration, but the SRS one is an empirical constant: the managers
-%   identify their UE's events as UE.ID + cfg.rntiOffset.
-%   It has held at three, five and seven gNBs but nothing enforces it, and a
-%   wrong value fails silently with every SINR column NaN after hours.
+%   The SRS RNTI is empirical: the managers identify their UE's events as
+%   UE.ID + cfg.rntiOffset. Nothing enforces it, and a wrong value fails
+%   silently with every SINR column NaN.
 %
 %   A listener records every SRS reception until a one-shot check at
 %   CHECKTIME, by default the settle time, and then:
@@ -16,11 +14,9 @@ classdef rntiVerifier < handle
 %                                             the value
 %     - no consistent offset                  abort, listing both sets
 %
-%   The listener is deleted as soon as the check fires.
-%
-%   Auto-correction is off by default, but worth enabling for long unattended
-%   batches; it lands inside the settle window, so no dataset row is computed
-%   under the wrong identifier.
+%   The listener is deleted as soon as the check fires. Auto-correction is
+%   off by default; it lands inside the settle window, so no dataset row uses
+%   the wrong identifier.
 
     properties
         expected                % 1 x numUE expected SRS RNTIs
@@ -65,8 +61,7 @@ classdef rntiVerifier < handle
             %check One-shot verdict, then stop listening.
             obj.done = true;
             % addlistener over an array of gNBs returns an array, so
-            % isvalid() would be a vector here and cannot go through &&.
-            % delete handles arrays and empties fine on its own.
+            % isvalid() would be a vector and cannot go through &&.
             delete(obj.listener);
             obj.listener = [];
 
@@ -94,8 +89,6 @@ classdef rntiVerifier < handle
                 return;
             end
 
-            % If one shift lines the two sets up, report it as the
-            % correction rather than making the user work it out.
             delta = min(obs) - min(exp);
             consistent = all(ismember(exp + delta, obs));
 
@@ -141,8 +134,8 @@ classdef rntiVerifier < handle
     methods (Access = private)
         function o = offsetOf(obj)
             %offsetOf The offset implied by the current expectation.
-            %   Derived from the stored node IDs rather than held as a field,
-            %   so it stays right after an auto-correction.
+            %   Derived from the stored node IDs rather than held as a
+            %   field, so it stays right after an auto-correction.
             if isempty(obj.expected) || isempty(obj.ueIDs)
                 o = 0;
             else

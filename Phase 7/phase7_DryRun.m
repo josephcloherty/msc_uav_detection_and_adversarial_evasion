@@ -5,13 +5,8 @@ function M = phase7_DryRun(cfg)
 %   M = phase7_DryRun(CFG)
 %
 %   Builds every run configuration the batch would execute, runs the same
-%   assertions the real runner uses, and reports the dataset shape and the
-%   projected wall time.
-%
-%   Worth running before every batch, since it costs a second and catches a
-%   misconfigured population before a worker starts a doomed run.
-%
-%   Returns the table the manifest is built from, outcome columns empty.
+%   assertions as phase7_RunBatch, and prints the dataset shape and projected
+%   wall time. M is the manifest table with the outcome columns empty.
 
     if nargin < 1 || isempty(cfg)
         cfg = phase7_Config();
@@ -19,16 +14,31 @@ function M = phase7_DryRun(cfg)
     here = fileparts(mfilename('fullpath'));
     addpath(fullfile(here, 'core', 'functions'));
 
+    % Must mirror the phase7_RunBatch enumeration exactly, or the projection
+    % stops describing the batch it is meant to price.
     seeds = cfg.batch.seedRange(:)';
     cycle = string(cfg.batch.scenarioCycle(:))';
-    nRuns = min(numel(seeds), cfg.batch.maxRuns);
-    seeds = seeds(1:nRuns);
-    scenarios = cycle(mod((0:nRuns-1), numel(cycle)) + 1);
+    conds = string(cfg.evasion.conditions(:))';
+    nSeed = numel(seeds);
+    nCond = numel(conds);
 
+    runSeed = repelem(seeds, nCond);
+    runCond = repmat(conds, 1, nSeed);
+    runScen = cycle(mod(runSeed - 1, numel(cycle)) + 1);
+
+    nRuns = min(numel(runSeed), cfg.batch.maxRuns);
+    runSeed = runSeed(1:nRuns);
+    runCond = runCond(1:nRuns);
+    runScen = runScen(1:nRuns);
+    seeds = runSeed; scenarios = runScen;
+
+    % The evasion overlay is skipped: it touches only altitude, traffic and
+    % speed, none of which feed numUE, numAerial or the cost model.
     rows = cell(nRuns, 1);
     for i = 1:nRuns
-        [rc, mt] = phase7_ScenarioGen(cfg, seeds(i), scenarios(i));
-        rows{i} = struct('runIdx', i, 'scenario', mt.scenario, ...
+        [rc, mt] = phase7_ScenarioGen(cfg, runSeed(i), runScen(i));
+        rows{i} = struct('runIdx', i, 'condition', runCond(i), ...
+            'scenario', mt.scenario, ...
             'seed', mt.seed, 'numGNB', mt.numGNB, ...
             'siteRadius_m', mt.siteRadius_m, ...
             'ueAreaSpan_m', mt.ueAreaSpan_m, 'numUE', mt.numUE, ...
@@ -42,15 +52,31 @@ function M = phase7_DryRun(cfg)
     end
     M = struct2table([rows{:}]);
 
-    % One row per UE per window position after the settle gate.
-    % Approximate, because the extraction anchors the first window on the
-    % first retained scan rather than on settleTime.
+    % Approximate: extraction anchors the first window on the first retained
+    % scan rather than on settleTime.
     winPerUE = floor((cfg.window.simulationTime - cfg.window.settleTime - ...
         cfg.window.windowLen) / cfg.window.windowStride) + 1;
     estRows = sum(M.numUE) * winPerUE;
 
-    fprintf('\nPhase 7 dry run: %d run(s)\n', nRuns);
+    fprintf('\nPhase 7 dry run: %d condition(s) x %d seed(s) = %d run(s)\n', ...
+        nCond, nSeed, nRuns);
     fprintf('  seeds              %d to %d\n', min(seeds), max(seeds));
+    for k = 1:nCond
+        sel = M.condition == conds(k);
+        switch conds(k)
+            case "lowAltitude"
+                note = sprintf('aerial pinned to %.1f m', cfg.evasion.lowAltitude_m);
+            case "trafficReshaping"
+                note = 'aerial traffic set to the terrestrial profile';
+            case "combined"
+                note = sprintf(['aerial pinned to %.1f m, terrestrial traffic ' ...
+                    'and speeds'], cfg.evasion.lowAltitude_m);
+            otherwise
+                note = 'no overlay';
+        end
+        fprintf('  %-17s %d run(s), %d UE-runs, %d aerial UE-runs | %s\n', ...
+            conds(k), sum(sel), sum(M.numUE(sel)), sum(M.numAerial(sel)), note);
+    end
     for k = 1:numel(cycle)
         sel = M.scenario == cycle(k);
         fprintf('  %-4s               %d run(s), %d UE-runs, %d aerial UE-runs\n', ...
@@ -67,13 +93,10 @@ function M = phase7_DryRun(cfg)
     fprintf('  windows per UE     %d (approx)\n', winPerUE);
     fprintf('  estimated rows     %d (approx)\n', estRows);
 
-    %% wall-time projection
-    % Treat this as an order of magnitude, not a promise.
     if isfield(cfg.batch, 'costModel')
         nW = cfg.batch.numWorkers;
         if isempty(nW), nW = feature('numcores'); end
         nW = nW(1);
-        % Measured cost for this pool size if there is any, prior otherwise.
         kInfo = phase7_CostModel('effective', cfg, nW);
         k = kInfo.k;
         perRun = k * cfg.window.simulationTime * M.numGNB .* M.numUE;
