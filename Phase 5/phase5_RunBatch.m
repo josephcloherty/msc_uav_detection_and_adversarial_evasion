@@ -35,6 +35,21 @@ function manifest = phase5_RunBatch(cfg)
 %   error rather than a silent fall back to serial execution, so a batch
 %   never quietly takes many times longer than expected.
 %
+%   ONE RUN PER WORKER, NO QUEUE
+%   The batch is sized to the pool: the number of runs executed is capped
+%   at pool.NumWorkers, so every run starts immediately and none waits on
+%   another. Set cfg.batch.seedRange and cfg.batch.numWorkers to the same
+%   length. If the pool comes up smaller than the seed range - because
+%   cfg.batch.allowFewerWorkers let it step down after a failed launch -
+%   the trailing seeds are dropped and named on the console rather than
+%   queued behind the others; re-run to pick them up on a later batch.
+%
+%   There is deliberately no dispatch queue. A queue means some run does
+%   not begin until another finishes, which is the failure mode this
+%   design removes: with runs of thirty hours a single run left to start
+%   last extends the batch by its own length, and a run that fails to be
+%   dispatched is indistinguishable from one that is merely waiting.
+%
 %   RE-RUNNING A BATCH
 %   With cfg.batch.skipExisting true a run whose feature CSV already exists
 %   is skipped, so a batch that lost some of its runs is completed by
@@ -116,6 +131,33 @@ function manifest = phase5_RunBatch(cfg)
     pool = startPool(cfg);
     fprintf('Parallel pool: %d worker(s).\n', pool.NumWorkers);
 
+    %% ---- size the batch to the pool: one run per worker -----------------------
+    % Every enumerated run must be able to start at once. Runs beyond the
+    % worker count would have to wait for a worker to free up, and waiting is
+    % what this design removes, so they are dropped here rather than queued.
+    % The dropped seeds are named because a silently shorter batch is a
+    % dataset with missing seeds that only shows up in the merge.
+    if nRuns > pool.NumWorkers
+        dropped = seeds(pool.NumWorkers+1:nRuns);
+        fprintf(['Trimming batch to the pool: %d run(s) enumerated but only ' ...
+            '%d worker(s).\n'], nRuns, pool.NumWorkers);
+        fprintf(['  Dropped seed(s): %s. Nothing is queued, so these are not ' ...
+            'run at all. Re-run with cfg.batch.seedRange set to them, or ' ...
+            'raise cfg.batch.numWorkers to match.\n'], ...
+            strjoin(string(dropped), ', '));
+        nRuns     = pool.NumWorkers;
+        seeds     = seeds(1:nRuns);
+        scenarios = scenarios(1:nRuns);
+        runCfgs   = runCfgs(1:nRuns);
+        metas     = metas(1:nRuns);
+        todo      = todo(1:nRuns);
+    elseif nRuns < pool.NumWorkers
+        fprintf(['Note: %d run(s) on %d worker(s); %d worker(s) will sit ' ...
+            'idle. Match cfg.batch.seedRange to cfg.batch.numWorkers to use ' ...
+            'the whole pool.\n'], nRuns, pool.NumWorkers, ...
+            pool.NumWorkers - nRuns);
+    end
+
     %% ---- progress reporting from the workers ---------------------------------
     % phase5_Progress lives on the client and is mutated by the afterEach
     % callback, which parfor services while it waits, so the readout keeps
@@ -128,10 +170,10 @@ function manifest = phase5_RunBatch(cfg)
     useProgress = cfg.progress.enable;
 
     % Cost-model prior for every run, measured from this machine's finished
-    % runs where any exist. The reporter needs an estimate for runs that have
-    % not started: on a pool smaller than the batch most of the queue has no
-    % measurements of its own for hours, and a mean-percentage extrapolation
-    % over runs sitting at zero reports a finish time roughly half the truth.
+    % runs where any exist. The reporter needs an estimate before any run has
+    % reported: for the opening minutes of a batch every run sits near zero
+    % per cent, and a mean-percentage extrapolation over that reports a
+    % finish time with no relation to the truth.
     nGNBv = cellfun(@(m) m.numGNB, metas);
     nUEv  = cellfun(@(m) m.numUE,  metas);
     kInfo = phase5_CostModel('effective', cfg, pool.NumWorkers);
@@ -148,9 +190,15 @@ function manifest = phase5_RunBatch(cfg)
     batchStart = tic;
 
     %% ---- execute --------------------------------------------------------------
+    % One iteration per worker, dispatched in seed order. There is no queue
+    % and no dispatch ordering to choose: with nRuns == pool.NumWorkers every
+    % partitioning parfor could pick gives each worker exactly one run, so
+    % they all start together and results is indexed directly by run.
+    fprintf('Dispatch: %d run(s) on %d worker(s), all starting together.\n', ...
+        nRuns, pool.NumWorkers);
     results = cell(1, nRuns);
     continueOnError = cfg.batch.continueOnError;
-    parfor i = 1:nRuns
+    parfor (i = 1:nRuns, pool.NumWorkers)
         addpath(fcnDir);   % workers do not inherit the client path
         rc = runCfgs{i};
         if useProgress
@@ -196,9 +244,9 @@ function manifest = phase5_RunBatch(cfg)
 
     %% ---- cost model recalibration ----------------------------------------------
     % Every finished run is a measurement of this machine at this pool size.
-    % Recording them means the next dry run, the next batch's queue estimate
-    % and the next ETA all start from measured cost instead of from the smoke
-    % run projection, which underestimated the real runs by more than 2x.
+    % Recording them means the next dry run and the next batch's ETA both
+    % start from measured cost instead of from the smoke run projection,
+    % which underestimated the real runs by more than 2x.
     phase5_CostModel('record', cfg, manifest, pool.NumWorkers);
     kAfter = phase5_CostModel('effective', cfg, pool.NumWorkers);
     if kAfter.n > 0

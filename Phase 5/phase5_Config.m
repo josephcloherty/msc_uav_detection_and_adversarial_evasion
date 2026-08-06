@@ -37,7 +37,9 @@ function cfg = phase5_Config()
 %   Run i takes seed cfg.batch.seedRange(i) and scenario
 %   cfg.batch.scenarioCycle(mod(i-1, numel(cycle))+1), so the scenarios
 %   are cycled one per run. numel(cfg.batch.seedRange) is therefore the
-%   number of scenario replicates the batch will generate.
+%   number of scenario replicates the batch will generate, and it should
+%   equal cfg.batch.numWorkers: the runner gives every run its own worker
+%   and drops any run it cannot start immediately rather than queueing it.
 %
 %   OUTPUTS PER RUN (all into cfg.batch.dataDir)
 %   --------------------------------------------
@@ -58,13 +60,16 @@ function cfg = phase5_Config()
     % Seeds to run on THIS machine. Any numeric vector; 1:6 here,
     % 7:12 on the next machine, and so on.
     %
-    % Sized deliberately small for the first batch. At the measured cost
-    % (see cfg.batch.costModel) a run is several hours, so six runs is
-    % two replicates per scenario and roughly three thousand rows: enough
-    % to look at class separation in D5.4 and size the real batch from
-    % what it shows. phase5_DryRun projects the wall time before you
-    % commit to it.
-    cfg.batch.seedRange = 13:36;
+    % KEEP THIS THE SAME LENGTH AS cfg.batch.numWorkers. The runner gives
+    % every run its own worker and does not queue, so a seed range longer
+    % than the pool has its trailing seeds dropped, not deferred. Split a
+    % larger sweep across successive batches instead: the run identity is
+    % the (scenario, seed) pair, so the outputs merge without conflict.
+    %
+    % At the measured cost (see cfg.batch.costModel) a run is tens of
+    % hours, so one batch is one wave. phase5_DryRun projects the wall
+    % time before you commit to it.
+    cfg.batch.seedRange = 37:60;
 
     % Scenario cycled one per run. Any subset/order of the names defined
     % in cfg.scenarios below. "UMa" is the primary deployment scenario,
@@ -77,12 +82,15 @@ function cfg = phase5_Config()
     cfg.batch.scenarioCycle = ["UMa", "RMa", "UMi"];
 
     % Hard cap on the number of runs actually executed (Inf = all seeds).
-    % Useful for a short smoke batch without editing seedRange.
+    % Useful for a short smoke batch without editing seedRange. The pool
+    % size is a second, independent cap: runs beyond it are dropped.
     cfg.batch.maxRuns = Inf;
 
-    % Parallel pool size. [] uses the default profile's worker count.
+    % Parallel pool size, and therefore the number of runs per batch. []
+    % uses the default profile's worker count, which makes the batch size
+    % depend on the machine - set it explicitly when the seed range matters.
     % Each worker holds one full simulation, so memory scales with this.
-    cfg.batch.numWorkers = [12];
+    cfg.batch.numWorkers = [24];
 
     % Label used in the manifest filename. "" uses a yyyymmdd_HHMMSS stamp.
     cfg.batch.tag = "";
@@ -129,6 +137,9 @@ function cfg = phase5_Config()
     % each port range below, then retries, then steps the worker count down.
     cfg.batch.poolRetries       = 2;     % extra attempts per size and range
     cfg.batch.poolRetryWait_s   = 15;    % pause between attempts
+    % A smaller pool now means a shorter batch, not a queue: if the launch
+    % steps down to six workers the last six seeds are dropped and named on
+    % the console. Set false to abort instead and keep the seed range intact.
     cfg.batch.allowFewerWorkers = true;  % halve and retry rather than abort
 
     % Client listening port ranges to try, in order, via pctconfig. [] keeps
