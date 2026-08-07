@@ -91,6 +91,8 @@ classdef phase5_Progress < handle
         ratioW          double      % confidence weight for that ratio
         rateAlpha       = 0.35      % EWMA weight on the newest sample
         numWorkers      = 1         % pool size, reported in the header
+        lastRowText     string      % last string actually set on each row
+        statusFile      = ""        % plain-text status board, rewritten live
     end
 
     properties (Access = private)
@@ -153,6 +155,7 @@ classdef phase5_Progress < handle
                 if isfield(pcfg, 'maxBars'),     maxBars       = pcfg.maxBars;     end
                 if isfield(pcfg, 'minRedraw_s'), obj.minRedraw = pcfg.minRedraw_s; end
                 if isfield(pcfg, 'rateAlpha'),   obj.rateAlpha = pcfg.rateAlpha;   end
+                if isfield(pcfg, 'statusFile'),  obj.statusFile = string(pcfg.statusFile); end
             end
             if nargin >= 3 && ~isempty(opts)
                 if isfield(opts, 'priorWall_s') && ~isempty(opts.priorWall_s)
@@ -330,12 +333,50 @@ classdef phase5_Progress < handle
             %   readout: the batch ends with its slowest run, so a batch
             %   percentage says nothing about when it will finish or which run
             %   is holding it up.
+            %
+            %   Only rows whose text has actually changed are written. Every
+            %   property set on a uifigure object is a message to MATLAB's
+            %   Chromium process, which is where the desktop and all uifigure
+            %   content live and which was killed out of memory during the
+            %   24-run batch on 6 August. With most runs unchanged between
+            %   redraws this cuts those messages by an order of magnitude.
             if isempty(obj.txt), return; end
+            if numel(obj.lastRowText) ~= obj.nRuns
+                obj.lastRowText = strings(1, obj.nRuns);
+            end
             for i = 1:obj.nRuns
                 if ~isgraphics(obj.txt(i)), continue; end
-                obj.txt(i).String = sprintf('%-13s %3.0f%%  %-8s %s', ...
-                    obj.labels(i), 100*obj.frac(i), obj.stateWord(i), ...
-                    obj.runEtaText(i));
+                s = obj.rowText(i);
+                if s == obj.lastRowText(i), continue; end
+                obj.txt(i).String = s;
+                obj.lastRowText(i) = s;
+            end
+        end
+
+        function s = rowText(obj, i)
+            %rowText One row of the status board, used by the window and file.
+            s = string(sprintf('%-13s %3.0f%%  %-8s %s', obj.labels(i), ...
+                100*obj.frac(i), obj.stateWord(i), obj.runEtaText(i)));
+        end
+
+        function writeStatusFile(obj, msg)
+            %writeStatusFile The whole board as plain text, overwritten in place.
+            %   A batch that outlives a MATLAB session, or that is run with no
+            %   desktop at all, still needs to be watchable. This file is the
+            %   window's content without the window: open it in any editor that
+            %   reloads on change. Failure is ignored on purpose, because a
+            %   status file that cannot be written must never interrupt a batch.
+            if strlength(obj.statusFile) == 0, return; end
+            try
+                fid = fopen(char(obj.statusFile), 'w');
+                if fid < 0, return; end
+                fprintf(fid, 'Phase 5 batch, %s\n%s\n\n', ...
+                    char(datetime('now', 'Format', 'yyyy-MM-dd HH:mm:ss')), msg);
+                for i = 1:obj.nRuns
+                    fprintf(fid, '%s\n', obj.rowText(i));
+                end
+                fclose(fid);
+            catch
             end
         end
 
@@ -602,9 +643,6 @@ classdef phase5_Progress < handle
         end
 
         function draw(obj, force)
-            if obj.mode == "text" && ~obj.enabled
-                return;
-            end
             if ~force && toc(obj.lastRedrawTic) < obj.minRedraw
                 return;
             end
@@ -620,6 +658,14 @@ classdef phase5_Progress < handle
             % and the rows of a frame are read off the same calibration.
             etaSec = obj.eta();
             msg = obj.headline(etaSec);
+
+            % Written in every mode, including with the display disabled: the
+            % file is the only readout that survives losing the desktop, and a
+            % headless batch has nothing else to watch.
+            obj.writeStatusFile(msg);
+            if obj.mode == "text" && ~obj.enabled
+                return;              % no live display was asked for
+            end
 
             switch obj.mode
                 case "perrun"

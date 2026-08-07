@@ -45,7 +45,7 @@ function [X, Y, runKey, featureNames] = phase6_LoadDataset(dataDir)
 %   feature-importance rankings the write-up depends on.
 
     if nargin < 1 || isempty(dataDir)
-        dataDir = fullfile('..', 'Phase 5', 'data');
+        dataDir = fullfile(fileparts(mfilename('fullpath')), 'data');
     end
 
     files = dir(fullfile(dataDir, 'features_*.csv'));
@@ -58,6 +58,10 @@ function [X, Y, runKey, featureNames] = phase6_LoadDataset(dataDir)
         data = [data; readtable(fullfile(files(k).folder, files(k).name))]; %#ok<AGROW>
     end
 
+    %   The traffic-volume block is NOT excluded here. It is a confound rather than
+    %   a bookkeeping column, so it is switched off in the featureSwitch list in
+    %   prepare_data.m, where the reason is written out and can be overridden for
+    %   an ablation. This function only removes columns that are never predictors.
     excluded = {'scenario', 'seed', 'ueID', 'label', ...
                 'winStart_s', 'winEnd_s'};
 

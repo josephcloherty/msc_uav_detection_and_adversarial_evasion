@@ -180,7 +180,18 @@ function manifest = phase5_RunBatch(cfg)
     priorWall = kInfo.k * cfg.window.simulationTime * nGNBv .* nUEv;
     reportCostModel(kInfo, priorWall, todo, pool.NumWorkers);
 
-    prog = phase5_Progress(labels, cfg.progress, ...
+    % The status file goes next to the data unless it was given a path of its
+    % own, so a headless batch leaves its readout with its output.
+    pcfg = cfg.progress;
+    if isfield(pcfg, 'statusFile') && strlength(string(pcfg.statusFile)) > 0
+        sf = char(pcfg.statusFile);
+        if isempty(fileparts(sf))
+            pcfg.statusFile = string(fullfile(dataDir, sf));
+        end
+        fprintf('Status board: %s\n', pcfg.statusFile);
+    end
+
+    prog = phase5_Progress(labels, pcfg, ...
         struct('priorWall_s', priorWall, 'numWorkers', pool.NumWorkers));
     progGuard = onCleanup(@() prog.close());   % close the bar on error too
     prog.markSkipped(~todo);
@@ -196,11 +207,24 @@ function manifest = phase5_RunBatch(cfg)
     % they all start together and results is indexed directly by run.
     fprintf('Dispatch: %d run(s) on %d worker(s), all starting together.\n', ...
         nRuns, pool.NumWorkers);
+    % That claim holds only while the two numbers match. startPool reduces
+    % the worker count when a pool will not open at the requested size, and
+    % a smaller pool means the surplus runs queue under parfor's default
+    % partitioning, which assigns subranges up front rather than one run at a
+    % time. Said out loud rather than left as a surprise in the wall times.
+    if pool.NumWorkers < sum(todo)
+        fprintf(['Note: %d run(s) to execute on %d worker(s), so %d will ' ...
+            'queue. parfor assigns its subranges up front, so a worker may ' ...
+            'hold a queued run while another is idle.\n'], sum(todo), ...
+            pool.NumWorkers, sum(todo) - pool.NumWorkers);
+    end
+    nWorkersUsed = pool.NumWorkers;
     results = cell(1, nRuns);
     continueOnError = cfg.batch.continueOnError;
     parfor (i = 1:nRuns, pool.NumWorkers)
         addpath(fcnDir);   % workers do not inherit the client path
         rc = runCfgs{i};
+        rc.poolWorkers = nWorkersUsed;   % goes into this run's own sidecar
         if useProgress
             rc.progressQueue = q;
             rc.runIdx = i;

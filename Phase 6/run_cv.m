@@ -1,18 +1,13 @@
-%% Phase 6 - 5-fold grouped cross-validation across all five models
-%  Pools every Phase 5 run, assigns WHOLE runs (scenario+seed) to folds so no
-%  run's windows straddle a fold, then reports mean +/- sd AUC, accuracy and
-%  false positive rate per model. Grouped CV reuses every expensive run for
-%  both training and validation, which is the right choice when data is
-%  costly to generate. Aerial is the positive class.
-%
-%  Requires: Statistics and Machine Learning Toolbox, phase6_LoadDataset.m.
-%  Output:   cv_results.csv (one row per model)
+%% Phase 6 - Grouped 5-fold cross-validation across all five models
+%  Optional companion to train_all.m/test_all.m; reuses every run for both fitting
+%  and validation, which matters when runs are expensive to generate.
+%  Output: cv_results.csv (one row per model)
 
 %% Settings
 clear; clc;
 rng(42);
-dataDir  = fullfile('..', 'Phase 5', 'data');
-K        = 5;              % requested folds (auto-reduced if runs are few)
+dataDir  = fullfile(fileparts(mfilename('fullpath')), 'data');
+K        = 5;              % requested folds, auto-reduced if a scenario has fewer runs
 posClass = 'Aerial';
 
 %% Load and pool every run
@@ -21,8 +16,8 @@ runs       = unique(runKey);
 scenPerRun = extractBefore(runs, '_');
 
 %% Assign whole runs to folds, round-robin within each scenario
-%  so every fold contains UMa, RMa and UMi. K is capped at the smallest
-%  scenario's run count so no fold can be empty.
+%  Keeping a run's windows in one fold stops the 90 per cent overlap between
+%  neighbouring windows leaking across the fold boundary.
 K = min(K, min(histcounts(categorical(scenPerRun))));
 foldOfRun = zeros(size(runs));
 for s = unique(scenPerRun)'
@@ -34,55 +29,78 @@ end
 foldOfRow = foldOfRun(rIdx);
 fprintf('Grouped %d-fold CV over %d runs (%d rows).\n', K, numel(runs), height(X));
 
-%% Models (same presets as the individual train scripts)
-names    = {'KNN', 'Random Forest', 'Decision Tree', 'Logistic Regression', 'Discriminant'};
+%% Models, using the same presets as the individual train scripts
+%  needsZ marks the model whose penalty is scale-dependent and so requires z-scored input.
+names    = {'KNN', 'Random Forest', 'Decision Tree', 'Logistic Regression', 'Discriminant Analysis'};
+needsZ   = [false, false, false, true, false];
+numVars  = max(1, round(sqrt(width(X))));   % NumVariablesToSample needs an explicit integer
 trainers = { ...
     @(Xtr,Ytr) fitcknn(Xtr, Ytr, 'NumNeighbors', 10, 'Distance', 'euclidean', 'Standardize', true), ...
     @(Xtr,Ytr) fitcensemble(Xtr, Ytr, 'Method', 'Bag', 'NumLearningCycles', 100, ...
-                            'Learners', templateTree('NumVariablesToSample', 'sqrt')), ...
-    @(Xtr,Ytr) fitctree(Xtr, Ytr, 'MaxNumSplits', 100), ...
+                            'Learners', templateTree('NumVariablesToSample', numVars, 'Reproducible', true)), ...
+    @(Xtr,Ytr) fitctree(Xtr, Ytr, 'MaxNumSplits', 100, 'MinLeafSize', 20), ...
     @(Xtr,Ytr) fitclinear(Xtr, Ytr, 'Learner', 'logistic'), ...
     @(Xtr,Ytr) fitcdiscr(Xtr, Ytr, 'DiscrimType', 'pseudoLinear') };
 
-auc = nan(numel(names), K);
-acc = nan(numel(names), K);
-fpr = nan(numel(names), K);
+auc    = nan(numel(names), K);
+acc    = nan(numel(names), K);
+fpr    = nan(numel(names), K);
+tpr01  = nan(numel(names), K);
+tpr05  = nan(numel(names), K);
 
-%% Cross-validate: impute per fold on the training portion only
+%% Cross-validate, fitting every preprocessing step on the training fold only
 for f = 1:K
     tr = foldOfRow ~= f;   te = foldOfRow == f;
     Xtr = X(tr, :); Ytr = Y(tr);
     Xte = X(te, :); Yte = Y(te);
 
-    med = median(Xtr{:, :}, 1, 'omitnan');       % train-fold medians only
+    med = median(Xtr{:, :}, 1, 'omitnan');        % training-fold medians only
     med(isnan(med)) = 0;                          % guard: all-NaN column -> 0
     Xtr = imputeWith(Xtr, med);
     Xte = imputeWith(Xte, med);
 
+    mu    = mean(Xtr{:, :}, 1);                   % training-fold scaling only
+    sigma = std(Xtr{:, :}, 0, 1);
+    sigma(sigma == 0) = 1;
+    Ztr = (Xtr{:, :} - mu) ./ sigma;
+    Zte = (Xte{:, :} - mu) ./ sigma;
+
     for m = 1:numel(names)
-        model = trainers{m}(Xtr, Ytr);
-        [pred, score] = predict(model, Xte);
+        if needsZ(m)
+            model = trainers{m}(Ztr, Ytr);
+            [pred, score] = predict(model, Zte);
+        else
+            model = trainers{m}(Xtr, Ytr);
+            [pred, score] = predict(model, Xte);
+        end
         posCol = (model.ClassNames == posClass);
-        [~, ~, ~, auc(m, f)] = perfcurve(Yte, score(:, posCol), posClass);
+
+        [rocFPR, rocTPR, ~, auc(m, f)] = perfcurve(Yte, score(:, posCol), posClass);
+        tpr01(m, f) = rocTPR(find(rocFPR <= 0.01, 1, 'last'));
+        tpr05(m, f) = rocTPR(find(rocFPR <= 0.05, 1, 'last'));
+
         TP = sum(pred == posClass & Yte == posClass);
         FP = sum(pred == posClass & Yte ~= posClass);
         TN = sum(pred ~= posClass & Yte ~= posClass);
-        FN = sum(pred ~= posClass & Yte == posClass); %#ok<NASGU>
         acc(m, f) = (TP + TN) / numel(Yte);
         fpr(m, f) = FP / (FP + TN);
     end
 end
 
 %% Report
-fprintf('\n%-22s %16s %11s %9s\n', 'Model', 'AUC (mean+/-sd)', 'Accuracy', 'FPR');
+fprintf('\n%-22s %17s %10s %8s %10s %10s\n', ...
+    'Model', 'AUC (mean+/-sd)', 'Accuracy', 'FPR', 'TPR@1%FPR', 'TPR@5%FPR');
 for m = 1:numel(names)
-    fprintf('%-22s   %5.3f +/- %5.3f   %6.3f    %6.3f\n', ...
-        names{m}, mean(auc(m, :)), std(auc(m, :)), mean(acc(m, :)), mean(fpr(m, :)));
+    fprintf('%-22s   %5.3f +/- %5.3f   %6.3f   %6.3f     %6.3f     %6.3f\n', ...
+        names{m}, mean(auc(m, :)), std(auc(m, :)), mean(acc(m, :)), ...
+        mean(fpr(m, :)), mean(tpr01(m, :)), mean(tpr05(m, :)));
 end
 
 %% Save results for the chapter 4 write-up (D6.2)
 R = table(names', mean(auc, 2), std(auc, 0, 2), mean(acc, 2), mean(fpr, 2), ...
-    'VariableNames', {'Model', 'AUC_mean', 'AUC_sd', 'Accuracy_mean', 'FPR_mean'});
+    mean(tpr01, 2), mean(tpr05, 2), 'VariableNames', ...
+    {'Model', 'AUC_mean', 'AUC_sd', 'Accuracy_mean', 'FPR_mean', ...
+     'Recall_at_1pctFPR_mean', 'Recall_at_5pctFPR_mean'});
 writetable(R, 'cv_results.csv');
 fprintf('\nSaved cv_results.csv\n');
 

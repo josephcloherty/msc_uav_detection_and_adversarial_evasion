@@ -1,0 +1,15 @@
+Phase 5 batch, 2026-08-07 09:24:15
+0 done, 1 running, 11 starting of 12  |  overall 0.0%  |  wall 12s  |  ETA 1d 15h
+
+UMa seed 34     0%  starting ETA ~1d 5h
+RMa seed 37     0%  starting ETA ~1d 5h
+UMi seed 38     0%  starting ETA ~1d 12h
+UMa seed 39     0%  starting ETA ~1d 5h
+RMa seed 40     0%  starting ETA ~1d 5h
+UMi seed 41     0%  starting ETA ~1d 15h
+UMa seed 42     0%  running  ETA 1d 5h
+RMa seed 43     0%  starting ETA ~1d 5h
+UMi seed 44     0%  starting ETA ~1d 15h
+UMa seed 45     0%  starting ETA ~1d 12h
+RMa seed 46     0%  starting ETA ~1d 15h
+UMi seed 47     0%  starting ETA ~1d 5h

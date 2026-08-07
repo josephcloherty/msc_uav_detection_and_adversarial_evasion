@@ -297,6 +297,21 @@ function summary = phase5_Pipeline(cfg)
         summary.losDynamic      = all([losDiag.dynamic]);
     end
 
+    % This run's outcome, recorded beside its CSV by the worker that ran it.
+    % The client assembles the manifest from the returned summaries, so if
+    % the client dies before the batch returns those summaries are lost even
+    % though the runs are on disk. With this, phase5_RebuildManifest can
+    % reconstruct the manifest afterwards. Wrapped: a run that has just cost
+    % thirty hours must not be reported as failed because a bookkeeping file
+    % could not be written.
+    try
+        phase5_RunInfo('write', cfg, summary);
+    catch err
+        warning('phase5_Pipeline:runInfoFailed', ...
+            '[%s seed %d] could not write the run info sidecar: %s', ...
+            cfg.scenario, cfg.seed, err.message);
+    end
+
     if ~quiet
         fprintf('[%s seed %d] %d rows x %d cols in %.1f s wall -> %s\n', ...
             cfg.scenario, cfg.seed, height(T), width(T), simWall, csvPath);

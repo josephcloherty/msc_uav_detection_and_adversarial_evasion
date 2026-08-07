@@ -69,7 +69,7 @@ function cfg = phase5_Config()
     % At the measured cost (see cfg.batch.costModel) a run is tens of
     % hours, so one batch is one wave. phase5_DryRun projects the wall
     % time before you commit to it.
-    cfg.batch.seedRange = 37:60;
+    cfg.batch.seedRange = [34, 37:59];
 
     % Scenario cycled one per run. Any subset/order of the names defined
     % in cfg.scenarios below. "UMa" is the primary deployment scenario,
@@ -90,7 +90,16 @@ function cfg = phase5_Config()
     % uses the default profile's worker count, which makes the batch size
     % depend on the machine - set it explicitly when the seed range matters.
     % Each worker holds one full simulation, so memory scales with this.
-    cfg.batch.numWorkers = [24];
+    % 12, not more. Measured cost is 33.3 s per (sim-s x gNB x UE) at six
+    % workers and 39.2 at twelve, so twelve workers cost only eighteen per
+    % cent more per run than six and nearly double the throughput: the
+    % machine has about twelve usable cores. Twenty-four would be two
+    % workers per core, which buys no throughput at all, roughly doubles the
+    % wall time per run, and doubles the number of simulations resident in
+    % memory at once. Memory is the binding constraint after the
+    % out-of-memory crash on 6 August, so the pool stays at one worker per
+    % core.
+    cfg.batch.numWorkers = [12];
 
     % Label used in the manifest filename. "" uses a yyyymmdd_HHMMSS stamp.
     cfg.batch.tag = "";
@@ -180,7 +189,22 @@ function cfg = phase5_Config()
     % follows a run whose cost is changing more closely and is noisier;
     % lower is smoother and slower to notice a slowdown.
     cfg.progress.rateAlpha     = 0.35;
-    cfg.progress.minRedraw_s   = 0.5;   % throttle between redraws
+
+    % Seconds between redraws. Every property set on the progress window is
+    % a message to MATLAB's Chromium process, which hosts the desktop and
+    % all uifigure content, and which was killed out of memory late in the
+    % 24-run batch on 6 August (crash handler: TS_PROCESS_OOM). A run
+    % reports once per per cent, which at these lengths is once every twenty
+    % minutes, so half a second of throttle bought nothing and 5 s costs
+    % nothing. Rows whose text has not changed are not rewritten at all.
+    cfg.progress.minRedraw_s   = 5;
+
+    % Plain-text status board, rewritten on every redraw. "" disables it.
+    % This is the readout that does not depend on the desktop surviving:
+    % open it in an editor that reloads on change, and it is the only way to
+    % watch a batch started with matlab -batch. Resolved against dataDir
+    % when it has no path of its own.
+    cfg.progress.statusFile    = "batch_status.txt";
 
     %% ==================================================================
     %  RADIO (shared by every scenario, kept at the Phase 2-4 values so
