@@ -26,10 +26,11 @@ function M = phase5_DryRun(cfg)
     addpath(fullfile(here, 'core', 'functions'));
 
     seeds = cfg.batch.seedRange(:)';
-    cycle = string(cfg.batch.scenarioCycle(:))';
     nRuns = min(numel(seeds), cfg.batch.maxRuns);
     seeds = seeds(1:nRuns);
-    scenarios = cycle(mod((0:nRuns-1), numel(cycle)) + 1);
+    % Same resolver the runner uses, so the projection names the runs the
+    % batch will actually produce.
+    scenarios = phase5_ScenarioFor(cfg, seeds);
 
     rows = cell(nRuns, 1);
     for i = 1:nRuns

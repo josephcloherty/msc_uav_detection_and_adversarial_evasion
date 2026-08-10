@@ -13,10 +13,10 @@ dataFile = dir(fullfile(root, 'prepared_data', 'phase6_data.mat'));
 assert(~isempty(dataFile), 'train_all:noData', ...
     'prepared_data/phase6_data.mat not found; run prepare_data.m first.');
 
-% The saved split must postdate the loader, or the predictor set it holds is stale.
-loaderFile = dir(fullfile(root, 'phase6_LoadDataset.m'));
-assert(dataFile.datenum > loaderFile.datenum, 'train_all:staleData', ...
-    'prepared_data/phase6_data.mat is older than phase6_LoadDataset.m; rerun prepare_data.m.');
+% The saved split must postdate prepare_data.m, or its feature set is stale.
+prepFile = dir(fullfile(root, 'prepare_data.m'));
+assert(dataFile.datenum > prepFile.datenum, 'train_all:staleData', ...
+    'prepared_data/phase6_data.mat is older than prepare_data.m; rerun prepare_data.m.');
 
 if ~isfolder(fullfile(root, 'models')), mkdir(fullfile(root, 'models')); end
 
@@ -29,7 +29,7 @@ run(fullfile(root, 'train', 'train_logistic_regression.m'));
 run(fullfile(root, 'train', 'train_discriminant_analysis.m'));
 
 %% Confirm every model file was written
-root = fileparts(which('phase6_LoadDataset'));   % the train scripts cleared the variable
+root = fileparts(which('prepare_data'));   % the train scripts cleared the variable
 expected = {'model_knn.mat', 'model_random_forest.mat', 'model_decision_tree.mat', ...
             'model_logistic_regression.mat', 'model_discriminant_analysis.mat'};
 onDisk = cellfun(@(f) isfile(fullfile(root, 'models', f)), expected);

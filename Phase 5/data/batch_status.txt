@@ -1,15 +1,18 @@
-Phase 5 batch, 2026-08-07 09:24:15
-0 done, 1 running, 11 starting of 12  |  overall 0.0%  |  wall 12s  |  ETA 1d 15h
+Phase 5 batch, 2026-08-10 16:38:47
+0 done, 15 running, 0 starting of 15  |  overall 84.2%  |  wall 1d 6h  |  ETA 1d 4h  |  cost x1.19 vs model
 
-UMa seed 34     0%  starting ETA ~1d 5h
-RMa seed 37     0%  starting ETA ~1d 5h
-UMi seed 38     0%  starting ETA ~1d 12h
-UMa seed 39     0%  starting ETA ~1d 5h
-RMa seed 40     0%  starting ETA ~1d 5h
-UMi seed 41     0%  starting ETA ~1d 15h
-UMa seed 42     0%  running  ETA 1d 5h
-RMa seed 43     0%  starting ETA ~1d 5h
-UMi seed 44     0%  starting ETA ~1d 15h
-UMa seed 45     0%  starting ETA ~1d 12h
-RMa seed 46     0%  starting ETA ~1d 15h
-UMi seed 47     0%  starting ETA ~1d 5h
+UMa seed 46    65%  running  ETA 16h 41m
+RMa seed 47    89%  running  ETA 3h 46m
+UMi seed 48    91%  running  ETA 3h 05m
+UMa seed 49    91%  running  ETA 3h 02m
+RMa seed 50    90%  running  ETA 3h 23m
+UMi seed 51    91%  running  ETA 3h 04m
+UMa seed 52    89%  running  ETA 3h 48m
+RMa seed 53    89%  running  ETA 3h 45m
+UMi seed 54    91%  running  ETA 3h 02m
+UMa seed 55    89%  running  ETA 3h 47m
+RMa seed 56    90%  running  ETA 3h 26m
+UMi seed 57    72%  running  ETA 12h 09m
+UMa seed 58    52%  running  ETA 1d 4h
+RMa seed 59    85%  running  ETA 5h 05m
+UMi seed 60    89%  running  ETA 3h 48m

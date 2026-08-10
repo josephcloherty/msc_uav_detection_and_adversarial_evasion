@@ -1,114 +1,151 @@
-%% Phase 6 - Grouped 5-fold cross-validation across all five models
-%  Optional companion to train_all.m/test_all.m; reuses every run for both fitting
-%  and validation, which matters when runs are expensive to generate.
-%  Output: cv_results.csv (one row per model)
+%% Phase 6 D6.2 - Grouped stratified cross-validation over the development runs
+%  Reads:  prepared_data/phase6_data.mat
+%  Writes: prepared_data/oof_scores.mat
+%          results/cv_results.csv          one row per model, mean and dispersion
+%          results/cv_results_perfold.csv  one row per model and fold
+%
+%  Folds are grouped at run level, so no seed contributes rows to both the training and
+%  the validation side of any fold, and stratified on scenario and aerial prevalence, so
+%  the folds are comparable to each other. Every preprocessing step is fitted on the
+%  training portion of the fold and applied to the validation portion, never the other
+%  way round.
+%
+%  The full out-of-fold score vector is retained. Every one of D6.3 to D6.6 is computed
+%  from it rather than from a fresh fit, which is what keeps the decision rule, the
+%  thresholds and the latency curve all describing the same set of predictions.
 
 %% Settings
 clear; clc;
-rng(42);
-dataDir  = fullfile(fileparts(mfilename('fullpath')), 'data');
-K        = 5;              % requested folds, auto-reduced if a scenario has fewer runs
-posClass = 'Aerial';
+rng(9999);                                  % bagging is stochastic
+root = fileparts(mfilename('fullpath'));
+addpath(root);
+K = 5;
+U = phase6_util();
 
-%% Load and pool every run
-[X, Y, runKey] = phase6_LoadDataset(dataDir);
-runs       = unique(runKey);
-scenPerRun = extractBefore(runs, '_');
+load(fullfile(root, 'prepared_data', 'phase6_data.mat'), ...
+     'Xdev', 'Ydev', 'runKeyDev', 'ueKeyDev', 'winStartDev', 'featureNames', 'posClass');
 
-%% Assign whole runs to folds, round-robin within each scenario
-%  Keeping a run's windows in one fold stops the 90 per cent overlap between
-%  neighbouring windows leaking across the fold boundary.
-K = min(K, min(histcounts(categorical(scenPerRun))));
-foldOfRun = zeros(size(runs));
-for s = unique(scenPerRun)'
-    idx = find(scenPerRun == s);
-    idx = idx(randperm(numel(idx)));            % shuffle within scenario
-    foldOfRun(idx) = mod(0:numel(idx)-1, K) + 1;
-end
-[~, rIdx] = ismember(runKey, runs);
+isPos = (Ydev == posClass);
+nRow  = size(Xdev, 1);
+
+%% Assign whole runs to folds
+%  A 1 s stride on a 10 s window makes neighbouring rows about 90 per cent identical, so
+%  splitting a run across the fold boundary would put near-copies of validation rows in
+%  the training set and report an optimism that has nothing to do with generalisation.
+runs = unique(runKeyDev);
+[~, rIdx] = ismember(runKeyDev, runs);
+runScen = extractBefore(runs, '_');
+runPos  = accumarray(rIdx, double(isPos), [numel(runs), 1]);
+runTot  = accumarray(rIdx, 1,             [numel(runs), 1]);
+
+K = min(K, min(histcounts(categorical(runScen))));
+foldOfRun = U.foldAssign(runScen, runPos, runTot, K);
 foldOfRow = foldOfRun(rIdx);
-fprintf('Grouped %d-fold CV over %d runs (%d rows).\n', K, numel(runs), height(X));
 
-%% Models, using the same presets as the individual train scripts
-%  needsZ marks the model whose penalty is scale-dependent and so requires z-scored input.
-names    = {'KNN', 'Random Forest', 'Decision Tree', 'Logistic Regression', 'Discriminant Analysis'};
-needsZ   = [false, false, false, true, false];
-numVars  = max(1, round(sqrt(width(X))));   % NumVariablesToSample needs an explicit integer
-trainers = { ...
-    @(Xtr,Ytr) fitcknn(Xtr, Ytr, 'NumNeighbors', 10, 'Distance', 'euclidean', 'Standardize', true), ...
-    @(Xtr,Ytr) fitcensemble(Xtr, Ytr, 'Method', 'Bag', 'NumLearningCycles', 100, ...
-                            'Learners', templateTree('NumVariablesToSample', numVars, 'Reproducible', true)), ...
-    @(Xtr,Ytr) fitctree(Xtr, Ytr, 'MaxNumSplits', 100, 'MinLeafSize', 20), ...
-    @(Xtr,Ytr) fitclinear(Xtr, Ytr, 'Learner', 'logistic'), ...
-    @(Xtr,Ytr) fitcdiscr(Xtr, Ytr, 'DiscrimType', 'pseudoLinear') };
+fprintf('Grouped stratified %d-fold CV over %d runs (%d rows, %d predictors).\n', ...
+    K, numel(runs), nRow, numel(featureNames));
+fprintf('\n%-6s %-8s %-10s %-12s %s\n', 'Fold', 'Runs', 'Rows', 'AerialRows', 'Scenarios');
+for f = 1:K
+    m = foldOfRow == f;
+    scenHere = extractBefore(runs(foldOfRun == f), '_');
+    counts = arrayfun(@(s) sum(scenHere == s), unique(runScen))';
+    fprintf('%-6d %-8d %-10d %-12.1f%% %s\n', f, sum(foldOfRun == f), sum(m), ...
+        100 * mean(isPos(m)), mat2str(counts));
+end
 
-auc    = nan(numel(names), K);
-acc    = nan(numel(names), K);
-fpr    = nan(numel(names), K);
-tpr01  = nan(numel(names), K);
-tpr05  = nan(numel(names), K);
+%% Cross-validate
+M = phase6_models(numel(featureNames));
+nM = numel(M);
 
-%% Cross-validate, fitting every preprocessing step on the training fold only
+oofScore = nan(nRow, nM);
+auc   = nan(nM, K);   pauc5 = nan(nM, K);   pauc5n = nan(nM, K);
+rec01 = nan(nM, K);   rec05 = nan(nM, K);   acc    = nan(nM, K);
+
 for f = 1:K
     tr = foldOfRow ~= f;   te = foldOfRow == f;
-    Xtr = X(tr, :); Ytr = Y(tr);
-    Xte = X(te, :); Yte = Y(te);
+    Xtr = Xdev(tr, :);  Ytr = Ydev(tr);
+    Xte = Xdev(te, :);  Yte = Ydev(te);
 
-    med = median(Xtr{:, :}, 1, 'omitnan');        % training-fold medians only
-    med(isnan(med)) = 0;                          % guard: all-NaN column -> 0
-    Xtr = imputeWith(Xtr, med);
-    Xte = imputeWith(Xte, med);
+    % Imputation and scaling are fitted on the training portion of this fold only.
+    med = median(Xtr, 1, 'omitnan');
+    med(isnan(med)) = 0;                    % guard: column all-NaN in this fold
+    Xtr = U.imputeWith(Xtr, med);
+    Xte = U.imputeWith(Xte, med);
 
-    mu    = mean(Xtr{:, :}, 1);                   % training-fold scaling only
-    sigma = std(Xtr{:, :}, 0, 1);
+    mu    = mean(Xtr, 1);
+    sigma = std(Xtr, 0, 1);
     sigma(sigma == 0) = 1;
-    Ztr = (Xtr{:, :} - mu) ./ sigma;
-    Zte = (Xte{:, :} - mu) ./ sigma;
+    Ztr = (Xtr - mu) ./ sigma;
+    Zte = (Xte - mu) ./ sigma;
 
-    for m = 1:numel(names)
-        if needsZ(m)
-            model = trainers{m}(Ztr, Ytr);
-            [pred, score] = predict(model, Zte);
+    for m = 1:nM
+        if M(m).needsZ
+            model = M(m).fit(Ztr, Ytr);
+            s     = M(m).score(model, Zte);
         else
-            model = trainers{m}(Xtr, Ytr);
-            [pred, score] = predict(model, Xte);
+            model = M(m).fit(Xtr, Ytr);
+            s     = M(m).score(model, Xte);
         end
-        posCol = (model.ClassNames == posClass);
+        oofScore(te, m) = s;
 
-        [rocFPR, rocTPR, ~, auc(m, f)] = perfcurve(Yte, score(:, posCol), posClass);
-        tpr01(m, f) = rocTPR(find(rocFPR <= 0.01, 1, 'last'));
-        tpr05(m, f) = rocTPR(find(rocFPR <= 0.05, 1, 'last'));
-
-        TP = sum(pred == posClass & Yte == posClass);
-        FP = sum(pred == posClass & Yte ~= posClass);
-        TN = sum(pred ~= posClass & Yte ~= posClass);
-        acc(m, f) = (TP + TN) / numel(Yte);
-        fpr(m, f) = FP / (FP + TN);
+        [x, y, auc(m, f)] = U.rocCurve(Yte, s, posClass);
+        [pauc5(m, f), pauc5n(m, f)] = U.partialAUC(x, y, 0.05);
+        rec01(m, f) = U.recallAtFPR(x, y, 0.01);
+        rec05(m, f) = U.recallAtFPR(x, y, 0.05);
+        acc(m, f)   = mean((s >= 0.5) == (Yte == posClass));
     end
+    fprintf('Fold %d of %d done.\n', f, K);
 end
+
+assert(~any(isnan(oofScore), 'all'), 'run_cv:missingScore', ...
+    'Some rows received no out-of-fold score; check the fold assignment.');
 
 %% Report
-fprintf('\n%-22s %17s %10s %8s %10s %10s\n', ...
-    'Model', 'AUC (mean+/-sd)', 'Accuracy', 'FPR', 'TPR@1%FPR', 'TPR@5%FPR');
-for m = 1:numel(names)
-    fprintf('%-22s   %5.3f +/- %5.3f   %6.3f   %6.3f     %6.3f     %6.3f\n', ...
-        names{m}, mean(auc(m, :)), std(auc(m, :)), mean(acc(m, :)), ...
-        mean(fpr(m, :)), mean(tpr01(m, :)), mean(tpr05(m, :)));
+%  AUC is the headline, but the partial AUC below a 5 per cent false alarm rate is the
+%  number that matters operationally: at network scale a detector is only usable in the
+%  left-hand edge of the ROC, and two models with the same full AUC can differ sharply
+%  there. Dispersion is across folds and is a statement about run-to-run variation, not
+%  about sampling error within a fold.
+fprintf('\n%-22s %15s %15s %15s %15s\n', ...
+    'Model', 'AUC', 'pAUC<5%FPR', 'Recall@1%FPR', 'Recall@5%FPR');
+for m = 1:nM
+    fprintf('%-22s  %5.3f +/-%5.3f  %5.3f +/-%5.3f  %5.3f +/-%5.3f  %5.3f +/-%5.3f\n', ...
+        M(m).name, mean(auc(m, :)), std(auc(m, :)), ...
+        mean(pauc5n(m, :)), std(pauc5n(m, :)), ...
+        mean(rec01(m, :)), std(rec01(m, :)), ...
+        mean(rec05(m, :)), std(rec05(m, :)));
 end
+fprintf('\npAUC is normalised by the 0.05 FPR width, so it reads as mean recall over that range.\n');
 
-%% Save results for the chapter 4 write-up (D6.2)
-R = table(names', mean(auc, 2), std(auc, 0, 2), mean(acc, 2), mean(fpr, 2), ...
-    mean(tpr01, 2), mean(tpr05, 2), 'VariableNames', ...
-    {'Model', 'AUC_mean', 'AUC_sd', 'Accuracy_mean', 'FPR_mean', ...
-     'Recall_at_1pctFPR_mean', 'Recall_at_5pctFPR_mean'});
-writetable(R, 'cv_results.csv');
-fprintf('\nSaved cv_results.csv\n');
+%% Save the summary and the per-fold detail
+R = table({M.name}', mean(auc, 2), std(auc, 0, 2), ...
+    mean(pauc5, 2), std(pauc5, 0, 2), mean(pauc5n, 2), std(pauc5n, 0, 2), ...
+    mean(rec01, 2), std(rec01, 0, 2), mean(rec05, 2), std(rec05, 0, 2), ...
+    mean(acc, 2), std(acc, 0, 2), ...
+    'VariableNames', {'Model', 'AUC_mean', 'AUC_sd', ...
+    'pAUC5_mean', 'pAUC5_sd', 'pAUC5norm_mean', 'pAUC5norm_sd', ...
+    'Recall_at_1pctFPR_mean', 'Recall_at_1pctFPR_sd', ...
+    'Recall_at_5pctFPR_mean', 'Recall_at_5pctFPR_sd', ...
+    'Accuracy_at_0p5_mean', 'Accuracy_at_0p5_sd'});
+R = sortrows(R, 'pAUC5norm_mean', 'descend');
+writetable(R, fullfile(root, 'results', 'cv_results.csv'));
 
-%% ---- local helper: replace NaNs with supplied column medians ----
-function T = imputeWith(T, colMedians)
-    A = T{:, :};
-    for j = 1:size(A, 2)
-        A(isnan(A(:, j)), j) = colMedians(j);
-    end
-    T{:, :} = A;
-end
+[~, ff] = ndgrid(1:nM, 1:K);
+P = table(reshape(repmat({M.name}', 1, K), [], 1), ff(:), ...
+    auc(:), pauc5(:), pauc5n(:), rec01(:), rec05(:), acc(:), ...
+    'VariableNames', {'Model', 'Fold', 'AUC', 'pAUC5', 'pAUC5norm', ...
+    'Recall_at_1pctFPR', 'Recall_at_5pctFPR', 'Accuracy_at_0p5'});
+P = sortrows(P, {'Model', 'Fold'});
+writetable(P, fullfile(root, 'results', 'cv_results_perfold.csv'));
+
+%% Retain the full out-of-fold score vector
+%  D6.3 to D6.6 all read this file, so the decision rule, the thresholds, the latency
+%  curve and the importance ranking are computed on one common set of predictions.
+modelNames = {M.name}';
+modelKeys  = {M.key}';
+save(fullfile(root, 'prepared_data', 'oof_scores.mat'), ...
+    'oofScore', 'modelNames', 'modelKeys', 'Ydev', 'ueKeyDev', 'runKeyDev', ...
+    'winStartDev', 'foldOfRow', 'foldOfRun', 'runs', 'K', 'posClass');
+
+fprintf('\nSaved results/cv_results.csv, results/cv_results_perfold.csv and prepared_data/oof_scores.mat\n');
+fprintf('Run per_ue_rule.m next.\n');

@@ -1,0 +1,15 @@
+Phase 5 batch, 2026-08-08 23:39:55
+12 done, 0 running, 0 starting of 12  |  overall 100.0%  |  wall 1d 13h  |  ETA 0s  |  cost x0.95 vs model
+
+UMa seed 34   100%  done     in 1d 3h
+RMa seed 37   100%  done     in 1d 3h
+UMi seed 38   100%  done     in 1d 10h
+UMa seed 39   100%  done     in 1d 4h
+RMa seed 40   100%  done     in 1d 4h
+UMi seed 41   100%  done     in 1d 13h
+UMa seed 42   100%  done     in 1d 4h
+RMa seed 43   100%  done     in 1d 4h
+UMi seed 44   100%  done     in 1d 13h
+UMa seed 45   100%  done     in 1d 10h
+RMa seed 46   100%  done     in 1d 13h
+UMi seed 47   100%  done     in 1d 4h

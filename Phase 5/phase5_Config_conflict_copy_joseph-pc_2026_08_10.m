@@ -69,74 +69,17 @@ function cfg = phase5_Config()
     % At the measured cost (see cfg.batch.costModel) a run is tens of
     % hours, so one batch is one wave. phase5_DryRun projects the wall
     % time before you commit to it.
-    %
-    % The order of this vector no longer affects which scenario a seed
-    % runs under; see cfg.batch.scenarioFrom below. Splitting a range
-    % across batches is therefore safe at any point.
-    %
-    % 46:60 is the held-out set, matching the adversarial machine seed for
-    % seed: 46 UMa, 47 RMa, 48 UMi and so on to 60 UMi, 5 of each. It is
-    % run here in two batches because fifteen workers would exceed the
-    % memory ceiling (see cfg.batch.numWorkers):
-    %     cfg.batch.seedRange = 46:57;   numWorkers 12   <- this one
-    %     cfg.batch.seedRange = 58:60;   numWorkers 3    <- then this
-    %
-    % Seeds 1:45 are the training set, already complete and balanced at
-    % 15/15/15.
-    cfg.batch.seedRange = 46:57;
+    cfg.batch.seedRange = [46:60];
 
     % Scenario cycled one per run. Any subset/order of the names defined
     % in cfg.scenarios below. "UMa" is the primary deployment scenario,
     % "RMa" the required second fork, "UMi" the optional third, included
     % here at equal weight so all three are represented in the dataset.
-    % Changing the LENGTH of this list remaps every seed, so a seed range
-    % run under a different cycle produces a different set of runs
-    % (existing files are not overwritten: the run identity is the
-    % scenario and seed pair). Changing only the ORDER now has no effect
-    % on which scenario a given seed gets, since the index is taken from
-    % the seed value rather than from position.
+    % Changing the length of this list changes which scenario a given
+    % seed index maps to, so a seed range run under a different cycle
+    % produces a different set of runs (existing files are not
+    % overwritten: the run identity is the scenario and seed pair).
     cfg.batch.scenarioCycle = ["UMa", "RMa", "UMi"];
-
-    % How a run's scenario is decided. Resolved by phase5_ScenarioFor.
-    %
-    %   "seed"      scenarioCycle(mod(seed-1,3)+1), a pure function of the
-    %               seed. Invariant under reordering, trimming, splitting a
-    %               range across batches, and running on another machine.
-    %   "position"  scenarioCycle(mod(i-1,3)+1), the rule used until
-    %               8 August. Order dependent; kept only to reproduce a
-    %               batch enumerated under it.
-    %
-    % "position" cost a day of confusion and two wasted runs. Prepending
-    % seed 34 to 37:59 shifted every later seed by one; the pool trim then
-    % shortened the batch silently; and this machine and the adversarial
-    % machine ended up disagreeing about what seed 46 was, which does not
-    % error - each simply writes a differently named file. Under "seed",
-    % any contiguous block of seeds whose length is a multiple of three is
-    % balanced wherever it starts and whoever runs it.
-    cfg.batch.scenarioFrom = "seed";
-
-    % Seeds generated under the old positional rule, pinned to the
-    % scenario they were actually run with so that re-enumerating them
-    % resolves to the files already on disk. Without this, seeds 37:45
-    % would resolve to a different scenario, skipExisting would not
-    % recognise the existing CSVs, and nine finished runs would be
-    % regenerated under a second name.
-    %
-    % These nine came from the batch seedRange = [34, 37:47]: seed 34 took
-    % position 1, so 37 landed on RMa rather than the UMa the seed rule
-    % gives it, and the rest follow rotated by one. They are internally
-    % balanced at 3/3/3, so seeds 1:45 are 15/15/15 and the training set
-    % needs no correction.
-    %
-    % Seeds 46 and 47 from that same batch are deliberately NOT listed.
-    % They ran as RMa and UMi, the adversarial machine has them as UMa and
-    % RMa, and the adversarial machine wins: 46 and 47 are re-run here
-    % under the seed rule. The two orphaned runs must be moved out of the
-    % data directory before merging, since phase5_MergeDataset globs every
-    % features_*.csv it finds.
-    cfg.batch.scenarioOverride = struct( ...
-        'seed',     37:45, ...
-        'scenario', ["RMa" "UMi" "UMa" "RMa" "UMi" "UMa" "RMa" "UMi" "UMa"]);
 
     % Hard cap on the number of runs actually executed (Inf = all seeds).
     % Useful for a short smoke batch without editing seedRange. The pool
@@ -156,7 +99,7 @@ function cfg = phase5_Config()
     % memory at once. Memory is the binding constraint after the
     % out-of-memory crash on 6 August, so the pool stays at one worker per
     % core.
-    cfg.batch.numWorkers = [12];
+    cfg.batch.numWorkers = [15];
 
     % Label used in the manifest filename. "" uses a yyyymmdd_HHMMSS stamp.
     cfg.batch.tag = "";

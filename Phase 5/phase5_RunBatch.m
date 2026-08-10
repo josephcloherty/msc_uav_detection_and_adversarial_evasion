@@ -11,11 +11,15 @@ function manifest = phase5_RunBatch(cfg)
 %
 %   RUN ENUMERATION
 %     run i  ->  seed     = cfg.batch.seedRange(i)
-%                scenario = cfg.batch.scenarioCycle(mod(i-1, nCycle)+1)
-%   so numel(cfg.batch.seedRange) runs are produced, with the scenarios
-%   cycled one per run. Because the run identity is (scenario, seed) and
-%   both come from the configuration, a seed range can be split across
-%   machines with no coordination and the outputs merge without conflict.
+%                scenario = phase5_ScenarioFor(cfg, seed)
+%   so numel(cfg.batch.seedRange) runs are produced. The scenario is a
+%   function of the SEED VALUE, not of the seed's position in the range,
+%   which is what makes the run identity (scenario, seed) portable: the
+%   same seed resolves to the same scenario however the range is ordered,
+%   trimmed or split, and on any machine. A seed range can therefore be
+%   divided across machines with no coordination and the outputs merge
+%   without conflict. Until 8 August the scenario came from position, and
+%   it did not have that property; see phase5_ScenarioFor for what broke.
 %
 %   OUTPUTS (all in cfg.batch.dataDir, default <Phase 5>/data)
 %     features_<scenario>_seed<seed>.csv   labelled feature rows
@@ -93,7 +97,11 @@ function manifest = phase5_RunBatch(cfg)
 
     nRuns = min(numel(seeds), cfg.batch.maxRuns);
     seeds = seeds(1:nRuns);
-    scenarios = cycle(mod((0:nRuns-1), numel(cycle)) + 1);
+    % Resolved from the seed value, not from position in seedRange, so the
+    % trim below and any split of a range across batches leave every run's
+    % identity unchanged. phase5_ScenarioFor is the only place this is
+    % decided; phase5_DryRun calls it too so the two cannot disagree.
+    scenarios = phase5_ScenarioFor(cfg, seeds);
 
     %% ---- resolve every run configuration up front -----------------------
     % Generating on the client fails fast on a bad configuration (SRS
