@@ -1,0 +1,2186 @@
+>> phase7_DryRun
+
+Phase 7 dry run: 3 condition(s) x 15 seed(s) = 45 run(s)
+  seeds              46 to 60
+  lowAltitude       15 run(s), 145 UE-runs, 25 aerial UE-runs | aerial pinned to 15.0 m
+  trafficReshaping  15 run(s), 145 UE-runs, 25 aerial UE-runs | aerial traffic set to the terrestrial profile
+  combined          15 run(s), 145 UE-runs, 25 aerial UE-runs | aerial pinned to 15.0 m, terrestrial traffic and speeds
+  UMa                15 run(s), 159 UE-runs, 39 aerial UE-runs
+  RMa                15 run(s), 135 UE-runs, 15 aerial UE-runs
+  UMi                15 run(s), 141 UE-runs, 21 aerial UE-runs
+  multi-aerial runs  9 of 45 (20%)
+  aerial fraction    0.158 mean, 0.111 to 0.429
+  aerial altitude    42.9 to 189.0 m
+  UEs per gNB (SRS)  14 max, limit 16
+  windows per UE     31 (approx)
+  estimated rows     13485 (approx)
+
+  cost model         33.6 s per (sim-s x gNB x UE) (configured prior, no measurements yet)
+  wall per run       17 h 00 min 36 s to 26 h 27 min 36 s
+  total CPU time     822 h 09 min 00 s
+  on 45 worker(s)    18 h 16 min 12 s or more (ignores core contention)
+  cost per 1k rows   60 h 58 min 04 s
+
+
+ans =
+
+  45×16 table
+
+    runIdx        condition         scenario    seed    numGNB    siteRadius_m    ueAreaSpan_m    numUE    numTerrestrial    numAerial    isMultiAerial    aerialFraction    anchorLoadMax    minAerialAlt_m    maxAerialAlt_m    simTime_s
+    ______    __________________    ________    ____    ______    ____________    ____________    _____    ______________    _________    _____________    ______________    _____________    ______________    ______________    _________
+
+       1      "lowAltitude"          "UMa"       46       5            750            2200         12            8               4              1             0.33333              3              76.131            188.96          40.5   
+       2      "trafficReshaping"     "UMa"       46       5            750            2200         12            8               4              1             0.33333              3              76.131            188.96          40.5   
+       3      "combined"             "UMa"       46       5            750            2200         12            8               4              1             0.33333              3              76.131            188.96          40.5   
+       4      "lowAltitude"          "RMa"       47       5           1500            3600          9            8               1              0             0.11111              4              155.22            155.22          40.5   
+       5      "trafficReshaping"     "RMa"       47       5           1500            3600          9            8               1              0             0.11111              4              155.22            155.22          40.5   
+       6      "combined"             "RMa"       47       5           1500            3600          9            8               1              0             0.11111              4              155.22            155.22          40.5   
+
+      :               :                :         :        :            :               :            :            :               :              :                :                 :                :                 :               :    
+
+      40      "lowAltitude"          "RMa"       59       5           1500            3600          9            8               1              0             0.11111              3              58.205            58.205          40.5   
+      41      "trafficReshaping"     "RMa"       59       5           1500            3600          9            8               1              0             0.11111              3              58.205            58.205          40.5   
+      42      "combined"             "RMa"       59       5           1500            3600          9            8               1              0             0.11111              3              58.205            58.205          40.5   
+      43      "lowAltitude"          "UMi"       60       5            400            1200          9            8               1              0             0.11111              3              63.961            63.961          40.5   
+      44      "trafficReshaping"     "UMi"       60       5            400            1200          9            8               1              0             0.11111              3              63.961            63.961          40.5   
+      45      "combined"             "UMi"       60       5            400            1200          9            8               1              0             0.11111              3              63.961            63.961          40.5   
+
+	Display all 45 rows.
+
+>> phase7_RunBatch
+  UMa: aerial band 15.0 to 15.0 m is at or below the 22.5 m overlay floor, so aerial links take the terrestrial branch.
+  UMa: aerial band 15.0 to 15.0 m is at or below the 22.5 m overlay floor, so aerial links take the terrestrial branch.
+  UMi: aerial band 15.0 to 15.0 m is at or below the 22.5 m overlay floor, so aerial links take the terrestrial branch.
+  UMi: aerial band 15.0 to 15.0 m is at or below the 22.5 m overlay floor, so aerial links take the terrestrial branch.
+  UMa: aerial band 15.0 to 15.0 m is at or below the 22.5 m overlay floor, so aerial links take the terrestrial branch.
+  UMa: aerial band 15.0 to 15.0 m is at or below the 22.5 m overlay floor, so aerial links take the terrestrial branch.
+  UMi: aerial band 15.0 to 15.0 m is at or below the 22.5 m overlay floor, so aerial links take the terrestrial branch.
+  UMi: aerial band 15.0 to 15.0 m is at or below the 22.5 m overlay floor, so aerial links take the terrestrial branch.
+  UMa: aerial band 15.0 to 15.0 m is at or below the 22.5 m overlay floor, so aerial links take the terrestrial branch.
+  UMa: aerial band 15.0 to 15.0 m is at or below the 22.5 m overlay floor, so aerial links take the terrestrial branch.
+  UMi: aerial band 15.0 to 15.0 m is at or below the 22.5 m overlay floor, so aerial links take the terrestrial branch.
+  UMi: aerial band 15.0 to 15.0 m is at or below the 22.5 m overlay floor, so aerial links take the terrestrial branch.
+  UMa: aerial band 15.0 to 15.0 m is at or below the 22.5 m overlay floor, so aerial links take the terrestrial branch.
+  UMa: aerial band 15.0 to 15.0 m is at or below the 22.5 m overlay floor, so aerial links take the terrestrial branch.
+  UMi: aerial band 15.0 to 15.0 m is at or below the 22.5 m overlay floor, so aerial links take the terrestrial branch.
+  UMi: aerial band 15.0 to 15.0 m is at or below the 22.5 m overlay floor, so aerial links take the terrestrial branch.
+  UMa: aerial band 15.0 to 15.0 m is at or below the 22.5 m overlay floor, so aerial links take the terrestrial branch.
+  UMa: aerial band 15.0 to 15.0 m is at or below the 22.5 m overlay floor, so aerial links take the terrestrial branch.
+  UMi: aerial band 15.0 to 15.0 m is at or below the 22.5 m overlay floor, so aerial links take the terrestrial branch.
+  UMi: aerial band 15.0 to 15.0 m is at or below the 22.5 m overlay floor, so aerial links take the terrestrial branch.
+Phase 7 batch: 3 condition(s) x 15 seed(s) = 45 run(s), 45 to execute, 0 complete on disk.
+Conditions: lowAltitude, trafficReshaping, combined
+Scenario cycle: UMa, RMa, UMi | seeds 46 to 60 | simTime 40.5 s | output C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data
+Starting parallel pool (parpool) using the 'Processes' profile ...
+Connected to parallel pool with 45 workers.
+Parallel pool: 45 worker(s).
+Cost basis: 33.6 s per (sim-s x gNB x UE) (configured prior, no measurements on disk yet).
+  projected 17 h 00 min 36 s to 26 h 27 min 36 s per run, 822 h 09 min 00 s of CPU time over 45 run(s).
+RNTI map [UMa seed 55]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    3        1           4
+  2    7      terr    5        1           5
+  3    8      terr    4        1           6
+  4    9      terr    2        1           7
+  5    10     terr    4        2           8
+  6    11     terr    1        1           9
+  7    12     terr    5        2           10
+  8    13     terr    4        3           11
+  9    14     aerial  4        4           12
+RNTI map [UMi seed 51]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    3        1           4
+  2    7      terr    4        1           5
+  3    8      terr    5        1           6
+  4    9      terr    1        1           7
+  5    10     terr    5        2           8
+  6    11     terr    4        2           9
+  7    12     terr    3        2           10
+  8    13     terr    5        3           11
+  9    14     aerial  5        4           12
+RNTI map [UMi seed 54]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    3        1           4
+  2    7      terr    3        2           5
+  3    8      terr    2        1           6
+  4    9      terr    4        1           7
+  5    10     terr    3        3           8
+  6    11     terr    4        2           9
+  7    12     terr    2        2           10
+  8    13     terr    1        1           11
+  9    14     aerial  1        2           12
+RNTI map [UMi seed 48]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    5        1           4
+  2    7      terr    4        1           5
+  3    8      terr    2        1           6
+  4    9      terr    5        2           7
+  5    10     terr    5        3           8
+  6    11     terr    5        4           9
+  7    12     terr    1        1           10
+  8    13     terr    4        2           11
+  9    14     aerial  5        5           12
+RNTI map [UMi seed 51]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    3        1           4
+  2    7      terr    4        1           5
+  3    8      terr    5        1           6
+  4    9      terr    1        1           7
+  5    10     terr    5        2           8
+  6    11     terr    4        2           9
+  7    12     terr    3        2           10
+  8    13     terr    5        3           11
+  9    14     aerial  5        4           12
+RNTI map [UMa seed 46]  5 gNB, 12 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    1        1           4
+  2    7      terr    1        2           5
+  3    8      terr    2        1           6
+  4    9      terr    3        1           7
+  5    10     terr    4        1           8
+  6    11     terr    3        2           9
+  7    12     terr    3        3           10
+  8    13     terr    1        3           11
+  9    14     aerial  5        1           12
+  10   15     aerial  2        2           13
+  11   16     aerial  4        2           14
+  12   17     aerial  5        2           15
+RNTI map [UMi seed 57]  5 gNB, 11 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    5        1           4
+  2    7      terr    5        2           5
+  3    8      terr    3        1           6
+  4    9      terr    5        3           7
+  5    10     terr    3        2           8
+  6    11     terr    2        1           9
+  7    12     terr    1        1           10
+  8    13     terr    5        4           11
+  9    14     aerial  2        2           12
+  10   15     aerial  4        1           13
+  11   16     aerial  4        2           14
+RNTI map [RMa seed 47]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    4        1           4
+  2    7      terr    3        1           5
+  3    8      terr    1        1           6
+  4    9      terr    1        2           7
+  5    10     terr    1        3           8
+  6    11     terr    3        2           9
+  7    12     terr    2        1           10
+  8    13     terr    4        2           11
+  9    14     aerial  1        4           12
+RNTI map [UMi seed 54]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    3        1           4
+  2    7      terr    3        2           5
+  3    8      terr    2        1           6
+  4    9      terr    4        1           7
+  5    10     terr    3        3           8
+  6    11     terr    4        2           9
+  7    12     terr    2        2           10
+  8    13     terr    1        1           11
+  9    14     aerial  1        2           12
+RNTI map [UMa seed 52]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    4        1           4
+  2    7      terr    3        1           5
+  3    8      terr    3        2           6
+  4    9      terr    5        1           7
+  5    10     terr    1        1           8
+  6    11     terr    2        1           9
+  7    12     terr    4        2           10
+  8    13     terr    5        2           11
+  9    14     aerial  2        2           12
+RNTI map [RMa seed 59]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    1        1           4
+  2    7      terr    3        1           5
+  3    8      terr    4        1           6
+  4    9      terr    3        2           7
+  5    10     terr    3        3           8
+  6    11     terr    5        1           9
+  7    12     terr    4        2           10
+  8    13     terr    1        2           11
+  9    14     aerial  5        2           12
+RNTI map [UMa seed 49]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    3        1           4
+  2    7      terr    2        1           5
+  3    8      terr    4        1           6
+  4    9      terr    5        1           7
+  5    10     terr    5        2           8
+  6    11     terr    5        3           9
+  7    12     terr    1        1           10
+  8    13     terr    4        2           11
+  9    14     aerial  5        4           12
+RNTI map [RMa seed 56]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    2        1           4
+  2    7      terr    4        1           5
+  3    8      terr    4        2           6
+  4    9      terr    1        1           7
+  5    10     terr    5        1           8
+  6    11     terr    1        2           9
+  7    12     terr    2        2           10
+  8    13     terr    5        2           11
+  9    14     aerial  3        1           12
+RNTI map [UMi seed 48]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    5        1           4
+  2    7      terr    4        1           5
+  3    8      terr    2        1           6
+  4    9      terr    5        2           7
+  5    10     terr    5        3           8
+  6    11     terr    5        4           9
+  7    12     terr    1        1           10
+  8    13     terr    4        2           11
+  9    14     aerial  5        5           12
+RNTI map [RMa seed 53]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    1        1           4
+  2    7      terr    4        1           5
+  3    8      terr    2        1           6
+  4    9      terr    4        2           7
+  5    10     terr    3        1           8
+  6    11     terr    1        2           9
+  7    12     terr    1        3           10
+  8    13     terr    4        3           11
+  9    14     aerial  1        4           12
+[  0.0%] runs 0/45 done, 1 running  |  overall 0.0%  |  wall 13 s  |  ETA 26 h 27 min 36 s
+RNTI map [UMa seed 49]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    3        1           4
+  2    7      terr    2        1           5
+  3    8      terr    4        1           6
+  4    9      terr    5        1           7
+  5    10     terr    5        2           8
+  6    11     terr    5        3           9
+  7    12     terr    1        1           10
+  8    13     terr    4        2           11
+  9    14     aerial  5        4           12
+RNTI map [RMa seed 50]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    4        1           4
+  2    7      terr    1        1           5
+  3    8      terr    3        1           6
+  4    9      terr    3        2           7
+  5    10     terr    3        3           8
+  6    11     terr    1        2           9
+  7    12     terr    1        3           10
+  8    13     terr    5        1           11
+  9    14     aerial  2        1           12
+RNTI map [UMa seed 58]  5 gNB, 14 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    3        1           4
+  2    7      terr    4        1           5
+  3    8      terr    4        2           6
+  4    9      terr    1        1           7
+  5    10     terr    3        2           8
+  6    11     terr    2        1           9
+  7    12     terr    2        2           10
+  8    13     terr    2        3           11
+  9    14     aerial  2        4           12
+  10   15     aerial  3        3           13
+  11   16     aerial  3        4           14
+  12   17     aerial  5        1           15
+  13   18     aerial  1        2           16
+  14   19     aerial  4        3           17
+RNTI map [UMi seed 51]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    3        1           4
+  2    7      terr    4        1           5
+  3    8      terr    5        1           6
+  4    9      terr    1        1           7
+  5    10     terr    5        2           8
+  6    11     terr    4        2           9
+  7    12     terr    3        2           10
+  8    13     terr    5        3           11
+  9    14     aerial  5        4           12
+RNTI map [UMi seed 57]  5 gNB, 11 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    5        1           4
+  2    7      terr    5        2           5
+  3    8      terr    3        1           6
+  4    9      terr    5        3           7
+  5    10     terr    3        2           8
+  6    11     terr    2        1           9
+  7    12     terr    1        1           10
+  8    13     terr    5        4           11
+  9    14     aerial  2        2           12
+  10   15     aerial  4        1           13
+  11   16     aerial  4        2           14
+RNTI map [RMa seed 50]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    4        1           4
+  2    7      terr    1        1           5
+  3    8      terr    3        1           6
+  4    9      terr    3        2           7
+  5    10     terr    3        3           8
+  6    11     terr    1        2           9
+  7    12     terr    1        3           10
+  8    13     terr    5        1           11
+  9    14     aerial  2        1           12
+RNTI map [UMa seed 52]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    4        1           4
+  2    7      terr    3        1           5
+  3    8      terr    3        2           6
+  4    9      terr    5        1           7
+  5    10     terr    1        1           8
+  6    11     terr    2        1           9
+  7    12     terr    4        2           10
+  8    13     terr    5        2           11
+  9    14     aerial  2        2           12
+RNTI map [RMa seed 47]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    4        1           4
+  2    7      terr    3        1           5
+  3    8      terr    1        1           6
+  4    9      terr    1        2           7
+  5    10     terr    1        3           8
+  6    11     terr    3        2           9
+  7    12     terr    2        1           10
+  8    13     terr    4        2           11
+  9    14     aerial  1        4           12
+RNTI map [RMa seed 59]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    1        1           4
+  2    7      terr    3        1           5
+  3    8      terr    4        1           6
+  4    9      terr    3        2           7
+  5    10     terr    3        3           8
+  6    11     terr    5        1           9
+  7    12     terr    4        2           10
+  8    13     terr    1        2           11
+  9    14     aerial  5        2           12
+RNTI map [UMa seed 49]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    3        1           4
+  2    7      terr    2        1           5
+  3    8      terr    4        1           6
+  4    9      terr    5        1           7
+  5    10     terr    5        2           8
+  6    11     terr    5        3           9
+  7    12     terr    1        1           10
+  8    13     terr    4        2           11
+  9    14     aerial  5        4           12
+RNTI map [UMi seed 54]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    3        1           4
+  2    7      terr    3        2           5
+  3    8      terr    2        1           6
+  4    9      terr    4        1           7
+  5    10     terr    3        3           8
+  6    11     terr    4        2           9
+  7    12     terr    2        2           10
+  8    13     terr    1        1           11
+  9    14     aerial  1        2           12
+RNTI map [UMi seed 60]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    5        1           4
+  2    7      terr    4        1           5
+  3    8      terr    5        2           6
+  4    9      terr    2        1           7
+  5    10     terr    5        3           8
+  6    11     terr    4        2           9
+  7    12     terr    1        1           10
+  8    13     terr    2        2           11
+  9    14     aerial  2        3           12
+RNTI map [RMa seed 50]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    4        1           4
+  2    7      terr    1        1           5
+  3    8      terr    3        1           6
+  4    9      terr    3        2           7
+  5    10     terr    3        3           8
+  6    11     terr    1        2           9
+  7    12     terr    1        3           10
+  8    13     terr    5        1           11
+  9    14     aerial  2        1           12
+RNTI map [RMa seed 47]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    4        1           4
+  2    7      terr    3        1           5
+  3    8      terr    1        1           6
+  4    9      terr    1        2           7
+  5    10     terr    1        3           8
+  6    11     terr    3        2           9
+  7    12     terr    2        1           10
+  8    13     terr    4        2           11
+  9    14     aerial  1        4           12
+RNTI map [UMi seed 48]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    5        1           4
+  2    7      terr    4        1           5
+  3    8      terr    2        1           6
+  4    9      terr    5        2           7
+  5    10     terr    5        3           8
+  6    11     terr    5        4           9
+  7    12     terr    1        1           10
+  8    13     terr    4        2           11
+  9    14     aerial  5        5           12
+RNTI map [RMa seed 53]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    1        1           4
+  2    7      terr    4        1           5
+  3    8      terr    2        1           6
+  4    9      terr    4        2           7
+  5    10     terr    3        1           8
+  6    11     terr    1        2           9
+  7    12     terr    1        3           10
+  8    13     terr    4        3           11
+  9    14     aerial  1        4           12
+RNTI map [UMi seed 60]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    5        1           4
+  2    7      terr    4        1           5
+  3    8      terr    5        2           6
+  4    9      terr    2        1           7
+  5    10     terr    5        3           8
+  6    11     terr    4        2           9
+  7    12     terr    1        1           10
+  8    13     terr    2        2           11
+  9    14     aerial  2        3           12
+RNTI map [RMa seed 56]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    2        1           4
+  2    7      terr    4        1           5
+  3    8      terr    4        2           6
+  4    9      terr    1        1           7
+  5    10     terr    5        1           8
+  6    11     terr    1        2           9
+  7    12     terr    2        2           10
+  8    13     terr    5        2           11
+  9    14     aerial  3        1           12
+RNTI map [UMa seed 58]  5 gNB, 14 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    3        1           4
+  2    7      terr    4        1           5
+  3    8      terr    4        2           6
+  4    9      terr    1        1           7
+  5    10     terr    3        2           8
+  6    11     terr    2        1           9
+  7    12     terr    2        2           10
+  8    13     terr    2        3           11
+  9    14     aerial  2        4           12
+  10   15     aerial  3        3           13
+  11   16     aerial  3        4           14
+  12   17     aerial  5        1           15
+  13   18     aerial  1        2           16
+  14   19     aerial  4        3           17
+RNTI map [UMi seed 57]  5 gNB, 11 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    5        1           4
+  2    7      terr    5        2           5
+  3    8      terr    3        1           6
+  4    9      terr    5        3           7
+  5    10     terr    3        2           8
+  6    11     terr    2        1           9
+  7    12     terr    1        1           10
+  8    13     terr    5        4           11
+  9    14     aerial  2        2           12
+  10   15     aerial  4        1           13
+  11   16     aerial  4        2           14
+RNTI map [RMa seed 56]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    2        1           4
+  2    7      terr    4        1           5
+  3    8      terr    4        2           6
+  4    9      terr    1        1           7
+  5    10     terr    5        1           8
+  6    11     terr    1        2           9
+  7    12     terr    2        2           10
+  8    13     terr    5        2           11
+  9    14     aerial  3        1           12
+RNTI map [UMa seed 46]  5 gNB, 12 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    1        1           4
+  2    7      terr    1        2           5
+  3    8      terr    2        1           6
+  4    9      terr    3        1           7
+  5    10     terr    4        1           8
+  6    11     terr    3        2           9
+  7    12     terr    3        3           10
+  8    13     terr    1        3           11
+  9    14     aerial  5        1           12
+  10   15     aerial  2        2           13
+  11   16     aerial  4        2           14
+  12   17     aerial  5        2           15
+RNTI map [RMa seed 59]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    1        1           4
+  2    7      terr    3        1           5
+  3    8      terr    4        1           6
+  4    9      terr    3        2           7
+  5    10     terr    3        3           8
+  6    11     terr    5        1           9
+  7    12     terr    4        2           10
+  8    13     terr    1        2           11
+  9    14     aerial  5        2           12
+RNTI map [RMa seed 53]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    1        1           4
+  2    7      terr    4        1           5
+  3    8      terr    2        1           6
+  4    9      terr    4        2           7
+  5    10     terr    3        1           8
+  6    11     terr    1        2           9
+  7    12     terr    1        3           10
+  8    13     terr    4        3           11
+  9    14     aerial  1        4           12
+RNTI map [UMa seed 55]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    3        1           4
+  2    7      terr    5        1           5
+  3    8      terr    4        1           6
+  4    9      terr    2        1           7
+  5    10     terr    4        2           8
+  6    11     terr    1        1           9
+  7    12     terr    5        2           10
+  8    13     terr    4        3           11
+  9    14     aerial  4        4           12
+RNTI map [UMa seed 58]  5 gNB, 14 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    3        1           4
+  2    7      terr    4        1           5
+  3    8      terr    4        2           6
+  4    9      terr    1        1           7
+  5    10     terr    3        2           8
+  6    11     terr    2        1           9
+  7    12     terr    2        2           10
+  8    13     terr    2        3           11
+  9    14     aerial  2        4           12
+  10   15     aerial  3        3           13
+  11   16     aerial  3        4           14
+  12   17     aerial  5        1           15
+  13   18     aerial  1        2           16
+  14   19     aerial  4        3           17
+RNTI map [UMa seed 52]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    4        1           4
+  2    7      terr    3        1           5
+  3    8      terr    3        2           6
+  4    9      terr    5        1           7
+  5    10     terr    1        1           8
+  6    11     terr    2        1           9
+  7    12     terr    4        2           10
+  8    13     terr    5        2           11
+  9    14     aerial  2        2           12
+RNTI map [UMa seed 46]  5 gNB, 12 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    1        1           4
+  2    7      terr    1        2           5
+  3    8      terr    2        1           6
+  4    9      terr    3        1           7
+  5    10     terr    4        1           8
+  6    11     terr    3        2           9
+  7    12     terr    3        3           10
+  8    13     terr    1        3           11
+  9    14     aerial  5        1           12
+  10   15     aerial  2        2           13
+  11   16     aerial  4        2           14
+  12   17     aerial  5        2           15
+RNTI map [UMa seed 55]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    3        1           4
+  2    7      terr    5        1           5
+  3    8      terr    4        1           6
+  4    9      terr    2        1           7
+  5    10     terr    4        2           8
+  6    11     terr    1        1           9
+  7    12     terr    5        2           10
+  8    13     terr    4        3           11
+  9    14     aerial  4        4           12
+RNTI map [UMi seed 60]  5 gNB, 9 UE  (SRS offset -2, verified in flight)
+  UE   node   class   anchor   schedRNTI   srsRNTI
+  1    6      terr    5        1           4
+  2    7      terr    4        1           5
+  3    8      terr    5        2           6
+  4    9      terr    2        1           7
+  5    10     terr    5        3           8
+  6    11     terr    4        2           9
+  7    12     terr    1        1           10
+  8    13     terr    2        2           11
+  9    14     aerial  2        3           12
+Logical handover: UE9 from gNB1 to gNB3 at t=0.3395s
+Logical handover: UE11 from gNB4 to gNB1 at t=0.3395s
+Logical handover: UE7 from gNB3 to gNB2 at t=0.3395s
+Logical handover: UE8 from gNB2 to gNB1 at t=0.3395s
+Logical handover: UE13 from gNB1 to gNB2 at t=0.3395s
+Logical handover: UE11 from gNB3 to gNB4 at t=0.3395s
+Logical handover: UE12 from gNB2 to gNB4 at t=0.3395s
+Logical handover: UE11 from gNB3 to gNB4 at t=0.3395s
+Logical handover: UE12 from gNB2 to gNB4 at t=0.3395s
+Logical handover: UE11 from gNB4 to gNB1 at t=0.3395s
+Logical handover: UE14 from gNB5 to gNB1 at t=0.3395s
+Logical handover: UE6 from gNB2 to gNB1 at t=0.3395s
+Logical handover: UE9 from gNB1 to gNB4 at t=0.3395s
+Logical handover: UE12 from gNB2 to gNB3 at t=0.3395s
+Logical handover: UE6 from gNB2 to gNB1 at t=0.3395s
+Logical handover: UE9 from gNB1 to gNB4 at t=0.3395s
+Logical handover: UE12 from gNB2 to gNB3 at t=0.3395s
+Logical handover: UE6 from gNB1 to gNB2 at t=0.3395s
+Logical handover: UE7 from gNB4 to gNB1 at t=0.3395s
+Logical handover: UE11 from gNB1 to gNB3 at t=0.3395s
+Logical handover: UE12 from gNB1 to gNB2 at t=0.3395s
+Logical handover: UE14 from gNB1 to gNB2 at t=0.3395s
+Logical handover: UE14 from gNB5 to gNB1 at t=0.3395s
+Logical handover: UE6 from gNB2 to gNB1 at t=0.3395s
+Logical handover: UE9 from gNB1 to gNB4 at t=0.3395s
+Logical handover: UE12 from gNB2 to gNB3 at t=0.3395s
+Logical handover: UE6 from gNB1 to gNB2 at t=0.3395s
+Logical handover: UE7 from gNB4 to gNB1 at t=0.3395s
+Logical handover: UE11 from gNB1 to gNB3 at t=0.3395s
+Logical handover: UE12 from gNB1 to gNB2 at t=0.3395s
+Logical handover: UE14 from gNB1 to gNB2 at t=0.3395s
+Logical handover: UE10 from gNB4 to gNB3 at t=0.3395s
+Logical handover: UE10 from gNB5 to gNB2 at t=0.3595s
+Logical handover: UE10 from gNB5 to gNB2 at t=0.3595s
+Logical handover: UE7 from gNB1 to gNB3 at t=0.3395s
+Logical handover: UE8 from gNB3 to gNB1 at t=0.3395s
+Logical handover: UE10 from gNB3 to gNB4 at t=0.3395s
+Logical handover: UE13 from gNB5 to gNB4 at t=0.3395s
+Logical handover: UE7 from gNB3 to gNB2 at t=0.3395s
+Logical handover: UE8 from gNB4 to gNB5 at t=0.3395s
+Logical handover: UE9 from gNB3 to gNB4 at t=0.3395s
+Logical handover: UE11 from gNB5 to gNB2 at t=0.3395s
+Logical handover: UE13 from gNB1 to gNB2 at t=0.3395s
+Logical handover: UE14 from gNB5 to gNB2 at t=0.3395s
+Logical handover: UE9 from gNB1 to gNB3 at t=0.3395s
+Logical handover: UE11 from gNB4 to gNB1 at t=0.3395s
+Logical handover: UE9 from gNB1 to gNB3 at t=0.3395s
+Logical handover: UE11 from gNB3 to gNB4 at t=0.3395s
+Logical handover: UE12 from gNB2 to gNB4 at t=0.3395s
+Logical handover: UE14 from gNB1 to gNB2 at t=0.3395s
+Logical handover: UE7 from gNB3 to gNB2 at t=0.3395s
+Logical handover: UE8 from gNB2 to gNB1 at t=0.3395s
+Logical handover: UE13 from gNB1 to gNB2 at t=0.3395s
+Logical handover: UE7 from gNB3 to gNB2 at t=0.3395s
+Logical handover: UE8 from gNB2 to gNB1 at t=0.3395s
+Logical handover: UE13 from gNB1 to gNB2 at t=0.3395s
+Logical handover: UE10 from gNB4 to gNB3 at t=0.3395s
+Logical handover: UE14 from gNB4 to gNB1 at t=0.3395s
+Logical handover: UE6 from gNB1 to gNB2 at t=0.3395s
+Logical handover: UE7 from gNB4 to gNB1 at t=0.3395s
+Logical handover: UE11 from gNB1 to gNB3 at t=0.3395s
+Logical handover: UE12 from gNB1 to gNB2 at t=0.3395s
+Logical handover: UE14 from gNB1 to gNB2 at t=0.3395s
+Logical handover: UE10 from gNB5 to gNB2 at t=0.3595s
+Logical handover: UE10 from gNB4 to gNB3 at t=0.3395s
+Logical handover: UE6 from gNB5 to gNB1 at t=0.3395s
+Logical handover: UE7 from gNB5 to gNB4 at t=0.3395s
+Logical handover: UE8 from gNB3 to gNB4 at t=0.3395s
+Logical handover: UE9 from gNB5 to gNB1 at t=0.3395s
+Logical handover: UE10 from gNB1 to gNB4 at t=0.3395s
+Logical handover: UE9 from gNB5 to gNB1 at t=0.3395s
+Logical handover: UE10 from gNB1 to gNB4 at t=0.3395s
+Logical handover: UE9 from gNB5 to gNB1 at t=0.3395s
+Logical handover: UE10 from gNB1 to gNB4 at t=0.3395s
+Logical handover: UE7 from gNB1 to gNB3 at t=0.3395s
+Logical handover: UE8 from gNB3 to gNB1 at t=0.3395s
+Logical handover: UE10 from gNB3 to gNB4 at t=0.3395s
+Logical handover: UE13 from gNB5 to gNB4 at t=0.3395s
+Logical handover: UE7 from gNB1 to gNB3 at t=0.3395s
+Logical handover: UE8 from gNB3 to gNB1 at t=0.3395s
+Logical handover: UE10 from gNB3 to gNB4 at t=0.3395s
+Logical handover: UE13 from gNB5 to gNB4 at t=0.3395s
+Logical handover: UE7 from gNB3 to gNB2 at t=0.3395s
+Logical handover: UE8 from gNB4 to gNB5 at t=0.3395s
+Logical handover: UE9 from gNB3 to gNB4 at t=0.3395s
+Logical handover: UE11 from gNB5 to gNB2 at t=0.3395s
+Logical handover: UE13 from gNB1 to gNB2 at t=0.3395s
+Logical handover: UE14 from gNB5 to gNB2 at t=0.3395s
+Logical handover: UE7 from gNB3 to gNB2 at t=0.3395s
+Logical handover: UE8 from gNB4 to gNB5 at t=0.3395s
+Logical handover: UE9 from gNB3 to gNB4 at t=0.3395s
+Logical handover: UE11 from gNB5 to gNB2 at t=0.3395s
+Logical handover: UE13 from gNB1 to gNB2 at t=0.3395s
+Logical handover: UE16 from gNB4 to gNB2 at t=0.3895s
+Logical handover: UE6 from gNB5 to gNB1 at t=0.3395s
+Logical handover: UE7 from gNB5 to gNB4 at t=0.3395s
+Logical handover: UE8 from gNB3 to gNB4 at t=0.3395s
+Logical handover: UE15 from gNB4 to gNB1 at t=0.3395s
+Logical handover: UE6 from gNB5 to gNB1 at t=0.3395s
+Logical handover: UE7 from gNB5 to gNB4 at t=0.3395s
+Logical handover: UE8 from gNB3 to gNB4 at t=0.3395s
+Logical handover: UE14 from gNB4 to gNB1 at t=0.5395s
+Logical handover: UE8 from gNB4 to gNB5 at t=0.3395s
+Logical handover: UE16 from gNB3 to gNB2 at t=0.3395s
+Logical handover: UE17 from gNB5 to gNB1 at t=0.3395s
+Logical handover: UE18 from gNB1 to gNB2 at t=0.3395s
+Logical handover: UE19 from gNB4 to gNB3 at t=0.3395s
+Logical handover: UE8 from gNB4 to gNB5 at t=0.3395s
+Logical handover: UE16 from gNB3 to gNB2 at t=0.3395s
+Logical handover: UE17 from gNB5 to gNB4 at t=0.3395s
+Logical handover: UE8 from gNB4 to gNB5 at t=0.3395s
+Logical handover: UE16 from gNB3 to gNB2 at t=0.3395s
+Logical handover: UE17 from gNB5 to gNB4 at t=0.3395s
+Logical handover: UE6 from gNB3 to gNB1 at t=0.6495s
+Logical handover: UE15 from gNB4 to gNB5 at t=0.4495s
+Logical handover: UE6 from gNB3 to gNB1 at t=0.6495s
+Logical handover: UE16 from gNB4 to gNB1 at t=0.5195s
+Logical handover: UE6 from gNB3 to gNB1 at t=0.6495s
+Logical handover: UE10 from gNB4 to gNB1 at t=0.5695s
+[  1.0%] runs 0/45 done, 45 running  |  overall 1.0%  |  wall 51 min 06 s  |  ETA 80 h 54 min 02 s  |  cost x2.90 vs model
+Logical handover: UE10 from gNB4 to gNB1 at t=0.5695s
+Logical handover: UE8 from gNB5 to gNB3 at t=0.7895s
+Logical handover: UE8 from gNB5 to gNB3 at t=0.7895s
+Logical handover: UE10 from gNB3 to gNB4 at t=0.5995s
+Logical handover: UE10 from gNB3 to gNB4 at t=0.5995s
+Logical handover: UE10 from gNB3 to gNB4 at t=0.5995s
+Logical handover: UE10 from gNB4 to gNB1 at t=0.5695s
+Logical handover: UE8 from gNB5 to gNB3 at t=0.7895s
+Logical handover: UE13 from gNB4 to gNB1 at t=0.9495s
+Logical handover: UE14 from gNB5 to gNB2 at t=0.7495s
+Logical handover: UE13 from gNB4 to gNB1 at t=0.9495s
+Logical handover: UE13 from gNB4 to gNB1 at t=0.9495s
+Logical handover: UE15 from gNB3 to gNB4 at t=0.5595s
+Logical handover: UE10 from gNB4 to gNB3 at t=0.8695s
+Logical handover: UE10 from gNB4 to gNB3 at t=0.8695s
+[  2.0%] runs 0/45 done, 45 running  |  overall 2.0%  |  wall 1 h 15 min 30 s  |  ETA 80 h 54 min 02 s  |  cost x2.78 vs model
+Logical handover: UE16 from gNB2 to gNB3 at t=0.6695s
+Logical handover: UE10 from gNB4 to gNB3 at t=0.8695s
+Logical handover: UE6 from gNB1 to gNB2 at t=1.1095s
+Logical handover: UE15 from gNB2 to gNB1 at t=0.9695s
+Logical handover: UE8 from gNB3 to gNB1 at t=1.3395s
+Logical handover: UE8 from gNB3 to gNB1 at t=1.3395s
+Logical handover: UE6 from gNB1 to gNB3 at t=1.4595s
+Logical handover: UE6 from gNB1 to gNB2 at t=1.1095s
+Logical handover: UE6 from gNB1 to gNB2 at t=1.1095s
+Logical handover: UE14 from gNB5 to gNB2 at t=0.9495s
+Logical handover: UE8 from gNB3 to gNB1 at t=1.3395s
+Logical handover: UE15 from gNB4 to gNB5 at t=1.1695s
+Logical handover: UE6 from gNB1 to gNB3 at t=1.4595s
+Logical handover: UE6 from gNB1 to gNB3 at t=1.4595s
+[  3.0%] runs 0/45 done, 45 running  |  overall 3.0%  |  wall 1 h 39 min 21 s  |  ETA 76 h 42 min 04 s  |  cost x2.64 vs model
+Logical handover: UE15 from gNB5 to gNB4 at t=1.1895s
+Logical handover: UE13 from gNB4 to gNB1 at t=1.6995s
+Logical handover: UE14 from gNB5 to gNB2 at t=1.7095s
+Logical handover: UE12 from gNB4 to gNB5 at t=1.7895s
+Logical handover: UE12 from gNB4 to gNB5 at t=1.7895s
+Logical handover: UE14 from gNB4 to gNB5 at t=1.6395s
+Logical handover: UE13 from gNB4 to gNB1 at t=1.6995s
+Logical handover: UE14 from gNB1 to gNB5 at t=1.8595s
+Logical handover: UE13 from gNB4 to gNB1 at t=1.6995s
+Logical handover: UE16 from gNB1 to gNB4 at t=1.4095s
+Logical handover: UE12 from gNB4 to gNB5 at t=1.7895s
+Logical handover: UE19 from gNB4 to gNB3 at t=1.0795s
+[  4.0%] runs 0/45 done, 45 running  |  overall 4.0%  |  wall 2 h 03 min 44 s  |  ETA 76 h 42 min 04 s  |  cost x2.49 vs model
+Logical handover: UE12 from gNB5 to gNB4 at t=2.1595s
+Logical handover: UE12 from gNB5 to gNB4 at t=2.1595s
+Logical handover: UE17 from gNB1 to gNB5 at t=1.2995s
+Logical handover: UE14 from gNB5 to gNB2 at t=2.0295s
+Logical handover: UE6 from gNB2 to gNB5 at t=2.0895s
+Logical handover: UE12 from gNB5 to gNB4 at t=2.1595s
+Logical handover: UE13 from gNB5 to gNB4 at t=2.3895s
+Logical handover: UE13 from gNB5 to gNB4 at t=2.3895s
+Logical handover: UE13 from gNB5 to gNB4 at t=2.3895s
+Logical handover: UE9 from gNB3 to gNB5 at t=2.5095s
+[  5.0%] runs 0/45 done, 45 running  |  overall 5.0%  |  wall 2 h 27 min 28 s  |  ETA 71 h 30 min 57 s  |  cost x2.41 vs model
+Logical handover: UE15 from gNB2 to gNB1 at t=1.8295s
+Logical handover: UE7 from gNB4 to gNB1 at t=2.5795s
+Logical handover: UE6 from gNB2 to gNB5 at t=2.0895s
+Logical handover: UE6 from gNB2 to gNB5 at t=2.0895s
+Logical handover: UE16 from gNB2 to gNB3 at t=2.0395s
+Logical handover: UE9 from gNB3 to gNB5 at t=2.5095s
+Logical handover: UE9 from gNB3 to gNB5 at t=2.5095s
+Logical handover: UE8 from gNB1 to gNB2 at t=2.6995s
+Logical handover: UE7 from gNB4 to gNB1 at t=2.5795s
+Logical handover: UE7 from gNB4 to gNB1 at t=2.5795s
+Logical handover: UE16 from gNB4 to gNB5 at t=2.1195s
+Logical handover: UE17 from gNB4 to gNB5 at t=1.6095s
+Logical handover: UE7 from gNB2 to gNB1 at t=2.8895s
+Logical handover: UE8 from gNB1 to gNB2 at t=2.6995s
+Logical handover: UE6 from gNB3 to gNB2 at t=2.8695s
+Logical handover: UE8 from gNB1 to gNB2 at t=2.6995s
+Logical handover: UE6 from gNB3 to gNB2 at t=2.8695s
+Logical handover: UE16 from gNB4 to gNB5 at t=2.1995s
+[  6.0%] runs 0/45 done, 45 running  |  overall 6.0%  |  wall 2 h 52 min 06 s  |  ETA 67 h 59 min 31 s  |  cost x2.38 vs model
+Logical handover: UE15 from gNB3 to gNB4 at t=1.6295s
+Logical handover: UE15 from gNB1 to gNB2 at t=2.2195s
+Logical handover: UE14 from gNB1 to gNB2 at t=3.0395s
+Logical handover: UE6 from gNB3 to gNB2 at t=2.8695s
+Logical handover: UE7 from gNB2 to gNB1 at t=2.8895s
+Logical handover: UE7 from gNB2 to gNB1 at t=2.8895s
+Logical handover: UE10 from gNB3 to gNB2 at t=3.1595s
+Logical handover: UE16 from gNB2 to gNB3 at t=1.8295s
+Logical handover: UE11 from gNB4 to gNB1 at t=3.3295s
+[  7.0%] runs 0/45 done, 45 running  |  overall 7.0%  |  wall 3 h 17 min 59 s  |  ETA 67 h 59 min 31 s  |  cost x2.33 vs model
+Logical handover: UE10 from gNB3 to gNB2 at t=3.1595s
+Logical handover: UE10 from gNB3 to gNB2 at t=3.1595s
+Logical handover: UE6 from gNB1 to gNB2 at t=2.7295s
+Logical handover: UE14 from gNB5 to gNB1 at t=3.3095s
+Logical handover: UE11 from gNB4 to gNB1 at t=3.3295s
+Logical handover: UE11 from gNB4 to gNB1 at t=3.3295s
+Logical handover: UE6 from gNB1 to gNB2 at t=2.7295s
+Logical handover: UE15 from gNB4 to gNB5 at t=2.7195s
+Logical handover: UE6 from gNB1 to gNB2 at t=2.7295s
+Logical handover: UE14 from gNB2 to gNB5 at t=3.5395s
+Logical handover: UE9 from gNB5 to gNB4 at t=3.8695s
+Logical handover: UE16 from gNB5 to gNB4 at t=2.9095s
+[  8.0%] runs 0/45 done, 45 running  |  overall 8.0%  |  wall 3 h 43 min 52 s  |  ETA 65 h 03 min 54 s  |  cost x2.36 vs model
+Logical handover: UE16 from gNB5 to gNB3 at t=2.9695s
+Logical handover: UE14 from gNB5 to gNB4 at t=3.5795s
+Logical handover: UE9 from gNB5 to gNB4 at t=3.8695s
+Logical handover: UE9 from gNB5 to gNB4 at t=3.8695s
+Logical handover: UE15 from gNB1 to gNB2 at t=2.9095s
+Logical handover: UE14 from gNB5 to gNB3 at t=3.8495s
+Logical handover: UE14 from gNB1 to gNB4 at t=3.9395s
+Logical handover: UE8 from gNB4 to gNB5 at t=4.2095s
+[  9.0%] runs 0/45 done, 45 running  |  overall 9.0%  |  wall 4 h 08 min 24 s  |  ETA 65 h 03 min 54 s  |  cost x2.32 vs model
+Logical handover: UE10 from gNB3 to gNB1 at t=2.6195s
+Logical handover: UE6 from gNB2 to gNB5 at t=3.3495s
+Logical handover: UE8 from gNB4 to gNB5 at t=4.2095s
+Logical handover: UE16 from gNB3 to gNB5 at t=3.3295s
+Logical handover: UE6 from gNB2 to gNB5 at t=3.3495s
+Logical handover: UE6 from gNB2 to gNB5 at t=3.3495s
+Logical handover: UE8 from gNB4 to gNB5 at t=4.2095s
+Logical handover: UE19 from gNB3 to gNB4 at t=2.5995s
+Logical handover: UE10 from gNB3 to gNB1 at t=2.6195s
+Logical handover: UE10 from gNB3 to gNB1 at t=2.6195s
+[ 10.0%] runs 0/45 done, 45 running  |  overall 10.0%  |  wall 4 h 34 min 14 s  |  ETA 64 h 03 min 16 s  |  cost x2.40 vs model
+Logical handover: UE15 from gNB1 to gNB5 at t=3.6595s
+Logical handover: UE6 from gNB2 to gNB3 at t=4.7995s
+Logical handover: UE6 from gNB2 to gNB3 at t=4.7995s
+Logical handover: UE10 from gNB2 to gNB5 at t=4.9195s
+Logical handover: UE10 from gNB2 to gNB5 at t=4.9195s
+Logical handover: UE14 from gNB4 to gNB1 at t=4.7095s
+Logical handover: UE6 from gNB2 to gNB3 at t=4.7995s
+Logical handover: UE14 from gNB4 to gNB5 at t=4.7195s
+Logical handover: UE14 from gNB5 to gNB2 at t=4.8595s
+Logical handover: UE10 from gNB2 to gNB5 at t=4.9195s
+[ 11.0%] runs 0/45 done, 45 running  |  overall 11.0%  |  wall 5 h 01 min 59 s  |  ETA 63 h 06 min 48 s  |  cost x2.37 vs model
+Logical handover: UE15 from gNB5 to gNB4 at t=4.1695s
+Logical handover: UE14 from gNB2 to gNB5 at t=5.2695s
+Logical handover: UE8 from gNB5 to gNB4 at t=5.4795s
+Logical handover: UE14 from gNB1 to gNB5 at t=5.3095s
+Logical handover: UE8 from gNB5 to gNB4 at t=5.4795s
+Logical handover: UE12 from gNB1 to gNB2 at t=5.3795s
+[ 12.0%] runs 0/45 done, 45 running  |  overall 12.0%  |  wall 5 h 26 min 03 s  |  ETA 63 h 06 min 48 s  |  cost x2.35 vs model
+Logical handover: UE14 from gNB5 to gNB4 at t=5.6895s
+Logical handover: UE8 from gNB5 to gNB4 at t=5.4795s
+Logical handover: UE12 from gNB1 to gNB2 at t=5.3795s
+Logical handover: UE14 from gNB2 to gNB1 at t=4.3895s
+Logical handover: UE15 from gNB4 to gNB1 at t=3.2895s
+Logical handover: UE14 from gNB2 to gNB1 at t=5.5995s
+Logical handover: UE12 from gNB1 to gNB2 at t=5.3795s
+Logical handover: UE8 from gNB1 to gNB4 at t=5.9595s
+Logical handover: UE8 from gNB1 to gNB4 at t=5.9595s
+Logical handover: UE13 from gNB2 to gNB4 at t=5.2795s
+[ 13.0%] runs 0/45 done, 45 running  |  overall 13.0%  |  wall 5 h 50 min 14 s  |  ETA 63 h 17 min 08 s  |  cost x2.33 vs model
+Logical handover: UE14 from gNB5 to gNB3 at t=5.6395s
+Logical handover: UE13 from gNB2 to gNB1 at t=3.8095s
+Logical handover: UE11 from gNB1 to gNB5 at t=6.2295s
+Logical handover: UE11 from gNB1 to gNB5 at t=6.2295s
+Logical handover: UE8 from gNB1 to gNB4 at t=5.9595s
+Logical handover: UE15 from gNB5 to gNB1 at t=4.8095s
+Logical handover: UE13 from gNB2 to gNB4 at t=5.2795s
+Logical handover: UE13 from gNB5 to gNB4 at t=4.8995s
+Logical handover: UE14 from gNB1 to gNB3 at t=4.7995s
+Logical handover: UE13 from gNB2 to gNB4 at t=5.2795s
+Logical handover: UE16 from gNB5 to gNB4 at t=4.8595s
+Logical handover: UE9 from gNB4 to gNB1 at t=6.4195s
+Logical handover: UE13 from gNB5 to gNB4 at t=4.8995s
+Logical handover: UE14 from gNB3 to gNB5 at t=6.1695s
+Logical handover: UE13 from gNB5 to gNB4 at t=4.8995s
+Logical handover: UE13 from gNB2 to gNB1 at t=3.8095s
+[ 14.0%] runs 0/45 done, 45 running  |  overall 14.0%  |  wall 6 h 15 min 39 s  |  ETA 63 h 17 min 08 s  |  cost x2.32 vs model
+Logical handover: UE11 from gNB1 to gNB5 at t=6.2295s
+Logical handover: UE14 from gNB1 to gNB5 at t=6.3795s
+Logical handover: UE14 from gNB1 to gNB2 at t=6.3795s
+Logical handover: UE9 from gNB4 to gNB1 at t=6.4195s
+Logical handover: UE9 from gNB4 to gNB1 at t=6.4195s
+Logical handover: UE14 from gNB3 to gNB2 at t=5.0595s
+Logical handover: UE11 from gNB1 to gNB4 at t=6.6895s
+Logical handover: UE13 from gNB2 to gNB1 at t=3.8095s
+Logical handover: UE7 from gNB1 to gNB3 at t=6.8595s
+[ 15.0%] runs 0/45 done, 45 running  |  overall 15.0%  |  wall 6 h 38 min 35 s  |  ETA 63 h 53 min 20 s  |  cost x2.33 vs model
+Logical handover: UE16 from gNB4 to gNB5 at t=5.3095s
+Logical handover: UE11 from gNB1 to gNB4 at t=6.6895s
+Logical handover: UE11 from gNB1 to gNB4 at t=6.6895s
+Logical handover: UE13 from gNB4 to gNB5 at t=7.0295s
+Logical handover: UE11 from gNB5 to gNB4 at t=7.0895s
+Logical handover: UE11 from gNB5 to gNB4 at t=7.0895s
+Logical handover: UE13 from gNB4 to gNB5 at t=7.0295s
+Logical handover: UE7 from gNB1 to gNB3 at t=6.8595s
+Logical handover: UE7 from gNB1 to gNB3 at t=6.8595s
+Logical handover: UE19 from gNB4 to gNB3 at t=4.0395s
+Logical handover: UE16 from gNB4 to gNB5 at t=5.5895s
+Logical handover: UE13 from gNB1 to gNB4 at t=7.3395s
+Logical handover: UE6 from gNB2 to gNB1 at t=7.0895s
+Logical handover: UE6 from gNB2 to gNB1 at t=7.0895s
+[ 16.0%] runs 0/45 done, 45 running  |  overall 16.0%  |  wall 7 h 05 min 22 s  |  ETA 62 h 47 min 33 s  |  cost x2.33 vs model
+Logical handover: UE9 from gNB1 to gNB5 at t=7.4395s
+Logical handover: UE13 from gNB4 to gNB5 at t=7.0295s
+Logical handover: UE11 from gNB5 to gNB4 at t=7.0895s
+Logical handover: UE8 from gNB5 to gNB1 at t=7.4495s
+Logical handover: UE15 from gNB4 to gNB3 at t=4.4295s
+Logical handover: UE14 from gNB5 to gNB1 at t=7.3195s
+Logical handover: UE8 from gNB2 to gNB3 at t=7.3895s
+Logical handover: UE13 from gNB1 to gNB4 at t=7.3395s
+Logical handover: UE8 from gNB2 to gNB3 at t=7.3895s
+Logical handover: UE13 from gNB1 to gNB4 at t=7.3395s
+Logical handover: UE15 from gNB4 to gNB1 at t=5.7995s
+Logical handover: UE8 from gNB2 to gNB5 at t=7.7595s
+Logical handover: UE6 from gNB2 to gNB1 at t=7.0895s
+Logical handover: UE8 from gNB4 to gNB2 at t=7.7195s
+Logical handover: UE6 from gNB5 to gNB2 at t=6.0895s
+Logical handover: UE8 from gNB4 to gNB2 at t=7.7195s
+Logical handover: UE9 from gNB1 to gNB5 at t=7.4395s
+Logical handover: UE9 from gNB1 to gNB5 at t=7.4395s
+Logical handover: UE14 from gNB2 to gNB3 at t=7.4795s
+Logical handover: UE6 from gNB3 to gNB2 at t=7.7495s
+Logical handover: UE15 from gNB5 to gNB3 at t=6.1495s
+Logical handover: UE8 from gNB5 to gNB1 at t=7.4495s
+Logical handover: UE8 from gNB5 to gNB1 at t=7.4495s
+Logical handover: UE6 from gNB3 to gNB2 at t=7.7495s
+[ 17.0%] runs 0/45 done, 45 running  |  overall 17.0%  |  wall 7 h 30 min 58 s  |  ETA 62 h 47 min 33 s  |  cost x2.32 vs model
+Logical handover: UE16 from gNB3 to gNB4 at t=6.2395s
+Logical handover: UE6 from gNB5 to gNB2 at t=6.0895s
+Logical handover: UE14 from gNB3 to gNB5 at t=7.4195s
+Logical handover: UE8 from gNB2 to gNB3 at t=7.3895s
+Logical handover: UE6 from gNB5 to gNB2 at t=6.0895s
+Logical handover: UE11 from gNB1 to gNB5 at t=7.8395s
+Logical handover: UE8 from gNB2 to gNB5 at t=7.7595s
+Logical handover: UE8 from gNB2 to gNB5 at t=7.7595s
+Logical handover: UE6 from gNB3 to gNB2 at t=7.7495s
+Logical handover: UE8 from gNB4 to gNB2 at t=7.7195s
+Logical handover: UE6 from gNB2 to gNB3 at t=8.0895s
+Logical handover: UE14 from gNB4 to gNB1 at t=8.1095s
+Logical handover: UE14 from gNB1 to gNB4 at t=8.2095s
+Logical handover: UE6 from gNB2 to gNB3 at t=8.0895s
+Logical handover: UE7 from gNB4 to gNB5 at t=6.4795s
+[ 18.0%] runs 0/45 done, 45 running  |  overall 18.0%  |  wall 7 h 56 min 00 s  |  ETA 60 h 34 min 42 s  |  cost x2.32 vs model
+Logical handover: UE11 from gNB1 to gNB5 at t=7.8395s
+Logical handover: UE13 from gNB4 to gNB3 at t=7.2295s
+Logical handover: UE11 from gNB1 to gNB5 at t=7.8395s
+Logical handover: UE7 from gNB4 to gNB5 at t=6.4795s
+Logical handover: UE15 from gNB1 to gNB4 at t=6.4195s
+Logical handover: UE13 from gNB5 to gNB4 at t=8.3795s
+Logical handover: UE6 from gNB2 to gNB3 at t=8.0895s
+Logical handover: UE14 from gNB5 to gNB1 at t=7.8795s
+Logical handover: UE15 from gNB3 to gNB4 at t=6.6695s
+Logical handover: UE13 from gNB5 to gNB4 at t=8.3795s
+Logical handover: UE7 from gNB4 to gNB5 at t=6.4795s
+Logical handover: UE6 from gNB3 to gNB1 at t=8.5895s
+Logical handover: UE16 from gNB3 to gNB2 at t=4.8195s
+Logical handover: UE10 from gNB1 to gNB3 at t=5.3795s
+Logical handover: UE14 from gNB4 to gNB1 at t=8.7195s
+Logical handover: UE7 from gNB2 to gNB3 at t=7.5495s
+[ 19.0%] runs 0/45 done, 45 running  |  overall 19.0%  |  wall 8 h 19 min 22 s  |  ETA 58 h 46 min 17 s  |  cost x2.31 vs model
+Logical handover: UE13 from gNB4 to gNB3 at t=7.2295s
+Logical handover: UE13 from gNB4 to gNB3 at t=7.2295s
+Logical handover: UE19 from gNB3 to gNB4 at t=4.9695s
+Logical handover: UE6 from gNB1 to gNB3 at t=8.8895s
+Logical handover: UE13 from gNB5 to gNB4 at t=8.3795s
+Logical handover: UE10 from gNB1 to gNB3 at t=5.3795s
+Logical handover: UE6 from gNB3 to gNB1 at t=8.5895s
+Logical handover: UE9 from gNB4 to gNB5 at t=8.7595s
+Logical handover: UE14 from gNB2 to gNB3 at t=8.5295s
+Logical handover: UE9 from gNB4 to gNB5 at t=8.7595s
+Logical handover: UE6 from gNB3 to gNB1 at t=8.5895s
+Logical handover: UE16 from gNB5 to gNB4 at t=6.8795s
+Logical handover: UE12 from gNB4 to gNB5 at t=9.0095s
+Logical handover: UE7 from gNB2 to gNB3 at t=7.5495s
+Logical handover: UE7 from gNB2 to gNB3 at t=7.5495s
+Logical handover: UE14 from gNB5 to gNB4 at t=8.7395s
+[ 20.0%] runs 0/45 done, 45 running  |  overall 20.0%  |  wall 8 h 44 min 35 s  |  ETA 58 h 46 min 17 s  |  cost x2.31 vs model
+Logical handover: UE12 from gNB4 to gNB5 at t=9.0095s
+Logical handover: UE14 from gNB1 to gNB5 at t=8.5895s
+Logical handover: UE6 from gNB1 to gNB3 at t=8.8895s
+Logical handover: UE13 from gNB4 to gNB5 at t=7.3395s
+Logical handover: UE6 from gNB1 to gNB3 at t=8.8895s
+Logical handover: UE14 from gNB3 to gNB1 at t=8.8795s
+Logical handover: UE7 from gNB1 to gNB4 at t=9.4195s
+Logical handover: UE14 from gNB2 to gNB1 at t=9.3795s
+Logical handover: UE9 from gNB4 to gNB5 at t=8.7595s
+Logical handover: UE10 from gNB1 to gNB3 at t=5.3795s
+Logical handover: UE14 from gNB1 to gNB5 at t=9.4695s
+Logical handover: UE12 from gNB4 to gNB5 at t=9.0095s
+Logical handover: UE13 from gNB2 to gNB1 at t=9.6495s
+Logical handover: UE13 from gNB4 to gNB5 at t=7.3395s
+Logical handover: UE14 from gNB1 to gNB3 at t=9.6895s
+[ 21.0%] runs 0/45 done, 45 running  |  overall 21.0%  |  wall 9 h 10 min 23 s  |  ETA 58 h 30 min 30 s  |  cost x2.31 vs model
+Logical handover: UE7 from gNB3 to gNB1 at t=9.7195s
+Logical handover: UE14 from gNB1 to gNB2 at t=9.1495s
+Logical handover: UE8 from gNB1 to gNB2 at t=9.7195s
+Logical handover: UE13 from gNB4 to gNB5 at t=7.3395s
+Logical handover: UE14 from gNB2 to gNB1 at t=7.4395s
+Logical handover: UE7 from gNB1 to gNB4 at t=9.4195s
+Logical handover: UE7 from gNB1 to gNB4 at t=9.4195s
+Logical handover: UE14 from gNB1 to gNB2 at t=9.8895s
+Logical handover: UE14 from gNB2 to gNB4 at t=9.4195s
+Logical handover: UE14 from gNB4 to gNB1 at t=9.4995s
+Logical handover: UE13 from gNB2 to gNB1 at t=9.6495s
+Logical handover: UE9 from gNB4 to gNB1 at t=9.8895s
+Logical handover: UE11 from gNB3 to gNB1 at t=9.8095s
+Logical handover: UE9 from gNB4 to gNB1 at t=9.8895s
+Logical handover: UE11 from gNB3 to gNB1 at t=9.8095s
+[ 22.0%] runs 0/45 done, 45 running  |  overall 22.0%  |  wall 9 h 36 min 58 s  |  ETA 57 h 01 min 32 s  |  cost x2.30 vs model
+Logical handover: UE9 from gNB4 to gNB1 at t=9.8895s
+Logical handover: UE13 from gNB2 to gNB1 at t=9.6495s
+Logical handover: UE7 from gNB3 to gNB1 at t=9.7195s
+Logical handover: UE12 from gNB5 to gNB4 at t=10.0395s
+Logical handover: UE8 from gNB1 to gNB2 at t=9.7195s
+Logical handover: UE14 from gNB3 to gNB1 at t=10.1895s
+Logical handover: UE8 from gNB1 to gNB2 at t=9.7195s
+Logical handover: UE7 from gNB3 to gNB1 at t=9.7195s
+Logical handover: UE14 from gNB4 to gNB5 at t=9.6895s
+Logical handover: UE12 from gNB5 to gNB4 at t=10.0395s
+Logical handover: UE14 from gNB1 to gNB5 at t=10.1395s
+Logical handover: UE14 from gNB3 to gNB5 at t=9.8995s
+Logical handover: UE14 from gNB1 to gNB5 at t=9.8795s
+Logical handover: UE14 from gNB1 to gNB5 at t=10.2095s
+Logical handover: UE6 from gNB2 to gNB1 at t=8.3595s
+[ 23.0%] runs 0/45 done, 45 running  |  overall 23.0%  |  wall 10 h 01 min 36 s  |  ETA 57 h 01 min 32 s  |  cost x2.30 vs model
+Logical handover: UE11 from gNB3 to gNB1 at t=9.8095s
+Logical handover: UE11 from gNB4 to gNB1 at t=10.6295s
+Logical handover: UE12 from gNB5 to gNB4 at t=10.0395s
+Logical handover: UE11 from gNB1 to gNB5 at t=10.5595s
+Logical handover: UE11 from gNB1 to gNB5 at t=10.5595s
+Logical handover: UE11 from gNB1 to gNB5 at t=10.8895s
+Logical handover: UE14 from gNB5 to gNB1 at t=10.6095s
+Logical handover: UE6 from gNB2 to gNB1 at t=8.3595s
+Logical handover: UE14 from gNB5 to gNB2 at t=10.5095s
+Logical handover: UE14 from gNB5 to gNB4 at t=10.4395s
+[ 24.0%] runs 0/45 done, 45 running  |  overall 24.0%  |  wall 10 h 25 min 01 s  |  ETA 55 h 16 min 13 s  |  cost x2.30 vs model
+Logical handover: UE6 from gNB2 to gNB1 at t=8.3595s
+Logical handover: UE7 from gNB3 to gNB2 at t=9.6895s
+Logical handover: UE11 from gNB4 to gNB1 at t=10.6295s
+Logical handover: UE14 from gNB1 to gNB3 at t=11.1695s
+Logical handover: UE11 from gNB4 to gNB1 at t=10.6295s
+Logical handover: UE9 from gNB5 to gNB4 at t=10.9495s
+Logical handover: UE9 from gNB5 to gNB4 at t=10.9495s
+Logical handover: UE11 from gNB1 to gNB5 at t=10.5595s
+Logical handover: UE15 from gNB3 to gNB4 at t=6.9295s
+Logical handover: UE14 from gNB3 to gNB5 at t=11.4395s
+Logical handover: UE9 from gNB1 to gNB5 at t=10.7495s
+Logical handover: UE14 from gNB2 to gNB5 at t=6.4695s
+Logical handover: UE11 from gNB1 to gNB5 at t=10.8895s
+[ 25.0%] runs 0/45 done, 45 running  |  overall 25.0%  |  wall 10 h 50 min 56 s  |  ETA 55 h 16 min 13 s  |  cost x2.32 vs model
+Logical handover: UE9 from gNB1 to gNB5 at t=10.7495s
+Logical handover: UE14 from gNB5 to gNB4 at t=10.8195s
+Logical handover: UE11 from gNB1 to gNB5 at t=10.8895s
+Logical handover: UE9 from gNB1 to gNB5 at t=10.7495s
+Logical handover: UE7 from gNB5 to gNB2 at t=11.2895s
+Logical handover: UE7 from gNB3 to gNB2 at t=9.6895s
+Logical handover: UE10 from gNB5 to gNB1 at t=11.6095s
+Logical handover: UE7 from gNB3 to gNB2 at t=9.6895s
+Logical handover: UE10 from gNB5 to gNB1 at t=11.6095s
+Logical handover: UE12 from gNB1 to gNB3 at t=11.7195s
+Logical handover: UE9 from gNB5 to gNB4 at t=10.9495s
+Logical handover: UE13 from gNB4 to gNB1 at t=11.6895s
+Logical handover: UE12 from gNB1 to gNB3 at t=11.7195s
+Logical handover: UE14 from gNB2 to gNB1 at t=11.7195s
+Logical handover: UE14 from gNB1 to gNB2 at t=9.1095s
+Logical handover: UE14 from gNB5 to gNB1 at t=11.3895s
+[ 26.0%] runs 0/45 done, 45 running  |  overall 26.0%  |  wall 11 h 15 min 40 s  |  ETA 54 h 38 min 17 s  |  cost x2.30 vs model
+Logical handover: UE13 from gNB4 to gNB1 at t=11.6895s
+Logical handover: UE16 from gNB5 to gNB4 at t=9.1695s
+Logical handover: UE10 from gNB1 to gNB2 at t=11.8695s
+Logical handover: UE14 from gNB2 to gNB1 at t=11.4695s
+Logical handover: UE10 from gNB1 to gNB2 at t=11.8695s
+Logical handover: UE14 from gNB5 to gNB4 at t=11.1295s
+Logical handover: UE9 from gNB5 to gNB4 at t=12.0095s
+Logical handover: UE7 from gNB5 to gNB2 at t=11.2895s
+Logical handover: UE14 from gNB4 to gNB5 at t=11.5395s
+Logical handover: UE7 from gNB5 to gNB2 at t=11.2895s
+Logical handover: UE6 from gNB1 to gNB2 at t=9.7295s
+Logical handover: UE10 from gNB5 to gNB1 at t=11.6095s
+Logical handover: UE14 from gNB5 to gNB1 at t=12.3395s
+[ 27.0%] runs 0/45 done, 45 running  |  overall 27.0%  |  wall 11 h 39 min 49 s  |  ETA 55 h 27 min 00 s  |  cost x2.32 vs model
+Logical handover: UE8 from gNB2 to gNB5 at t=12.3695s
+Logical handover: UE13 from gNB4 to gNB1 at t=11.6895s
+Logical handover: UE12 from gNB1 to gNB3 at t=11.7195s
+Logical handover: UE16 from gNB2 to gNB3 at t=7.0695s
+Logical handover: UE14 from gNB1 to gNB4 at t=12.6095s
+Logical handover: UE10 from gNB1 to gNB2 at t=11.8695s
+Logical handover: UE14 from gNB5 to gNB4 at t=11.9595s
+Logical handover: UE9 from gNB5 to gNB4 at t=12.0095s
+Logical handover: UE9 from gNB5 to gNB4 at t=12.0095s
+Logical handover: UE15 from gNB1 to gNB5 at t=9.7095s
+Logical handover: UE6 from gNB1 to gNB2 at t=9.7295s
+Logical handover: UE15 from gNB4 to gNB5 at t=9.6095s
+[ 28.0%] runs 0/45 done, 45 running  |  overall 28.0%  |  wall 12 h 06 min 01 s  |  ETA 55 h 27 min 00 s  |  cost x2.30 vs model
+Logical handover: UE14 from gNB1 to gNB5 at t=12.2895s
+Logical handover: UE6 from gNB2 to gNB5 at t=10.1895s
+Logical handover: UE6 from gNB1 to gNB2 at t=9.7295s
+Logical handover: UE6 from gNB5 to gNB4 at t=11.2095s
+Logical handover: UE14 from gNB1 to gNB3 at t=12.3295s
+Logical handover: UE8 from gNB2 to gNB5 at t=12.3695s
+Logical handover: UE8 from gNB2 to gNB5 at t=12.3695s
+Logical handover: UE15 from gNB5 to gNB1 at t=10.0095s
+Logical handover: UE14 from gNB4 to gNB1 at t=13.1995s
+[ 29.0%] runs 0/45 done, 45 running  |  overall 29.0%  |  wall 12 h 30 min 13 s  |  ETA 55 h 21 min 24 s  |  cost x2.31 vs model
+Logical handover: UE12 from gNB2 to gNB1 at t=12.9795s
+Logical handover: UE12 from gNB2 to gNB1 at t=12.9795s
+Logical handover: UE6 from gNB2 to gNB5 at t=10.1895s
+Logical handover: UE14 from gNB1 to gNB5 at t=12.9895s
+Logical handover: UE15 from gNB5 to gNB4 at t=10.0695s
+Logical handover: UE8 from gNB5 to gNB4 at t=8.3595s
+Logical handover: UE7 from gNB2 to gNB3 at t=11.7495s
+Logical handover: UE17 from gNB4 to gNB1 at t=8.2195s
+Logical handover: UE14 from gNB1 to gNB3 at t=13.4795s
+Logical handover: UE8 from gNB1 to gNB3 at t=13.1695s
+Logical handover: UE6 from gNB2 to gNB5 at t=10.1895s
+Logical handover: UE6 from gNB5 to gNB4 at t=11.2095s
+Logical handover: UE8 from gNB5 to gNB2 at t=13.6495s
+Logical handover: UE6 from gNB5 to gNB4 at t=11.2095s
+Logical handover: UE8 from gNB2 to gNB5 at t=13.5295s
+Logical handover: UE8 from gNB2 to gNB5 at t=13.5295s
+[ 30.0%] runs 0/45 done, 45 running  |  overall 30.0%  |  wall 12 h 54 min 41 s  |  ETA 54 h 08 min 22 s  |  cost x2.30 vs model
+Logical handover: UE8 from gNB5 to gNB4 at t=8.3595s
+Logical handover: UE15 from gNB1 to gNB4 at t=7.7595s
+Logical handover: UE14 from gNB4 to gNB5 at t=13.2195s
+Logical handover: UE12 from gNB2 to gNB1 at t=12.9795s
+Logical handover: UE9 from gNB4 to gNB3 at t=13.9995s
+Logical handover: UE12 from gNB2 to gNB1 at t=13.6895s
+Logical handover: UE8 from gNB4 to gNB3 at t=13.7595s
+Logical handover: UE14 from gNB3 to gNB1 at t=14.0495s
+Logical handover: UE11 from gNB5 to gNB4 at t=14.0595s
+Logical handover: UE8 from gNB4 to gNB3 at t=13.7595s
+Logical handover: UE8 from gNB4 to gNB3 at t=13.7595s
+Logical handover: UE8 from gNB1 to gNB3 at t=13.1695s
+[ 31.0%] runs 0/45 done, 45 running  |  overall 31.0%  |  wall 13 h 20 min 24 s  |  ETA 54 h 08 min 22 s  |  cost x2.31 vs model
+Logical handover: UE7 from gNB2 to gNB3 at t=11.7495s
+Logical handover: UE8 from gNB1 to gNB3 at t=13.1695s
+Logical handover: UE14 from gNB5 to gNB3 at t=13.8195s
+Logical handover: UE7 from gNB2 to gNB3 at t=11.7495s
+Logical handover: UE19 from gNB4 to gNB1 at t=8.0495s
+Logical handover: UE15 from gNB4 to gNB1 at t=10.7895s
+Logical handover: UE14 from gNB5 to gNB1 at t=13.6395s
+Logical handover: UE8 from gNB5 to gNB2 at t=13.6495s
+Logical handover: UE8 from gNB5 to gNB2 at t=13.6495s
+Logical handover: UE8 from gNB2 to gNB5 at t=13.5295s
+Logical handover: UE14 from gNB5 to gNB2 at t=8.1095s
+Logical handover: UE9 from gNB2 to gNB1 at t=14.4495s
+Logical handover: UE13 from gNB1 to gNB5 at t=14.3795s
+Logical handover: UE14 from gNB3 to gNB1 at t=13.8095s
+[ 32.0%] runs 0/45 done, 45 running  |  overall 32.0%  |  wall 13 h 44 min 25 s  |  ETA 52 h 28 min 59 s  |  cost x2.31 vs model
+Logical handover: UE6 from gNB1 to gNB5 at t=10.7995s
+Logical handover: UE14 from gNB3 to gNB1 at t=14.2095s
+Logical handover: UE9 from gNB2 to gNB1 at t=14.4495s
+Logical handover: UE9 from gNB4 to gNB3 at t=13.9995s
+Logical handover: UE12 from gNB2 to gNB1 at t=13.6895s
+Logical handover: UE13 from gNB1 to gNB5 at t=14.3795s
+Logical handover: UE17 from gNB5 to gNB2 at t=10.5195s
+Logical handover: UE14 from gNB4 to gNB5 at t=13.6095s
+Logical handover: UE12 from gNB2 to gNB1 at t=13.6895s
+Logical handover: UE9 from gNB4 to gNB3 at t=13.9995s
+Logical handover: UE14 from gNB1 to gNB3 at t=14.6995s
+Logical handover: UE11 from gNB5 to gNB4 at t=14.0595s
+Logical handover: UE11 from gNB5 to gNB4 at t=14.0595s
+Logical handover: UE8 from gNB5 to gNB4 at t=8.3595s
+Logical handover: UE7 from gNB3 to gNB1 at t=14.5595s
+Logical handover: UE14 from gNB3 to gNB1 at t=15.0295s
+[ 33.0%] runs 0/45 done, 45 running  |  overall 33.0%  |  wall 14 h 10 min 38 s  |  ETA 52 h 28 min 59 s  |  cost x2.32 vs model
+Logical handover: UE6 from gNB1 to gNB5 at t=10.7995s
+Logical handover: UE14 from gNB1 to gNB2 at t=14.4195s
+Logical handover: UE9 from gNB1 to gNB2 at t=15.0495s
+Logical handover: UE14 from gNB2 to gNB1 at t=14.1095s
+Logical handover: UE14 from gNB1 to gNB4 at t=14.7995s
+Logical handover: UE9 from gNB1 to gNB2 at t=15.0495s
+Logical handover: UE6 from gNB1 to gNB5 at t=10.7995s
+Logical handover: UE14 from gNB5 to gNB1 at t=14.4095s
+Logical handover: UE9 from gNB4 to gNB1 at t=15.2795s
+Logical handover: UE6 from gNB5 to gNB1 at t=11.3395s
+Logical handover: UE9 from gNB5 to gNB4 at t=15.4095s
+Logical handover: UE13 from gNB1 to gNB5 at t=14.3795s
+Logical handover: UE12 from gNB3 to gNB1 at t=15.2795s
+Logical handover: UE15 from gNB4 to gNB3 at t=9.4095s
+Logical handover: UE9 from gNB2 to gNB1 at t=14.4495s
+Logical handover: UE12 from gNB3 to gNB1 at t=15.2795s
+[ 34.0%] runs 0/45 done, 45 running  |  overall 34.0%  |  wall 14 h 35 min 32 s  |  ETA 52 h 22 min 54 s  |  cost x2.30 vs model
+Logical handover: UE14 from gNB1 to gNB2 at t=14.4795s
+Logical handover: UE13 from gNB4 to gNB5 at t=15.2295s
+Logical handover: UE14 from gNB4 to gNB1 at t=14.6695s
+Logical handover: UE8 from gNB5 to gNB2 at t=15.5095s
+Logical handover: UE7 from gNB3 to gNB1 at t=14.5595s
+Logical handover: UE7 from gNB3 to gNB1 at t=14.5595s
+Logical handover: UE8 from gNB5 to gNB2 at t=15.5095s
+Logical handover: UE15 from gNB1 to gNB4 at t=11.9495s
+Logical handover: UE6 from gNB5 to gNB1 at t=11.3395s
+Logical handover: UE11 from gNB5 to gNB4 at t=15.9895s
+[ 35.0%] runs 0/45 done, 45 running  |  overall 35.0%  |  wall 14 h 59 min 51 s  |  ETA 52 h 25 min 00 s  |  cost x2.31 vs model
+Logical handover: UE17 from gNB2 to gNB5 at t=11.4195s
+Logical handover: UE9 from gNB1 to gNB2 at t=15.0495s
+Logical handover: UE6 from gNB5 to gNB1 at t=11.3395s
+Logical handover: UE8 from gNB4 to gNB5 at t=10.0095s
+Logical handover: UE9 from gNB4 to gNB1 at t=15.2795s
+Logical handover: UE9 from gNB5 to gNB4 at t=15.4095s
+Logical handover: UE9 from gNB4 to gNB1 at t=15.2795s
+Logical handover: UE9 from gNB5 to gNB4 at t=15.4095s
+Logical handover: UE12 from gNB3 to gNB1 at t=15.2795s
+Logical handover: UE15 from gNB2 to gNB1 at t=12.0595s
+Logical handover: UE8 from gNB4 to gNB5 at t=10.0095s
+Logical handover: UE13 from gNB4 to gNB5 at t=15.2295s
+Logical handover: UE15 from gNB4 to gNB1 at t=12.3195s
+Logical handover: UE13 from gNB4 to gNB5 at t=15.2295s
+Logical handover: UE14 from gNB3 to gNB2 at t=16.0195s
+[ 36.0%] runs 0/45 done, 45 running  |  overall 36.0%  |  wall 15 h 25 min 53 s  |  ETA 52 h 25 min 00 s  |  cost x2.29 vs model
+Logical handover: UE14 from gNB1 to gNB4 at t=15.4895s
+Logical handover: UE14 from gNB2 to gNB5 at t=15.6895s
+Logical handover: UE8 from gNB5 to gNB2 at t=15.5095s
+Logical handover: UE14 from gNB5 to gNB4 at t=15.6295s
+Logical handover: UE13 from gNB5 to gNB1 at t=13.1595s
+Logical handover: UE13 from gNB5 to gNB1 at t=16.3795s
+Logical handover: UE15 from gNB4 to gNB3 at t=9.3995s
+Logical handover: UE11 from gNB5 to gNB4 at t=15.9895s
+Logical handover: UE11 from gNB5 to gNB4 at t=15.9895s
+Logical handover: UE13 from gNB5 to gNB1 at t=16.3795s
+Logical handover: UE15 from gNB1 to gNB5 at t=12.8895s
+[ 37.0%] runs 0/45 done, 45 running  |  overall 37.0%  |  wall 15 h 50 min 25 s  |  ETA 51 h 36 min 05 s  |  cost x2.31 vs model
+Logical handover: UE7 from gNB4 to gNB1 at t=17.0695s
+Logical handover: UE13 from gNB5 to gNB1 at t=13.1595s
+Logical handover: UE7 from gNB4 to gNB1 at t=17.0695s
+[ 38.0%] runs 0/45 done, 45 running  |  overall 38.0%  |  wall 16 h 15 min 24 s  |  ETA 50 h 42 min 28 s  |  cost x2.30 vs model
+Logical handover: UE14 from gNB5 to gNB1 at t=16.5595s
+Logical handover: UE13 from gNB5 to gNB1 at t=13.1595s
+Logical handover: UE13 from gNB5 to gNB1 at t=16.3795s
+Logical handover: UE7 from gNB1 to gNB3 at t=17.4395s
+Logical handover: UE19 from gNB1 to gNB3 at t=9.8695s
+Logical handover: UE11 from gNB4 to gNB3 at t=17.6295s
+Logical handover: UE11 from gNB1 to gNB3 at t=17.3795s
+Logical handover: UE14 from gNB1 to gNB3 at t=17.7095s
+[ 39.0%] runs 0/45 done, 45 running  |  overall 39.0%  |  wall 16 h 42 min 05 s  |  ETA 50 h 42 min 28 s  |  cost x2.31 vs model
+Logical handover: UE14 from gNB4 to gNB1 at t=17.2995s
+Logical handover: UE14 from gNB4 to gNB5 at t=16.9295s
+Logical handover: UE8 from gNB4 to gNB5 at t=10.0095s
+Logical handover: UE12 from gNB3 to gNB2 at t=17.5395s
+Logical handover: UE12 from gNB3 to gNB2 at t=17.5395s
+Logical handover: UE12 from gNB3 to gNB2 at t=17.5395s
+Logical handover: UE9 from gNB1 to gNB5 at t=18.0895s
+Logical handover: UE7 from gNB4 to gNB1 at t=17.0695s
+[ 40.0%] runs 0/45 done, 45 running  |  overall 40.0%  |  wall 17 h 07 min 17 s  |  ETA 50 h 25 min 59 s  |  cost x2.30 vs model
+Logical handover: UE13 from gNB1 to gNB3 at t=17.7595s
+Logical handover: UE17 from gNB5 to gNB1 at t=11.4495s
+Logical handover: UE14 from gNB3 to gNB2 at t=18.2395s
+Logical handover: UE14 from gNB2 to gNB1 at t=13.7495s
+Logical handover: UE7 from gNB1 to gNB3 at t=17.4395s
+Logical handover: UE14 from gNB1 to gNB4 at t=17.8295s
+Logical handover: UE7 from gNB1 to gNB3 at t=17.4395s
+Logical handover: UE11 from gNB4 to gNB3 at t=17.6295s
+Logical handover: UE11 from gNB4 to gNB3 at t=17.6295s
+Logical handover: UE11 from gNB1 to gNB3 at t=17.3795s
+Logical handover: UE11 from gNB1 to gNB3 at t=17.3795s
+Logical handover: UE14 from gNB4 to gNB5 at t=17.6095s
+Logical handover: UE14 from gNB5 to gNB1 at t=17.6595s
+[ 41.0%] runs 0/45 done, 45 running  |  overall 41.0%  |  wall 17 h 31 min 56 s  |  ETA 50 h 25 min 59 s  |  cost x2.31 vs model
+Logical handover: UE14 from gNB1 to gNB2 at t=17.8595s
+Logical handover: UE7 from gNB3 to gNB1 at t=18.6895s
+Logical handover: UE12 from gNB1 to gNB2 at t=18.7795s
+Logical handover: UE14 from gNB2 to gNB3 at t=18.8495s
+Logical handover: UE12 from gNB2 to gNB4 at t=18.5895s
+Logical handover: UE12 from gNB1 to gNB2 at t=18.7795s
+Logical handover: UE12 from gNB2 to gNB4 at t=18.5895s
+Logical handover: UE14 from gNB4 to gNB1 at t=18.5795s
+Logical handover: UE12 from gNB2 to gNB4 at t=18.5895s
+Logical handover: UE13 from gNB1 to gNB3 at t=17.7595s
+[ 42.0%] runs 0/45 done, 45 running  |  overall 42.0%  |  wall 17 h 55 min 03 s  |  ETA 50 h 37 min 27 s  |  cost x2.29 vs model
+Logical handover: UE9 from gNB1 to gNB5 at t=18.0895s
+Logical handover: UE19 from gNB3 to gNB4 at t=10.7495s
+Logical handover: UE15 from gNB5 to gNB2 at t=14.6895s
+Logical handover: UE9 from gNB1 to gNB5 at t=18.0895s
+Logical handover: UE13 from gNB1 to gNB3 at t=17.7595s
+Logical handover: UE16 from gNB4 to gNB1 at t=14.8095s
+Logical handover: UE14 from gNB5 to gNB1 at t=19.1495s
+Logical handover: UE15 from gNB2 to gNB1 at t=13.8795s
+[ 43.0%] runs 0/45 done, 45 running  |  overall 43.0%  |  wall 18 h 18 min 57 s  |  ETA 49 h 50 min 04 s  |  cost x2.31 vs model
+Logical handover: UE7 from gNB3 to gNB1 at t=18.6895s
+Logical handover: UE14 from gNB1 to gNB4 at t=19.0395s
+Logical handover: UE7 from gNB4 to gNB3 at t=12.2595s
+Logical handover: UE16 from gNB2 to gNB3 at t=12.2595s
+Logical handover: UE7 from gNB1 to gNB2 at t=19.5795s
+Logical handover: UE7 from gNB3 to gNB1 at t=18.6895s
+Logical handover: UE14 from gNB5 to gNB1 at t=18.6495s
+Logical handover: UE14 from gNB3 to gNB5 at t=19.7395s
+Logical handover: UE7 from gNB4 to gNB3 at t=12.2595s
+Logical handover: UE14 from gNB2 to gNB1 at t=15.2695s
+Logical handover: UE16 from gNB4 to gNB1 at t=14.9895s
+Logical handover: UE12 from gNB1 to gNB2 at t=18.7795s
+[ 44.0%] runs 0/45 done, 45 running  |  overall 44.0%  |  wall 18 h 44 min 10 s  |  ETA 49 h 50 min 04 s  |  cost x2.29 vs model
+Logical handover: UE9 from gNB5 to gNB1 at t=20.0195s
+Logical handover: UE9 from gNB4 to gNB5 at t=20.1095s
+Logical handover: UE10 from gNB3 to gNB1 at t=19.7795s
+Logical handover: UE14 from gNB1 to gNB4 at t=19.0295s
+Logical handover: UE14 from gNB1 to gNB5 at t=19.0495s
+Logical handover: UE14 from gNB2 to gNB5 at t=19.2095s
+Logical handover: UE10 from gNB3 to gNB1 at t=19.7795s
+Logical handover: UE7 from gNB3 to gNB1 at t=17.6695s
+Logical handover: UE11 from gNB3 to gNB1 at t=20.2395s
+Logical handover: UE14 from gNB5 to gNB4 at t=18.7495s
+Logical handover: UE14 from gNB2 to gNB3 at t=19.7895s
+Logical handover: UE16 from gNB1 to gNB5 at t=15.3395s
+Logical handover: UE6 from gNB5 to gNB2 at t=16.2695s
+Logical handover: UE14 from gNB5 to gNB1 at t=20.3295s
+[ 45.0%] runs 0/45 done, 45 running  |  overall 45.0%  |  wall 19 h 12 min 38 s  |  ETA 48 h 39 min 52 s  |  cost x2.37 vs model
+Logical handover: UE17 from gNB1 to gNB5 at t=12.7995s
+Logical handover: UE7 from gNB1 to gNB2 at t=19.5795s
+Logical handover: UE8 from gNB2 to gNB1 at t=20.5095s
+Logical handover: UE8 from gNB5 to gNB3 at t=17.9895s
+Logical handover: UE14 from gNB5 to gNB2 at t=20.7195s
+Logical handover: UE7 from gNB1 to gNB2 at t=19.5795s
+Logical handover: UE7 from gNB1 to gNB3 at t=20.2695s
+Logical handover: UE7 from gNB1 to gNB3 at t=20.2695s
+Logical handover: UE8 from gNB2 to gNB1 at t=20.5095s
+Logical handover: UE13 from gNB4 to gNB1 at t=20.8395s
+Logical handover: UE13 from gNB1 to gNB2 at t=15.4395s
+Logical handover: UE14 from gNB1 to gNB2 at t=15.6695s
+Logical handover: UE14 from gNB5 to gNB1 at t=19.8595s
+[ 46.0%] runs 0/45 done, 45 running  |  overall 46.0%  |  wall 19 h 42 min 55 s  |  ETA 48 h 59 min 42 s  |  cost x2.45 vs model
+Logical handover: UE15 from gNB2 to gNB3 at t=16.0595s
+Logical handover: UE8 from gNB3 to gNB4 at t=20.5895s
+Logical handover: UE8 from gNB3 to gNB4 at t=20.5895s
+Logical handover: UE9 from gNB5 to gNB1 at t=20.0195s
+Logical handover: UE9 from gNB4 to gNB5 at t=20.1095s
+Logical handover: UE9 from gNB4 to gNB5 at t=20.1095s
+Logical handover: UE8 from gNB3 to gNB4 at t=20.5895s
+Logical handover: UE6 from gNB5 to gNB2 at t=16.2695s
+Logical handover: UE11 from gNB3 to gNB1 at t=20.2395s
+Logical handover: UE9 from gNB5 to gNB1 at t=20.0195s
+Logical handover: UE10 from gNB3 to gNB1 at t=19.7795s
+Logical handover: UE14 from gNB1 to gNB5 at t=20.9995s
+Logical handover: UE13 from gNB1 to gNB2 at t=17.0595s
+Logical handover: UE7 from gNB3 to gNB1 at t=17.6695s
+[ 47.0%] runs 0/45 done, 45 running  |  overall 47.0%  |  wall 20 h 11 min 13 s  |  ETA 48 h 59 min 42 s  |  cost x2.54 vs model
+Logical handover: UE11 from gNB3 to gNB1 at t=20.2395s
+Logical handover: UE14 from gNB4 to gNB1 at t=19.6695s
+Logical handover: UE7 from gNB3 to gNB1 at t=17.6695s
+Logical handover: UE14 from gNB4 to gNB1 at t=20.2595s
+Logical handover: UE17 from gNB1 to gNB5 at t=13.2995s
+Logical handover: UE8 from gNB3 to gNB5 at t=21.1595s
+Logical handover: UE7 from gNB1 to gNB3 at t=18.8695s
+Logical handover: UE13 from gNB1 to gNB2 at t=15.4395s
+Logical handover: UE14 from gNB1 to gNB5 at t=16.5695s
+Logical handover: UE15 from gNB3 to gNB1 at t=16.5695s
+Logical handover: UE8 from gNB3 to gNB5 at t=21.1595s
+Logical handover: UE6 from gNB5 to gNB2 at t=16.2695s
+Logical handover: UE9 from gNB2 to gNB3 at t=21.5895s
+Logical handover: UE14 from gNB1 to gNB2 at t=20.6495s
+Logical handover: UE8 from gNB5 to gNB3 at t=17.9895s
+Logical handover: UE7 from gNB4 to gNB3 at t=12.2595s
+Logical handover: UE14 from gNB5 to gNB1 at t=20.6195s
+[ 48.0%] runs 0/45 done, 45 running  |  overall 48.0%  |  wall 20 h 37 min 31 s  |  ETA 48 h 53 min 36 s  |  cost x2.52 vs model
+Logical handover: UE7 from gNB1 to gNB3 at t=20.2695s
+Logical handover: UE8 from gNB5 to gNB3 at t=17.9895s
+Logical handover: UE8 from gNB2 to gNB1 at t=20.5095s
+Logical handover: UE8 from gNB5 to gNB1 at t=21.4195s
+Logical handover: UE13 from gNB1 to gNB2 at t=15.4395s
+Logical handover: UE9 from gNB2 to gNB3 at t=21.5895s
+Logical handover: UE13 from gNB4 to gNB1 at t=20.8395s
+Logical handover: UE13 from gNB4 to gNB1 at t=20.8395s
+Logical handover: UE8 from gNB5 to gNB1 at t=21.4195s
+Logical handover: UE14 from gNB1 to gNB3 at t=21.9195s
+Logical handover: UE14 from gNB1 to gNB5 at t=20.5195s
+Logical handover: UE6 from gNB2 to gNB1 at t=17.6595s
+Logical handover: UE16 from gNB5 to gNB4 at t=16.6195s
+Logical handover: UE14 from gNB1 to gNB4 at t=20.8795s
+Logical handover: UE8 from gNB5 to gNB4 at t=13.8595s
+Logical handover: UE7 from gNB3 to gNB1 at t=21.7195s
+Logical handover: UE15 from gNB1 to gNB2 at t=15.8695s
+Logical handover: UE7 from gNB3 to gNB1 at t=21.7195s
+[ 49.0%] runs 0/45 done, 45 running  |  overall 49.0%  |  wall 21 h 05 min 27 s  |  ETA 48 h 53 min 36 s  |  cost x2.56 vs model
+Logical handover: UE14 from gNB5 to gNB1 at t=17.0495s
+Logical handover: UE13 from gNB1 to gNB2 at t=17.0595s
+Logical handover: UE16 from gNB4 to gNB1 at t=17.8695s
+Logical handover: UE14 from gNB4 to gNB5 at t=21.7795s
+Logical handover: UE10 from gNB2 to gNB5 at t=22.3395s
+Logical handover: UE8 from gNB5 to gNB4 at t=13.8595s
+Logical handover: UE14 from gNB2 to gNB5 at t=21.3795s
+Logical handover: UE10 from gNB2 to gNB5 at t=22.3395s
+Logical handover: UE17 from gNB5 to gNB1 at t=13.9795s
+Logical handover: UE14 from gNB1 to gNB2 at t=17.3295s
+Logical handover: UE16 from gNB1 to gNB4 at t=18.1295s
+[ 50.0%] runs 0/45 done, 45 running  |  overall 50.0%  |  wall 21 h 32 min 28 s  |  ETA 49 h 21 min 55 s  |  cost x2.52 vs model
+Logical handover: UE13 from gNB1 to gNB2 at t=17.0595s
+Logical handover: UE8 from gNB3 to gNB5 at t=21.1595s
+Logical handover: UE7 from gNB1 to gNB3 at t=18.8695s
+Logical handover: UE13 from gNB3 to gNB4 at t=19.9895s
+Logical handover: UE7 from gNB1 to gNB3 at t=18.8695s
+Logical handover: UE14 from gNB5 to gNB1 at t=22.5895s
+Logical handover: UE14 from gNB3 to gNB1 at t=22.8995s
+Logical handover: UE9 from gNB2 to gNB3 at t=21.5895s
+Logical handover: UE6 from gNB2 to gNB1 at t=17.6595s
+Logical handover: UE8 from gNB5 to gNB1 at t=21.4195s
+[ 51.0%] runs 0/45 done, 45 running  |  overall 51.0%  |  wall 21 h 59 min 07 s  |  ETA 49 h 13 min 38 s  |  cost x2.53 vs model
+Logical handover: UE15 from gNB4 to gNB5 at t=18.5395s
+Logical handover: UE11 from gNB4 to gNB5 at t=23.1495s
+Logical handover: UE19 from gNB3 to gNB1 at t=14.5695s
+Logical handover: UE14 from gNB1 to gNB3 at t=23.2995s
+Logical handover: UE14 from gNB4 to gNB3 at t=21.9595s
+Logical handover: UE11 from gNB1 to gNB2 at t=23.3395s
+Logical handover: UE11 from gNB4 to gNB5 at t=23.1495s
+Logical handover: UE7 from gNB3 to gNB1 at t=21.7195s
+Logical handover: UE10 from gNB1 to gNB4 at t=17.4295s
+Logical handover: UE15 from gNB3 to gNB1 at t=14.6895s
+Logical handover: UE6 from gNB2 to gNB1 at t=17.6595s
+Logical handover: UE14 from gNB2 to gNB5 at t=21.9395s
+[ 52.0%] runs 0/45 done, 45 running  |  overall 52.0%  |  wall 22 h 26 min 46 s  |  ETA 49 h 13 min 38 s  |  cost x2.49 vs model
+Logical handover: UE8 from gNB4 to gNB1 at t=23.1095s
+Logical handover: UE8 from gNB4 to gNB1 at t=23.1095s
+Logical handover: UE14 from gNB2 to gNB5 at t=17.8295s
+Logical handover: UE10 from gNB2 to gNB5 at t=22.3395s
+Logical handover: UE8 from gNB4 to gNB1 at t=23.1095s
+Logical handover: UE14 from gNB1 to gNB2 at t=22.6095s
+Logical handover: UE14 from gNB2 to gNB1 at t=18.2895s
+Logical handover: UE15 from gNB3 to gNB4 at t=13.5195s
+[ 53.0%] runs 0/45 done, 45 running  |  overall 53.0%  |  wall 22 h 52 min 14 s  |  ETA 48 h 04 min 19 s  |  cost x2.51 vs model
+Logical handover: UE13 from gNB3 to gNB4 at t=19.9895s
+Logical handover: UE14 from gNB3 to gNB1 at t=24.1095s
+Logical handover: UE13 from gNB3 to gNB4 at t=19.9895s
+Logical handover: UE15 from gNB1 to gNB2 at t=18.5795s
+Logical handover: UE10 from gNB1 to gNB4 at t=17.4295s
+[ 54.0%] runs 0/45 done, 45 running  |  overall 54.0%  |  wall 23 h 18 min 38 s  |  ETA 46 h 27 min 23 s  |  cost x2.50 vs model
+Logical handover: UE11 from gNB1 to gNB2 at t=23.3395s
+Logical handover: UE14 from gNB5 to gNB2 at t=22.8195s
+Logical handover: UE14 from gNB3 to gNB4 at t=23.1195s
+Logical handover: UE8 from gNB5 to gNB4 at t=13.8595s
+Logical handover: UE16 from gNB4 to gNB1 at t=18.4695s
+Logical handover: UE11 from gNB4 to gNB5 at t=23.1495s
+Logical handover: UE11 from gNB1 to gNB2 at t=23.3395s
+Logical handover: UE16 from gNB4 to gNB1 at t=19.7695s
+Logical handover: UE10 from gNB1 to gNB4 at t=17.4295s
+Logical handover: UE19 from gNB4 to gNB1 at t=14.0095s
+[ 55.0%] runs 0/45 done, 45 running  |  overall 55.0%  |  wall 23 h 47 min 54 s  |  ETA 46 h 27 min 23 s  |  cost x2.51 vs model
+Logical handover: UE9 from gNB3 to gNB1 at t=24.8595s
+Logical handover: UE14 from gNB5 to gNB1 at t=18.7195s
+Logical handover: UE7 from gNB2 to gNB3 at t=25.1295s
+Logical handover: UE11 from gNB4 to gNB5 at t=25.2395s
+Logical handover: UE7 from gNB5 to gNB4 at t=20.1595s
+Logical handover: UE16 from gNB1 to gNB5 at t=19.1895s
+Logical handover: UE9 from gNB3 to gNB1 at t=24.8595s
+Logical handover: UE14 from gNB4 to gNB1 at t=23.6995s
+Logical handover: UE8 from gNB2 to gNB3 at t=25.3795s
+Logical handover: UE16 from gNB1 to gNB4 at t=20.2795s
+[ 56.0%] runs 0/45 done, 45 running  |  overall 56.0%  |  wall 24 h 16 min 43 s  |  ETA 45 h 04 min 55 s  |  cost x2.48 vs model
+Logical handover: UE7 from gNB2 to gNB5 at t=24.6995s
+Logical handover: UE8 from gNB1 to gNB2 at t=25.3195s
+Logical handover: UE13 from gNB2 to gNB5 at t=20.4395s
+Logical handover: UE11 from gNB3 to gNB1 at t=19.0395s
+Logical handover: UE6 from gNB1 to gNB2 at t=20.4695s
+Logical handover: UE12 from gNB4 to gNB2 at t=25.0595s
+Logical handover: UE12 from gNB4 to gNB2 at t=25.0595s
+Logical handover: UE16 from gNB1 to gNB5 at t=19.1895s
+Logical handover: UE8 from gNB1 to gNB2 at t=25.3195s
+Logical handover: UE12 from gNB4 to gNB2 at t=25.0595s
+Logical handover: UE8 from gNB3 to gNB2 at t=25.8495s
+Logical handover: UE14 from gNB5 to gNB4 at t=25.0495s
+Logical handover: UE14 from gNB2 to gNB4 at t=24.3995s
+[ 57.0%] runs 0/45 done, 45 running  |  overall 57.0%  |  wall 24 h 40 min 49 s  |  ETA 44 h 46 min 49 s  |  cost x2.47 vs model
+Logical handover: UE9 from gNB5 to gNB2 at t=19.8095s
+Logical handover: UE11 from gNB2 to gNB4 at t=25.9495s
+Logical handover: UE8 from gNB5 to gNB3 at t=26.0195s
+Logical handover: UE14 from gNB5 to gNB1 at t=24.6495s
+Logical handover: UE10 from gNB5 to gNB3 at t=25.9595s
+Logical handover: UE11 from gNB4 to gNB5 at t=26.0695s
+Logical handover: UE14 from gNB4 to gNB5 at t=24.6595s
+Logical handover: UE10 from gNB5 to gNB3 at t=25.9595s
+[ 58.0%] runs 0/45 done, 45 running  |  overall 58.0%  |  wall 25 h 05 min 27 s  |  ETA 44 h 46 min 49 s  |  cost x2.41 vs model
+Logical handover: UE7 from gNB5 to gNB4 at t=20.1595s
+Logical handover: UE14 from gNB1 to gNB4 at t=24.7795s
+Logical handover: UE7 from gNB2 to gNB3 at t=25.1295s
+Logical handover: UE9 from gNB3 to gNB1 at t=24.8595s
+Logical handover: UE13 from gNB1 to gNB4 at t=26.6195s
+Logical handover: UE12 from gNB5 to gNB2 at t=25.7895s
+Logical handover: UE7 from gNB2 to gNB3 at t=25.1295s
+Logical handover: UE14 from gNB4 to gNB1 at t=25.0395s
+Logical handover: UE11 from gNB4 to gNB5 at t=25.2395s
+Logical handover: UE11 from gNB4 to gNB5 at t=25.2395s
+Logical handover: UE7 from gNB2 to gNB5 at t=24.6995s
+Logical handover: UE11 from gNB3 to gNB1 at t=19.0395s
+Logical handover: UE13 from gNB2 to gNB5 at t=20.4395s
+[ 59.0%] runs 0/45 done, 45 running  |  overall 59.0%  |  wall 25 h 30 min 41 s  |  ETA 43 h 49 min 10 s  |  cost x2.36 vs model
+Logical handover: UE16 from gNB5 to gNB1 at t=20.4595s
+Logical handover: UE14 from gNB1 to gNB5 at t=25.3595s
+Logical handover: UE6 from gNB1 to gNB2 at t=20.4695s
+Logical handover: UE8 from gNB2 to gNB3 at t=25.3795s
+Logical handover: UE12 from gNB2 to gNB4 at t=26.2795s
+Logical handover: UE8 from gNB2 to gNB3 at t=25.3795s
+Logical handover: UE12 from gNB2 to gNB4 at t=26.2795s
+Logical handover: UE8 from gNB2 to gNB4 at t=26.7595s
+Logical handover: UE12 from gNB2 to gNB4 at t=26.2795s
+Logical handover: UE7 from gNB5 to gNB4 at t=20.1595s
+Logical handover: UE14 from gNB1 to gNB3 at t=25.2795s
+Logical handover: UE7 from gNB2 to gNB5 at t=24.6995s
+Logical handover: UE8 from gNB1 to gNB2 at t=25.3195s
+Logical handover: UE11 from gNB3 to gNB1 at t=19.0395s
+Logical handover: UE8 from gNB2 to gNB4 at t=26.7595s
+Logical handover: UE13 from gNB4 to gNB5 at t=26.6595s
+Logical handover: UE10 from gNB3 to gNB2 at t=26.9995s
+Logical handover: UE14 from gNB1 to gNB5 at t=20.3295s
+[ 60.0%] runs 0/45 done, 45 running  |  overall 60.0%  |  wall 25 h 56 min 19 s  |  ETA 43 h 49 min 10 s  |  cost x2.35 vs model
+Logical handover: UE13 from gNB4 to gNB5 at t=26.6595s
+Logical handover: UE11 from gNB2 to gNB4 at t=25.9495s
+Logical handover: UE8 from gNB3 to gNB2 at t=25.8495s
+Logical handover: UE16 from gNB1 to gNB3 at t=20.8295s
+Logical handover: UE8 from gNB3 to gNB2 at t=25.8495s
+Logical handover: UE13 from gNB2 to gNB5 at t=20.4395s
+Logical handover: UE6 from gNB1 to gNB2 at t=20.4695s
+Logical handover: UE10 from gNB3 to gNB2 at t=26.9995s
+Logical handover: UE14 from gNB5 to gNB1 at t=27.0495s
+Logical handover: UE9 from gNB1 to gNB2 at t=27.2895s
+Logical handover: UE11 from gNB2 to gNB4 at t=25.9495s
+Logical handover: UE9 from gNB1 to gNB3 at t=26.9195s
+Logical handover: UE8 from gNB5 to gNB3 at t=26.0195s
+Logical handover: UE15 from gNB1 to gNB2 at t=20.5095s
+Logical handover: UE11 from gNB4 to gNB5 at t=26.0695s
+Logical handover: UE6 from gNB4 to gNB1 at t=24.3195s
+Logical handover: UE9 from gNB1 to gNB2 at t=27.2895s
+[ 61.0%] runs 0/45 done, 45 running  |  overall 61.0%  |  wall 26 h 21 min 52 s  |  ETA 42 h 22 min 40 s  |  cost x2.34 vs model
+Logical handover: UE8 from gNB5 to gNB3 at t=26.0195s
+Logical handover: UE10 from gNB5 to gNB3 at t=25.9595s
+Logical handover: UE7 from gNB3 to gNB1 at t=24.3995s
+Logical handover: UE11 from gNB4 to gNB5 at t=26.0695s
+Logical handover: UE9 from gNB1 to gNB3 at t=26.9195s
+Logical handover: UE7 from gNB4 to gNB1 at t=27.7595s
+Logical handover: UE9 from gNB3 to gNB4 at t=27.8395s
+Logical handover: UE12 from gNB5 to gNB2 at t=25.7895s
+Logical handover: UE14 from gNB5 to gNB4 at t=26.3495s
+Logical handover: UE10 from gNB2 to gNB4 at t=27.1095s
+Logical handover: UE14 from gNB1 to gNB5 at t=27.5795s
+Logical handover: UE8 from gNB3 to gNB5 at t=27.9895s
+Logical handover: UE14 from gNB5 to gNB2 at t=20.9395s
+Logical handover: UE13 from gNB1 to gNB4 at t=26.6195s
+[ 62.0%] runs 0/45 done, 45 running  |  overall 62.0%  |  wall 26 h 46 min 58 s  |  ETA 40 h 40 min 38 s  |  cost x2.33 vs model
+Logical handover: UE13 from gNB1 to gNB4 at t=26.6195s
+Logical handover: UE14 from gNB5 to gNB1 at t=26.0595s
+Logical handover: UE12 from gNB5 to gNB2 at t=25.7895s
+Logical handover: UE14 from gNB3 to gNB4 at t=26.5095s
+Logical handover: UE8 from gNB3 to gNB1 at t=24.9195s
+Logical handover: UE16 from gNB4 to gNB5 at t=22.6595s
+Logical handover: UE12 from gNB4 to gNB2 at t=27.7595s
+Logical handover: UE12 from gNB4 to gNB2 at t=27.7595s
+Logical handover: UE14 from gNB4 to gNB5 at t=27.6695s
+Logical handover: UE12 from gNB4 to gNB2 at t=27.7595s
+Logical handover: UE8 from gNB2 to gNB4 at t=26.7595s
+Logical handover: UE14 from gNB2 to gNB5 at t=21.3295s
+[ 63.0%] runs 0/45 done, 45 running  |  overall 63.0%  |  wall 27 h 13 min 45 s  |  ETA 40 h 40 min 38 s  |  cost x2.38 vs model
+Logical handover: UE14 from gNB1 to gNB3 at t=28.6495s
+Logical handover: UE16 from gNB5 to gNB2 at t=21.3995s
+Logical handover: UE13 from gNB4 to gNB5 at t=26.6595s
+Logical handover: UE15 from gNB2 to gNB1 at t=20.4995s
+Logical handover: UE16 from gNB3 to gNB5 at t=21.8595s
+Logical handover: UE10 from gNB3 to gNB2 at t=26.9995s
+Logical handover: UE15 from gNB1 to gNB3 at t=17.9995s
+[ 64.0%] runs 0/45 done, 45 running  |  overall 64.0%  |  wall 27 h 40 min 27 s  |  ETA 40 h 39 min 24 s  |  cost x2.41 vs model
+Logical handover: UE14 from gNB2 to gNB4 at t=29.0995s
+Logical handover: UE14 from gNB3 to gNB1 at t=29.0095s
+Logical handover: UE9 from gNB1 to gNB3 at t=26.9195s
+Logical handover: UE9 from gNB1 to gNB2 at t=27.2895s
+Logical handover: UE15 from gNB2 to gNB5 at t=22.1295s
+Logical handover: UE6 from gNB4 to gNB1 at t=24.3195s
+Logical handover: UE7 from gNB1 to gNB3 at t=25.7895s
+Logical handover: UE16 from gNB2 to gNB3 at t=21.8295s
+Logical handover: UE9 from gNB3 to gNB4 at t=27.8395s
+Logical handover: UE10 from gNB2 to gNB4 at t=27.1095s
+Logical handover: UE6 from gNB4 to gNB1 at t=24.3195s
+Logical handover: UE7 from gNB3 to gNB1 at t=24.3995s
+Logical handover: UE13 from gNB5 to gNB4 at t=28.7995s
+Logical handover: UE14 from gNB1 to gNB5 at t=22.2495s
+Logical handover: UE14 from gNB1 to gNB4 at t=27.5695s
+Logical handover: UE7 from gNB4 to gNB1 at t=27.7595s
+Logical handover: UE7 from gNB3 to gNB1 at t=24.3995s
+Logical handover: UE13 from gNB5 to gNB4 at t=28.7995s
+[ 65.0%] runs 0/45 done, 45 running  |  overall 65.0%  |  wall 28 h 05 min 32 s  |  ETA 40 h 48 min 43 s  |  cost x2.40 vs model
+Logical handover: UE9 from gNB3 to gNB4 at t=27.8395s
+Logical handover: UE14 from gNB1 to gNB3 at t=29.4795s
+Logical handover: UE14 from gNB4 to gNB2 at t=29.5895s
+Logical handover: UE6 from gNB2 to gNB1 at t=23.6195s
+Logical handover: UE7 from gNB4 to gNB1 at t=27.7595s
+Logical handover: UE6 from gNB1 to gNB2 at t=22.0695s
+Logical handover: UE8 from gNB3 to gNB5 at t=27.9895s
+Logical handover: UE14 from gNB4 to gNB3 at t=27.8395s
+Logical handover: UE10 from gNB2 to gNB4 at t=27.1095s
+Logical handover: UE14 from gNB1 to gNB3 at t=29.3995s
+Logical handover: UE9 from gNB4 to gNB2 at t=26.4195s
+Logical handover: UE8 from gNB3 to gNB5 at t=27.9895s
+Logical handover: UE8 from gNB3 to gNB1 at t=24.9195s
+[ 66.0%] runs 0/45 done, 45 running  |  overall 66.0%  |  wall 28 h 30 min 50 s  |  ETA 40 h 48 min 43 s  |  cost x2.36 vs model
+Logical handover: UE8 from gNB3 to gNB1 at t=24.9195s
+Logical handover: UE14 from gNB3 to gNB2 at t=28.1595s
+Logical handover: UE11 from gNB4 to gNB3 at t=29.9895s
+Logical handover: UE14 from gNB5 to gNB1 at t=28.6495s
+Logical handover: UE14 from gNB1 to gNB5 at t=29.9095s
+Logical handover: UE19 from gNB1 to gNB4 at t=17.1095s
+Logical handover: UE14 from gNB3 to gNB4 at t=29.9495s
+[ 67.0%] runs 0/45 done, 45 running  |  overall 67.0%  |  wall 28 h 56 min 16 s  |  ETA 40 h 10 min 11 s  |  cost x2.35 vs model
+Logical handover: UE14 from gNB1 to gNB5 at t=27.9295s
+Logical handover: UE14 from gNB5 to gNB4 at t=30.2295s
+Logical handover: UE14 from gNB3 to gNB1 at t=30.6295s
+Logical handover: UE6 from gNB4 to gNB1 at t=28.7195s
+Logical handover: UE14 from gNB4 to gNB1 at t=28.6795s
+Logical handover: UE10 from gNB2 to gNB5 at t=30.5095s
+Logical handover: UE6 from gNB4 to gNB1 at t=28.7195s
+Logical handover: UE8 from gNB4 to gNB5 at t=30.6195s
+[ 68.0%] runs 0/45 done, 45 running  |  overall 68.0%  |  wall 29 h 20 min 46 s  |  ETA 40 h 10 min 11 s  |  cost x2.33 vs model
+Logical handover: UE7 from gNB1 to gNB3 at t=25.7895s
+Logical handover: UE15 from gNB3 to gNB4 at t=19.0795s
+Logical handover: UE6 from gNB4 to gNB1 at t=28.7195s
+Logical handover: UE15 from gNB5 to gNB2 at t=23.2895s
+Logical handover: UE11 from gNB1 to gNB4 at t=22.9795s
+Logical handover: UE7 from gNB1 to gNB3 at t=25.7895s
+Logical handover: UE11 from gNB4 to gNB3 at t=30.2495s
+Logical handover: UE13 from gNB5 to gNB4 at t=28.7995s
+Logical handover: UE6 from gNB1 to gNB2 at t=22.0695s
+Logical handover: UE10 from gNB2 to gNB5 at t=30.5095s
+Logical handover: UE8 from gNB4 to gNB5 at t=30.6195s
+[ 69.0%] runs 0/45 done, 45 running  |  overall 69.0%  |  wall 29 h 45 min 11 s  |  ETA 39 h 28 min 09 s  |  cost x2.32 vs model
+Logical handover: UE14 from gNB2 to gNB4 at t=29.4095s
+Logical handover: UE11 from gNB4 to gNB3 at t=30.2495s
+Logical handover: UE6 from gNB2 to gNB1 at t=23.6195s
+Logical handover: UE6 from gNB1 to gNB2 at t=22.0695s
+Logical handover: UE14 from gNB1 to gNB5 at t=29.6995s
+Logical handover: UE8 from gNB5 to gNB2 at t=31.3795s
+Logical handover: UE11 from gNB4 to gNB3 at t=29.9895s
+Logical handover: UE9 from gNB4 to gNB2 at t=26.4195s
+Logical handover: UE9 from gNB4 to gNB2 at t=26.4195s
+[ 70.0%] runs 0/45 done, 45 running  |  overall 70.0%  |  wall 30 h 10 min 25 s  |  ETA 38 h 02 min 52 s  |  cost x2.31 vs model
+Logical handover: UE6 from gNB2 to gNB1 at t=23.6195s
+Logical handover: UE11 from gNB4 to gNB3 at t=29.9895s
+Logical handover: UE9 from gNB1 to gNB5 at t=31.7195s
+Logical handover: UE14 from gNB5 to gNB4 at t=30.8995s
+Logical handover: UE13 from gNB2 to gNB1 at t=23.6595s
+Logical handover: UE14 from gNB5 to gNB1 at t=30.1495s
+Logical handover: UE11 from gNB5 to gNB3 at t=31.9495s
+[ 71.0%] runs 0/45 done, 45 running  |  overall 71.0%  |  wall 30 h 34 min 36 s  |  ETA 38 h 02 min 52 s  |  cost x2.32 vs model
+Logical handover: UE14 from gNB2 to gNB1 at t=25.7595s
+Logical handover: UE19 from gNB4 to gNB3 at t=19.9495s
+Logical handover: UE14 from gNB5 to gNB1 at t=31.8195s
+Logical handover: UE14 from gNB1 to gNB3 at t=30.1795s
+Logical handover: UE16 from gNB5 to gNB1 at t=24.3095s
+Logical handover: UE16 from gNB3 to gNB1 at t=18.1495s
+Logical handover: UE11 from gNB1 to gNB4 at t=22.9795s
+Logical handover: UE13 from gNB5 to gNB3 at t=25.9095s
+Logical handover: UE13 from gNB1 to gNB5 at t=20.2895s
+Logical handover: UE11 from gNB4 to gNB1 at t=24.1795s
+Logical handover: UE11 from gNB5 to gNB1 at t=32.2095s
+Logical handover: UE11 from gNB5 to gNB1 at t=32.2095s
+[ 72.0%] runs 0/45 done, 45 running  |  overall 72.0%  |  wall 31 h 00 min 05 s  |  ETA 36 h 56 min 58 s  |  cost x2.30 vs model
+Logical handover: UE10 from gNB2 to gNB5 at t=30.5095s
+Logical handover: UE16 from gNB3 to gNB5 at t=24.2795s
+Logical handover: UE11 from gNB1 to gNB4 at t=22.9795s
+Logical handover: UE11 from gNB4 to gNB3 at t=30.2495s
+Logical handover: UE8 from gNB4 to gNB5 at t=30.6195s
+Logical handover: UE13 from gNB1 to gNB5 at t=20.2895s
+Logical handover: UE14 from gNB3 to gNB4 at t=30.8195s
+Logical handover: UE9 from gNB3 to gNB1 at t=32.2095s
+Logical handover: UE9 from gNB5 to gNB1 at t=33.0295s
+Logical handover: UE16 from gNB1 to gNB5 at t=24.9195s
+[ 73.0%] runs 0/45 done, 45 running  |  overall 73.0%  |  wall 31 h 25 min 41 s  |  ETA 36 h 56 min 58 s  |  cost x2.31 vs model
+Logical handover: UE8 from gNB4 to gNB1 at t=32.7795s
+Logical handover: UE8 from gNB4 to gNB1 at t=32.7795s
+Logical handover: UE13 from gNB2 to gNB1 at t=23.6595s
+Logical handover: UE8 from gNB5 to gNB2 at t=31.3795s
+Logical handover: UE14 from gNB4 to gNB1 at t=31.0795s
+Logical handover: UE9 from gNB3 to gNB1 at t=32.2095s
+Logical handover: UE13 from gNB3 to gNB4 at t=26.6495s
+Logical handover: UE14 from gNB4 to gNB1 at t=31.4795s
+Logical handover: UE14 from gNB1 to gNB4 at t=33.3895s
+Logical handover: UE16 from gNB1 to gNB3 at t=18.8295s
+Logical handover: UE8 from gNB5 to gNB2 at t=31.3795s
+Logical handover: UE7 from gNB1 to gNB4 at t=33.2695s
+Logical handover: UE7 from gNB4 to gNB1 at t=26.7695s
+Logical handover: UE7 from gNB1 to gNB4 at t=33.4195s
+Logical handover: UE13 from gNB5 to gNB2 at t=31.3595s
+[ 74.0%] runs 0/45 done, 45 running  |  overall 74.0%  |  wall 31 h 49 min 33 s  |  ETA 36 h 43 min 50 s  |  cost x2.30 vs model
+Logical handover: UE13 from gNB5 to gNB2 at t=31.3595s
+Logical handover: UE9 from gNB1 to gNB5 at t=31.7195s
+Logical handover: UE13 from gNB2 to gNB1 at t=23.6595s
+Logical handover: UE8 from gNB5 to gNB2 at t=33.4295s
+Logical handover: UE13 from gNB5 to gNB2 at t=31.3595s
+Logical handover: UE9 from gNB1 to gNB5 at t=31.7195s
+Logical handover: UE14 from gNB4 to gNB1 at t=31.7295s
+Logical handover: UE11 from gNB5 to gNB3 at t=31.9495s
+Logical handover: UE10 from gNB4 to gNB3 at t=33.3895s
+Logical handover: UE7 from gNB1 to gNB4 at t=33.2695s
+Logical handover: UE12 from gNB1 to gNB2 at t=33.4595s
+[ 75.0%] runs 0/45 done, 45 running  |  overall 75.0%  |  wall 32 h 15 min 31 s  |  ETA 35 h 32 min 51 s  |  cost x2.30 vs model
+Logical handover: UE11 from gNB4 to gNB1 at t=24.1795s
+Logical handover: UE11 from gNB5 to gNB3 at t=31.9495s
+Logical handover: UE15 from gNB1 to gNB3 at t=24.2095s
+Logical handover: UE8 from gNB5 to gNB2 at t=33.4295s
+Logical handover: UE10 from gNB3 to gNB1 at t=27.2495s
+Logical handover: UE12 from gNB1 to gNB2 at t=33.4595s
+Logical handover: UE14 from gNB4 to gNB5 at t=33.1795s
+Logical handover: UE14 from gNB4 to gNB1 at t=34.1695s
+Logical handover: UE11 from gNB5 to gNB1 at t=32.2095s
+Logical handover: UE8 from gNB1 to gNB2 at t=33.8395s
+Logical handover: UE14 from gNB1 to gNB2 at t=33.5995s
+Logical handover: UE13 from gNB5 to gNB3 at t=25.9095s
+Logical handover: UE11 from gNB4 to gNB1 at t=24.1795s
+[ 76.0%] runs 0/45 done, 45 running  |  overall 76.0%  |  wall 32 h 39 min 33 s  |  ETA 35 h 32 min 51 s  |  cost x2.30 vs model
+Logical handover: UE7 from gNB3 to gNB2 at t=32.2895s
+Logical handover: UE8 from gNB1 to gNB2 at t=33.8395s
+Logical handover: UE11 from gNB1 to gNB4 at t=25.6495s
+Logical handover: UE14 from gNB1 to gNB5 at t=32.2495s
+Logical handover: UE7 from gNB3 to gNB2 at t=32.2895s
+Logical handover: UE14 from gNB1 to gNB4 at t=32.4495s
+Logical handover: UE16 from gNB5 to gNB3 at t=25.6895s
+Logical handover: UE8 from gNB1 to gNB4 at t=34.1795s
+Logical handover: UE8 from gNB2 to gNB4 at t=34.3495s
+Logical handover: UE8 from gNB1 to gNB4 at t=34.1795s
+Logical handover: UE7 from gNB3 to gNB2 at t=32.2895s
+Logical handover: UE14 from gNB5 to gNB2 at t=26.1895s
+Logical handover: UE12 from gNB2 to gNB1 at t=34.1695s
+Logical handover: UE9 from gNB3 to gNB1 at t=32.2095s
+Logical handover: UE14 from gNB5 to gNB3 at t=32.5695s
+Logical handover: UE8 from gNB4 to gNB1 at t=32.7795s
+Logical handover: UE12 from gNB2 to gNB1 at t=34.1695s
+Logical handover: UE13 from gNB5 to gNB3 at t=25.9095s
+Logical handover: UE14 from gNB1 to gNB4 at t=34.7795s
+[ 77.0%] runs 0/45 done, 45 running  |  overall 77.0%  |  wall 33 h 05 min 59 s  |  ETA 33 h 47 min 32 s  |  cost x2.31 vs model
+Logical handover: UE9 from gNB2 to gNB4 at t=34.5995s
+Logical handover: UE9 from gNB5 to gNB1 at t=33.0295s
+Logical handover: UE9 from gNB5 to gNB1 at t=33.0295s
+Logical handover: UE16 from gNB5 to gNB1 at t=26.3495s
+Logical handover: UE12 from gNB2 to gNB1 at t=34.1695s
+Logical handover: UE14 from gNB3 to gNB1 at t=34.2395s
+Logical handover: UE8 from gNB2 to gNB4 at t=34.3495s
+Logical handover: UE15 from gNB4 to gNB3 at t=21.7695s
+Logical handover: UE14 from gNB1 to gNB5 at t=33.2095s
+[ 78.0%] runs 0/45 done, 45 running  |  overall 78.0%  |  wall 33 h 28 min 28 s  |  ETA 32 h 57 min 32 s  |  cost x2.29 vs model
+Logical handover: UE14 from gNB2 to gNB5 at t=35.3795s
+Logical handover: UE6 from gNB1 to gNB2 at t=34.7395s
+Logical handover: UE9 from gNB2 to gNB4 at t=34.5995s
+Logical handover: UE6 from gNB1 to gNB2 at t=34.7395s
+Logical handover: UE13 from gNB3 to gNB4 at t=26.6495s
+Logical handover: UE7 from gNB1 to gNB4 at t=33.4195s
+Logical handover: UE7 from gNB4 to gNB1 at t=26.7695s
+Logical handover: UE6 from gNB1 to gNB2 at t=34.7395s
+Logical handover: UE7 from gNB1 to gNB4 at t=33.4195s
+Logical handover: UE7 from gNB1 to gNB4 at t=33.2695s
+Logical handover: UE16 from gNB3 to gNB1 at t=26.4395s
+Logical handover: UE10 from gNB4 to gNB3 at t=33.3895s
+Logical handover: UE10 from gNB4 to gNB3 at t=33.3895s
+Logical handover: UE14 from gNB3 to gNB1 at t=33.3895s
+Logical handover: UE15 from gNB3 to gNB2 at t=25.4095s
+[ 79.0%] runs 0/45 done, 45 running  |  overall 79.0%  |  wall 33 h 53 min 37 s  |  ETA 32 h 57 min 32 s  |  cost x2.31 vs model
+Logical handover: UE9 from gNB1 to gNB5 at t=35.7495s
+Logical handover: UE8 from gNB5 to gNB2 at t=33.4295s
+Logical handover: UE15 from gNB5 to gNB4 at t=28.6195s
+Logical handover: UE13 from gNB3 to gNB4 at t=26.6495s
+Logical handover: UE12 from gNB1 to gNB2 at t=33.4595s
+Logical handover: UE14 from gNB5 to gNB2 at t=35.9595s
+Logical handover: UE13 from gNB1 to gNB5 at t=20.2895s
+Logical handover: UE11 from gNB1 to gNB4 at t=25.6495s
+Logical handover: UE13 from gNB4 to gNB1 at t=32.4895s
+Logical handover: UE7 from gNB4 to gNB1 at t=26.7695s
+Logical handover: UE9 from gNB5 to gNB2 at t=35.9695s
+Logical handover: UE17 from gNB5 to gNB2 at t=25.6995s
+Logical handover: UE14 from gNB5 to gNB4 at t=35.0995s
+Logical handover: UE12 from gNB1 to gNB3 at t=35.7395s
+Logical handover: UE12 from gNB1 to gNB3 at t=35.7395s
+Logical handover: UE14 from gNB1 to gNB3 at t=33.7895s
+Logical handover: UE10 from gNB3 to gNB1 at t=27.2495s
+[ 80.0%] runs 0/45 done, 45 running  |  overall 80.0%  |  wall 34 h 19 min 03 s  |  ETA 32 h 57 min 33 s  |  cost x2.30 vs model
+Logical handover: UE16 from gNB1 to gNB5 at t=27.2795s
+Logical handover: UE14 from gNB2 to gNB5 at t=33.7395s
+Logical handover: UE8 from gNB1 to gNB2 at t=33.8395s
+Logical handover: UE8 from gNB1 to gNB4 at t=34.1795s
+Logical handover: UE14 from gNB4 to gNB1 at t=34.2395s
+Logical handover: UE11 from gNB1 to gNB4 at t=25.6495s
+Logical handover: UE14 from gNB2 to gNB5 at t=34.1795s
+Logical handover: UE14 from gNB2 to gNB5 at t=36.6295s
+[ 81.0%] runs 0/45 done, 45 running  |  overall 81.0%  |  wall 34 h 43 min 44 s  |  ETA 32 h 00 min 33 s  |  cost x2.30 vs model
+Logical handover: UE14 from gNB1 to gNB5 at t=36.1795s
+Logical handover: UE15 from gNB1 to gNB2 at t=27.2395s
+Logical handover: UE16 from gNB1 to gNB3 at t=27.2395s
+Logical handover: UE10 from gNB3 to gNB1 at t=27.2495s
+Logical handover: UE14 from gNB1 to gNB3 at t=35.8195s
+Logical handover: UE14 from gNB1 to gNB2 at t=29.3795s
+Logical handover: UE8 from gNB2 to gNB4 at t=34.3495s
+Logical handover: UE7 from gNB1 to gNB2 at t=36.3495s
+Logical handover: UE19 from gNB4 to gNB1 at t=20.7995s
+Logical handover: UE14 from gNB3 to gNB1 at t=34.4595s
+Logical handover: UE14 from gNB2 to gNB5 at t=31.2695s
+Logical handover: UE10 from gNB5 to gNB1 at t=36.8495s
+Logical handover: UE6 from gNB3 to gNB1 at t=35.9595s
+Logical handover: UE8 from gNB2 to gNB1 at t=36.9595s
+Logical handover: UE13 from gNB1 to gNB4 at t=36.2795s
+Logical handover: UE14 from gNB1 to gNB4 at t=34.8195s
+Logical handover: UE9 from gNB2 to gNB4 at t=34.5995s
+[ 82.0%] runs 0/45 done, 45 running  |  overall 82.0%  |  wall 35 h 09 min 32 s  |  ETA 32 h 00 min 33 s  |  cost x2.29 vs model
+Logical handover: UE14 from gNB1 to gNB3 at t=35.0995s
+Logical handover: UE10 from gNB4 to gNB5 at t=27.6095s
+Logical handover: UE7 from gNB3 to gNB1 at t=37.1295s
+Logical handover: UE14 from gNB5 to gNB2 at t=34.5995s
+Logical handover: UE14 from gNB2 to gNB5 at t=28.1495s
+Logical handover: UE12 from gNB3 to gNB1 at t=36.9495s
+Logical handover: UE15 from gNB2 to gNB1 at t=28.1895s
+Logical handover: UE12 from gNB3 to gNB1 at t=36.9495s
+Logical handover: UE12 from gNB1 to gNB2 at t=37.4595s
+Logical handover: UE13 from gNB1 to gNB4 at t=36.2795s
+[ 83.0%] runs 0/45 done, 45 running  |  overall 83.0%  |  wall 35 h 34 min 59 s  |  ETA 31 h 05 min 47 s  |  cost x2.29 vs model
+Logical handover: UE11 from gNB3 to gNB4 at t=37.4195s
+Logical handover: UE14 from gNB4 to gNB3 at t=36.7395s
+Logical handover: UE11 from gNB5 to gNB1 at t=37.1695s
+Logical handover: UE16 from gNB4 to gNB1 at t=28.0195s
+Logical handover: UE9 from gNB2 to gNB5 at t=37.6295s
+Logical handover: UE16 from gNB3 to gNB5 at t=28.0595s
+Logical handover: UE9 from gNB1 to gNB5 at t=35.7495s
+Logical handover: UE17 from gNB2 to gNB5 at t=26.9095s
+Logical handover: UE9 from gNB1 to gNB5 at t=35.7495s
+Logical handover: UE11 from gNB5 to gNB1 at t=37.1695s
+Logical handover: UE15 from gNB1 to gNB5 at t=28.5895s
+Logical handover: UE12 from gNB1 to gNB3 at t=35.7395s
+[ 84.0%] runs 0/45 done, 45 running  |  overall 84.0%  |  wall 35 h 59 min 59 s  |  ETA 30 h 36 min 47 s  |  cost x2.29 vs model
+Logical handover: UE14 from gNB1 to gNB3 at t=35.4895s
+Logical handover: UE13 from gNB4 to gNB1 at t=32.4895s
+Logical handover: UE9 from gNB5 to gNB2 at t=35.9695s
+Logical handover: UE10 from gNB4 to gNB1 at t=35.7095s
+Logical handover: UE8 from gNB4 to gNB1 at t=37.7395s
+Logical handover: UE8 from gNB4 to gNB1 at t=37.7395s
+Logical handover: UE10 from gNB4 to gNB1 at t=35.7095s
+Logical handover: UE13 from gNB4 to gNB1 at t=32.4895s
+Logical handover: UE14 from gNB3 to gNB1 at t=37.3395s
+Logical handover: UE8 from gNB2 to gNB1 at t=38.1995s
+Logical handover: UE9 from gNB5 to gNB2 at t=35.9695s
+Logical handover: UE15 from gNB5 to gNB1 at t=28.9095s
+Logical handover: UE8 from gNB4 to gNB3 at t=30.6995s
+Logical handover: UE10 from gNB4 to gNB1 at t=35.7095s
+[ 85.0%] runs 0/45 done, 45 running  |  overall 85.0%  |  wall 36 h 24 min 43 s  |  ETA 30 h 36 min 47 s  |  cost x2.29 vs model
+Logical handover: UE8 from gNB2 to gNB1 at t=38.1395s
+Logical handover: UE11 from gNB2 to gNB5 at t=36.2395s
+Logical handover: UE8 from gNB4 to gNB1 at t=38.3895s
+Logical handover: UE7 from gNB1 to gNB2 at t=36.3495s
+Logical handover: UE11 from gNB2 to gNB5 at t=36.2395s
+Logical handover: UE6 from gNB3 to gNB1 at t=35.9595s
+Logical handover: UE7 from gNB1 to gNB2 at t=36.3495s
+Logical handover: UE16 from gNB5 to gNB1 at t=29.2695s
+Logical handover: UE6 from gNB3 to gNB2 at t=38.6995s
+Logical handover: UE8 from gNB2 to gNB1 at t=38.1395s
+Logical handover: UE10 from gNB4 to gNB5 at t=27.6095s
+[ 86.0%] runs 0/45 done, 45 running  |  overall 86.0%  |  wall 36 h 49 min 12 s  |  ETA 30 h 48 min 39 s  |  cost x2.30 vs model
+Logical handover: UE14 from gNB5 to gNB2 at t=33.2195s
+Logical handover: UE11 from gNB2 to gNB5 at t=36.2395s
+Logical handover: UE15 from gNB1 to gNB2 at t=29.4095s
+Logical handover: UE10 from gNB1 to gNB4 at t=36.5195s
+Logical handover: UE7 from gNB3 to gNB1 at t=37.1295s
+Logical handover: UE10 from gNB5 to gNB1 at t=36.8495s
+Logical handover: UE9 from gNB5 to gNB2 at t=38.9695s
+Logical handover: UE10 from gNB1 to gNB4 at t=36.5195s
+Logical handover: UE9 from gNB2 to gNB4 at t=29.4895s
+Logical handover: UE7 from gNB2 to gNB5 at t=38.7095s
+Logical handover: UE7 from gNB1 to gNB3 at t=39.0695s
+Logical handover: UE8 from gNB2 to gNB1 at t=36.9595s
+Logical handover: UE13 from gNB1 to gNB4 at t=36.2795s
+Logical handover: UE7 from gNB2 to gNB5 at t=38.7095s
+Logical handover: UE14 from gNB3 to gNB1 at t=36.5895s
+Logical handover: UE10 from gNB5 to gNB1 at t=36.8495s
+Logical handover: UE6 from gNB3 to gNB1 at t=35.9595s
+Logical handover: UE10 from gNB4 to gNB5 at t=27.6095s
+Logical handover: UE14 from gNB3 to gNB1 at t=37.0895s
+Logical handover: UE12 from gNB3 to gNB1 at t=36.9495s
+Logical handover: UE14 from gNB3 to gNB2 at t=38.3595s
+Logical handover: UE14 from gNB4 to gNB2 at t=36.8895s
+Logical handover: UE7 from gNB3 to gNB1 at t=37.1295s
+Logical handover: UE15 from gNB2 to gNB1 at t=27.9195s
+Logical handover: UE10 from gNB1 to gNB4 at t=36.5195s
+Logical handover: UE8 from gNB1 to gNB2 at t=38.9895s
+[ 87.0%] runs 0/45 done, 45 running  |  overall 87.0%  |  wall 37 h 14 min 05 s  |  ETA 30 h 48 min 39 s  |  cost x2.30 vs model
+Logical handover: UE15 from gNB2 to gNB5 at t=29.6695s
+Logical handover: UE8 from gNB2 to gNB1 at t=36.9595s
+Logical handover: UE8 from gNB4 to gNB1 at t=38.3895s
+Logical handover: UE15 from gNB2 to gNB3 at t=29.2395s
+Logical handover: UE11 from gNB5 to gNB3 at t=39.1695s
+Logical handover: UE14 from gNB2 to gNB5 at t=36.7195s
+Logical handover: UE12 from gNB1 to gNB3 at t=39.0995s
+Logical handover: UE12 from gNB2 to gNB5 at t=39.5995s
+Logical handover: UE12 from gNB1 to gNB3 at t=39.0995s
+Logical handover: UE12 from gNB1 to gNB2 at t=37.4595s
+Logical handover: UE12 from gNB1 to gNB2 at t=37.4595s
+Logical handover: UE11 from gNB3 to gNB4 at t=37.4195s
+Logical handover: UE13 from gNB4 to gNB1 at t=31.8095s
+Logical handover: UE9 from gNB2 to gNB1 at t=36.1395s
+[ 88.0%] runs 0/45 done, 45 running  |  overall 88.0%  |  wall 37 h 39 min 11 s  |  ETA 30 h 10 min 59 s  |  cost x2.31 vs model
+Logical handover: UE15 from gNB3 to gNB5 at t=29.4995s
+Logical handover: UE15 from gNB5 to gNB1 at t=30.0095s
+Logical handover: UE11 from gNB5 to gNB1 at t=37.1695s
+Logical handover: UE7 from gNB3 to gNB4 at t=24.8995s
+Logical handover: UE11 from gNB3 to gNB4 at t=37.4195s
+Logical handover: UE14 from gNB1 to gNB4 at t=38.9295s
+Logical handover: UE9 from gNB2 to gNB5 at t=37.6295s
+Logical handover: UE12 from gNB5 to gNB1 at t=39.9595s
+Logical handover: UE8 from gNB1 to gNB2 at t=38.9895s
+Logical handover: UE14 from gNB2 to gNB1 at t=39.0695s
+Logical handover: UE16 from gNB5 to gNB1 at t=29.6695s
+Logical handover: UE9 from gNB2 to gNB5 at t=37.6295s
+Logical handover: UE8 from gNB4 to gNB1 at t=37.7395s
+Logical handover: UE14 from gNB1 to gNB4 at t=37.3795s
+Logical handover: UE11 from gNB5 to gNB3 at t=39.1695s
+Logical handover: UE8 from gNB2 to gNB1 at t=38.1995s
+Logical handover: UE7 from gNB3 to gNB4 at t=24.8995s
+[ 89.0%] runs 0/45 done, 45 running  |  overall 89.0%  |  wall 38 h 03 min 15 s  |  ETA 29 h 00 min 53 s  |  cost x2.30 vs model
+Logical handover: UE15 from gNB5 to gNB1 at t=29.8695s
+Logical handover: UE9 from gNB4 to gNB5 at t=30.4195s
+Logical handover: UE14 from gNB5 to gNB4 at t=28.6595s
+Logical handover: UE8 from gNB2 to gNB1 at t=38.1995s
+Logical handover: UE16 from gNB4 to gNB5 at t=28.6895s
+Logical handover: UE15 from gNB1 to gNB3 at t=30.5095s
+Logical handover: UE14 from gNB4 to gNB1 at t=39.4695s
+Logical handover: UE14 from gNB2 to gNB4 at t=38.0295s
+[  1/ 45] combined UMi seed 48   ok       (38 h 20 min 28 s run, 38 h 20 min 53 s elapsed, batch ETA 29 h 00 min 53 s)
+[  2/ 45] lowAltitude UMi seed 54 ok       (38 h 26 min 15 s run, 38 h 26 min 37 s elapsed, batch ETA 29 h 00 min 53 s)
+Logical handover: UE12 from gNB4 to gNB5 at t=39.7895s
+[ 90.0%] runs 2/45 done, 43 running  |  overall 90.0%  |  wall 38 h 27 min 42 s  |  ETA 29 h 00 min 53 s  |  cost x2.30 vs model
+[  3/ 45] trafficReshaping UMi seed 51 ok       (38 h 28 min 27 s run, 38 h 28 min 46 s elapsed, batch ETA 29 h 00 min 53 s)
+Logical handover: UE16 from gNB5 to gNB4 at t=32.6295s
+Logical handover: UE8 from gNB4 to gNB3 at t=30.6995s
+[  4/ 45] combined UMi seed 60   ok       (38 h 35 min 37 s run, 38 h 35 min 58 s elapsed, batch ETA 29 h 00 min 53 s)
+Logical handover: UE14 from gNB5 to gNB2 at t=30.2995s
+Logical handover: UE8 from gNB2 to gNB1 at t=38.1395s
+Logical handover: UE14 from gNB1 to gNB4 at t=39.9595s
+[  5/ 45] combined UMa seed 49   ok       (38 h 44 min 08 s run, 38 h 44 min 35 s elapsed, batch ETA 27 h 45 min 14 s)
+Logical handover: UE11 from gNB1 to gNB5 at t=40.4995s
+[  6/ 45] trafficReshaping RMa seed 53 ok       (38 h 44 min 57 s run, 38 h 45 min 25 s elapsed, batch ETA 27 h 45 min 14 s)
+[  7/ 45] combined RMa seed 50   ok       (38 h 46 min 01 s run, 38 h 46 min 29 s elapsed, batch ETA 27 h 45 min 14 s)
+[  8/ 45] lowAltitude UMa seed 49 ok       (38 h 46 min 20 s run, 38 h 46 min 48 s elapsed, batch ETA 27 h 45 min 14 s)
+Logical handover: UE6 from gNB2 to gNB1 at t=30.4595s
+Logical handover: UE6 from gNB3 to gNB2 at t=38.6995s
+Logical handover: UE12 from gNB4 to gNB5 at t=39.7895s
+Logical handover: UE14 from gNB1 to gNB4 at t=38.7795s
+Logical handover: UE7 from gNB1 to gNB3 at t=39.0695s
+Logical handover: UE6 from gNB3 to gNB1 at t=25.6895s
+[ 91.0%] runs 8/45 done, 37 running  |  overall 91.0%  |  wall 38 h 53 min 29 s  |  ETA 27 h 45 min 14 s  |  cost x2.30 vs model
+Logical handover: UE7 from gNB2 to gNB5 at t=38.7095s
+Logical handover: UE14 from gNB4 to gNB1 at t=38.6795s
+[  9/ 45] trafficReshaping RMa seed 56 ok       (38 h 57 min 12 s run, 38 h 57 min 40 s elapsed, batch ETA 27 h 45 min 14 s)
+Logical handover: UE8 from gNB4 to gNB1 at t=38.3895s
+Logical handover: UE6 from gNB3 to gNB2 at t=38.6995s
+Logical handover: UE7 from gNB1 to gNB4 at t=33.0295s
+[ 10/ 45] combined RMa seed 56   ok       (38 h 59 min 26 s run, 38 h 59 min 54 s elapsed, batch ETA 27 h 45 min 14 s)
+Logical handover: UE11 from gNB1 to gNB5 at t=40.4995s
+[ 11/ 45] lowAltitude RMa seed 53 ok       (39 h 00 min 15 s run, 39 h 00 min 42 s elapsed, batch ETA 27 h 45 min 14 s)
+Logical handover: UE14 from gNB2 to gNB5 at t=30.6095s
+Logical handover: UE9 from gNB5 to gNB2 at t=38.9695s
+Logical handover: UE7 from gNB1 to gNB3 at t=39.0695s
+Logical handover: UE15 from gNB3 to gNB5 at t=31.1995s
+Logical handover: UE8 from gNB4 to gNB3 at t=30.6995s
+[ 12/ 45] combined RMa seed 47   ok       (39 h 07 min 14 s run, 39 h 07 min 40 s elapsed, batch ETA 27 h 45 min 14 s)
+Logical handover: UE6 from gNB3 to gNB1 at t=25.6895s
+Logical handover: UE9 from gNB5 to gNB2 at t=38.9695s
+[ 13/ 45] lowAltitude RMa seed 56 ok       (39 h 13 min 22 s run, 39 h 13 min 46 s elapsed, batch ETA 27 h 45 min 14 s)
+Logical handover: UE12 from gNB1 to gNB3 at t=39.0995s
+[ 14/ 45] trafficReshaping UMi seed 60 ok       (39 h 15 min 20 s run, 39 h 15 min 43 s elapsed, batch ETA 27 h 45 min 14 s)
+Logical handover: UE11 from gNB5 to gNB1 at t=40.4295s
+Logical handover: UE16 from gNB1 to gNB2 at t=31.3795s
+[ 15/ 45] combined UMa seed 55   ok       (39 h 21 min 41 s run, 39 h 22 min 02 s elapsed, batch ETA 27 h 35 min 07 s)
+Logical handover: UE19 from gNB1 to gNB4 at t=23.5295s
+Logical handover: UE15 from gNB1 to gNB2 at t=30.8995s
+[ 92.0%] runs 15/45 done, 30 running  |  overall 92.0%  |  wall 39 h 23 min 34 s  |  ETA 27 h 35 min 07 s  |  cost x2.27 vs model
+Logical handover: UE16 from gNB4 to gNB1 at t=29.2995s
+Logical handover: UE15 from gNB5 to gNB1 at t=31.4695s
+[ 16/ 45] lowAltitude RMa seed 47 ok       (39 h 28 min 53 s run, 39 h 29 min 14 s elapsed, batch ETA 27 h 35 min 07 s)
+Logical handover: UE8 from gNB1 to gNB2 at t=38.9895s
+Logical handover: UE16 from gNB1 to gNB4 at t=31.0795s
+Logical handover: UE9 from gNB2 to gNB1 at t=36.1395s
+Logical handover: UE12 from gNB2 to gNB5 at t=39.5995s
+Logical handover: UE12 from gNB2 to gNB5 at t=39.5995s
+Logical handover: UE17 from gNB5 to gNB1 at t=29.7695s
+Logical handover: UE11 from gNB5 to gNB3 at t=39.1695s
+Logical handover: UE9 from gNB2 to gNB1 at t=36.1395s
+Logical handover: UE15 from gNB1 to gNB2 at t=31.7295s
+Logical handover: UE13 from gNB4 to gNB1 at t=31.8095s
+Logical handover: UE12 from gNB5 to gNB1 at t=39.9595s
+Logical handover: UE12 from gNB5 to gNB1 at t=39.9595s
+Logical handover: UE16 from gNB1 to gNB5 at t=31.4095s
+Logical handover: UE14 from gNB5 to gNB1 at t=31.4595s
+[ 93.0%] runs 16/45 done, 29 running  |  overall 93.0%  |  wall 40 h 01 min 49 s  |  ETA 26 h 30 min 00 s  |  cost x2.26 vs model
+[ 17/ 45] combined UMi seed 54   ok       (40 h 09 min 35 s run, 40 h 10 min 02 s elapsed, batch ETA 26 h 30 min 00 s)
+Logical handover: UE16 from gNB5 to gNB4 at t=30.2195s
+Logical handover: UE16 from gNB2 to gNB1 at t=32.2095s
+Logical handover: UE14 from gNB4 to gNB3 at t=39.8795s
+Logical handover: UE15 from gNB2 to gNB1 at t=31.7695s
+[ 18/ 45] lowAltitude UMi seed 48 ok       (40 h 27 min 14 s run, 40 h 27 min 42 s elapsed, batch ETA 26 h 30 min 00 s)
+[ 19/ 45] trafficReshaping UMi seed 48 ok       (40 h 27 min 17 s run, 40 h 27 min 44 s elapsed, batch ETA 26 h 30 min 00 s)
+[ 20/ 45] trafficReshaping UMi seed 54 ok       (40 h 28 min 40 s run, 40 h 29 min 06 s elapsed, batch ETA 26 h 30 min 00 s)
+Logical handover: UE13 from gNB4 to gNB1 at t=31.8095s
+Logical handover: UE14 from gNB2 to gNB5 at t=36.9195s
+Logical handover: UE12 from gNB4 to gNB5 at t=39.7895s
+[ 21/ 45] combined UMi seed 51   ok       (40 h 32 min 07 s run, 40 h 32 min 32 s elapsed, batch ETA 26 h 30 min 00 s)
+Logical handover: UE6 from gNB2 to gNB1 at t=30.4595s
+Logical handover: UE6 from gNB1 to gNB5 at t=34.4995s
+[ 22/ 45] trafficReshaping UMa seed 49 ok       (40 h 36 min 59 s run, 40 h 37 min 20 s elapsed, batch ETA 25 h 22 min 35 s)
+[ 23/ 45] lowAltitude UMi seed 51 ok       (40 h 42 min 58 s run, 40 h 43 min 20 s elapsed, batch ETA 25 h 22 min 35 s)
+[ 94.0%] runs 23/45 done, 22 running  |  overall 94.0%  |  wall 40 h 43 min 32 s  |  ETA 25 h 22 min 35 s  |  cost x2.30 vs model
+[ 24/ 45] trafficReshaping RMa seed 50 ok       (40 h 43 min 32 s run, 40 h 43 min 55 s elapsed, batch ETA 25 h 22 min 35 s)
+[ 25/ 45] lowAltitude RMa seed 50 ok       (40 h 45 min 46 s run, 40 h 46 min 08 s elapsed, batch ETA 25 h 22 min 35 s)
+Logical handover: UE14 from gNB3 to gNB4 at t=40.3095s
+[ 26/ 45] combined UMa seed 52   ok       (40 h 48 min 43 s run, 40 h 49 min 08 s elapsed, batch ETA 25 h 22 min 35 s)
+Logical handover: UE6 from gNB2 to gNB1 at t=30.4595s
+[ 27/ 45] trafficReshaping UMa seed 52 ok       (40 h 51 min 45 s run, 40 h 52 min 09 s elapsed, batch ETA 25 h 22 min 35 s)
+Logical handover: UE11 from gNB1 to gNB5 at t=40.4995s
+[ 28/ 45] combined RMa seed 53   ok       (40 h 52 min 40 s run, 40 h 53 min 01 s elapsed, batch ETA 25 h 22 min 35 s)
+[ 29/ 45] lowAltitude UMi seed 60 ok       (40 h 56 min 15 s run, 40 h 56 min 42 s elapsed, batch ETA 25 h 22 min 35 s)
+Logical handover: UE11 from gNB5 to gNB1 at t=40.4295s
+[ 30/ 45] trafficReshaping UMa seed 55 ok       (41 h 06 min 45 s run, 41 h 07 min 12 s elapsed, batch ETA 25 h 22 min 35 s)
+[ 31/ 45] lowAltitude UMa seed 52 ok       (41 h 08 min 16 s run, 41 h 08 min 44 s elapsed, batch ETA 25 h 22 min 35 s)
+[ 32/ 45] trafficReshaping RMa seed 47 ok       (41 h 09 min 20 s run, 41 h 09 min 47 s elapsed, batch ETA 25 h 22 min 35 s)
+Logical handover: UE7 from gNB1 to gNB4 at t=33.0295s
+Logical handover: UE14 from gNB1 to gNB5 at t=32.5995s
+Logical handover: UE7 from gNB3 to gNB4 at t=24.8995s
+[ 33/ 45] combined RMa seed 59   ok       (41 h 32 min 01 s run, 41 h 32 min 28 s elapsed, batch ETA 25 h 00 min 12 s)
+Logical handover: UE11 from gNB5 to gNB1 at t=40.4295s
+Logical handover: UE15 from gNB2 to gNB1 at t=33.2395s
+[ 34/ 45] lowAltitude UMa seed 55 ok       (41 h 37 min 59 s run, 41 h 38 min 25 s elapsed, batch ETA 25 h 00 min 12 s)
+Logical handover: UE14 from gNB4 to gNB5 at t=31.3995s
+Logical handover: UE13 from gNB1 to gNB5 at t=35.6695s
+Logical handover: UE6 from gNB1 to gNB2 at t=27.8395s
+Logical handover: UE7 from gNB1 to gNB4 at t=33.0295s
+[ 95.0%] runs 34/45 done, 11 running  |  overall 95.0%  |  wall 42 h 01 min 54 s  |  ETA 24 h 26 min 18 s  |  cost x2.34 vs model
+Logical handover: UE15 from gNB1 to gNB2 at t=33.6295s
+Logical handover: UE15 from gNB3 to gNB2 at t=27.9895s
+Logical handover: UE6 from gNB1 to gNB2 at t=27.8395s
+Logical handover: UE8 from gNB3 to gNB4 at t=36.0995s
+Logical handover: UE14 from gNB5 to gNB4 at t=32.0295s
+Logical handover: UE6 from gNB3 to gNB1 at t=25.6895s
+Logical handover: UE16 from gNB4 to gNB5 at t=32.1695s
+Logical handover: UE15 from gNB2 to gNB1 at t=34.1795s
+Logical handover: UE6 from gNB1 to gNB5 at t=34.4995s
+Logical handover: UE14 from gNB5 to gNB1 at t=34.0295s
+Logical handover: UE10 from gNB1 to gNB3 at t=37.0595s
+Logical handover: UE13 from gNB5 to gNB4 at t=37.0595s
+Logical handover: UE16 from gNB5 to gNB1 at t=34.1395s
+[ 35/ 45] trafficReshaping RMa seed 59 ok       (43 h 51 min 27 s run, 43 h 51 min 56 s elapsed, batch ETA 21 h 52 min 12 s)
+Logical handover: UE13 from gNB1 to gNB2 at t=34.6395s
+Logical handover: UE6 from gNB1 to gNB5 at t=34.4995s
+[ 96.0%] runs 35/45 done, 10 running  |  overall 96.0%  |  wall 44 h 05 min 11 s  |  ETA 21 h 52 min 12 s  |  cost x2.35 vs model
+[ 36/ 45] lowAltitude RMa seed 59 ok       (44 h 05 min 01 s run, 44 h 05 min 31 s elapsed, batch ETA 21 h 52 min 12 s)
+Logical handover: UE16 from gNB3 to gNB2 at t=29.1695s
+Logical handover: UE16 from gNB1 to gNB5 at t=34.6095s
+Logical handover: UE6 from gNB1 to gNB5 at t=34.9195s
+Logical handover: UE15 from gNB1 to gNB3 at t=34.7495s
+Logical handover: UE19 from gNB4 to gNB1 at t=26.8795s
+Logical handover: UE13 from gNB1 to gNB5 at t=35.6695s
+Logical handover: UE7 from gNB4 to gNB2 at t=38.4295s
+Logical handover: UE14 from gNB1 to gNB5 at t=35.3195s
+Logical handover: UE16 from gNB1 to gNB5 at t=35.9095s
+Logical handover: UE15 from gNB1 to gNB5 at t=35.9995s
+Logical handover: UE8 from gNB3 to gNB4 at t=36.0995s
+Logical handover: UE13 from gNB1 to gNB5 at t=35.6695s
+Logical handover: UE15 from gNB5 to gNB2 at t=36.3195s
+Logical handover: UE15 from gNB3 to gNB2 at t=35.7695s
+Logical handover: UE14 from gNB4 to gNB2 at t=34.4695s
+Logical handover: UE8 from gNB3 to gNB4 at t=36.0995s
+Logical handover: UE13 from gNB1 to gNB2 at t=34.6395s
+Logical handover: UE6 from gNB1 to gNB2 at t=27.8395s
+Logical handover: UE19 from gNB3 to gNB4 at t=30.6495s
+Logical handover: UE15 from gNB2 to gNB1 at t=36.3195s
+Logical handover: UE6 from gNB1 to gNB5 at t=34.9195s
+Logical handover: UE10 from gNB1 to gNB3 at t=37.0595s
+Logical handover: UE13 from gNB5 to gNB4 at t=37.0595s
+Logical handover: UE13 from gNB1 to gNB2 at t=34.6395s
+Logical handover: UE8 from gNB4 to gNB1 at t=39.9295s
+[ 97.0%] runs 36/45 done, 9 running  |  overall 97.0%  |  wall 46 h 45 min 32 s  |  ETA 20 h 07 min 48 s  |  cost x2.35 vs model
+Logical handover: UE16 from gNB5 to gNB4 at t=35.2095s
+Logical handover: UE6 from gNB1 to gNB5 at t=34.9195s
+Logical handover: UE15 from gNB3 to gNB4 at t=31.0895s
+Logical handover: UE8 from gNB1 to gNB3 at t=40.2895s
+Logical handover: UE6 from gNB5 to gNB2 at t=40.4595s
+Logical handover: UE14 from gNB2 to gNB5 at t=35.4895s
+Logical handover: UE10 from gNB1 to gNB3 at t=37.0595s
+Logical handover: UE13 from gNB5 to gNB4 at t=37.0595s
+[ 37/ 45] combined UMi seed 57   ok       (47 h 13 min 22 s run, 47 h 13 min 50 s elapsed, batch ETA 19 h 43 min 39 s)
+Logical handover: UE17 from gNB1 to gNB5 at t=31.3195s
+Logical handover: UE15 from gNB2 to gNB1 at t=37.9595s
+Logical handover: UE16 from gNB5 to gNB1 at t=38.0695s
+Logical handover: UE15 from gNB1 to gNB3 at t=37.4895s
+Logical handover: UE15 from gNB4 to gNB3 at t=31.7995s
+Logical handover: UE13 from gNB2 to gNB1 at t=37.9895s
+Logical handover: UE16 from gNB5 to gNB2 at t=37.7695s
+Logical handover: UE7 from gNB4 to gNB2 at t=38.4295s
+Logical handover: UE16 from gNB2 to gNB1 at t=38.0295s
+Logical handover: UE16 from gNB1 to gNB5 at t=38.8495s
+Logical handover: UE7 from gNB4 to gNB2 at t=38.4295s
+Logical handover: UE19 from gNB1 to gNB4 at t=29.8495s
+Logical handover: UE19 from gNB1 to gNB3 at t=33.1695s
+Logical handover: UE16 from gNB1 to gNB5 at t=38.9195s
+[ 98.0%] runs 37/45 done, 8 running  |  overall 98.0%  |  wall 49 h 35 min 02 s  |  ETA 16 h 43 min 48 s  |  cost x2.36 vs model
+Logical handover: UE16 from gNB1 to gNB4 at t=37.1295s
+Logical handover: UE15 from gNB3 to gNB4 at t=33.3195s
+Logical handover: UE8 from gNB4 to gNB1 at t=39.9295s
+Logical handover: UE16 from gNB5 to gNB1 at t=39.5695s
+Logical handover: UE13 from gNB2 to gNB1 at t=37.9895s
+Logical handover: UE19 from gNB4 to gNB1 at t=30.6195s
+Logical handover: UE8 from gNB1 to gNB3 at t=40.2895s
+Logical handover: UE14 from gNB5 to gNB1 at t=40.3395s
+Logical handover: UE6 from gNB5 to gNB2 at t=40.4595s
+Logical handover: UE8 from gNB4 to gNB1 at t=39.9295s
+Logical handover: UE16 from gNB5 to gNB1 at t=40.4995s
+[ 38/ 45] trafficReshaping UMi seed 57 ok       (50 h 50 min 39 s run, 50 h 51 min 13 s elapsed, batch ETA 15 h 19 min 29 s)
+Logical handover: UE14 from gNB2 to gNB1 at t=30.8395s
+Logical handover: UE13 from gNB2 to gNB1 at t=37.9895s
+Logical handover: UE19 from gNB1 to gNB4 at t=30.8795s
+[ 39/ 45] combined UMa seed 46   ok       (51 h 02 min 47 s run, 51 h 03 min 19 s elapsed, batch ETA 15 h 19 min 29 s)
+Logical handover: UE8 from gNB1 to gNB3 at t=40.2895s
+Logical handover: UE14 from gNB5 to gNB4 at t=38.6695s
+Logical handover: UE6 from gNB5 to gNB2 at t=40.4595s
+[ 40/ 45] lowAltitude UMi seed 57 ok       (51 h 37 min 47 s run, 51 h 38 min 31 s elapsed, batch ETA 14 h 42 min 28 s)
+Logical handover: UE15 from gNB2 to gNB3 at t=35.1095s
+Logical handover: UE16 from gNB4 to gNB5 at t=39.6295s
+Logical handover: UE19 from gNB4 to gNB1 at t=32.0695s
+Logical handover: UE17 from gNB5 to gNB1 at t=35.4095s
+Logical handover: UE14 from gNB1 to gNB2 at t=32.3195s
+Logical handover: UE19 from gNB3 to gNB2 at t=35.8595s
+[ 99.0%] runs 40/45 done, 5 running  |  overall 99.0%  |  wall 53 h 41 min 23 s  |  ETA 13 h 07 min 58 s  |  cost x2.35 vs model
+[ 41/ 45] trafficReshaping UMa seed 46 ok       (53 h 46 min 52 s run, 53 h 47 min 20 s elapsed, batch ETA 13 h 07 min 58 s)
+[ 42/ 45] lowAltitude UMa seed 46 ok       (53 h 53 min 26 s run, 53 h 53 min 59 s elapsed, batch ETA 13 h 07 min 58 s)
+Logical handover: UE6 from gNB2 to gNB1 at t=36.7795s
+Logical handover: UE6 from gNB2 to gNB1 at t=36.7795s
+Logical handover: UE17 from gNB1 to gNB5 at t=36.9095s
+Logical handover: UE19 from gNB1 to gNB5 at t=34.0895s
+Logical handover: UE19 from gNB2 to gNB1 at t=38.7095s
+Logical handover: UE14 from gNB2 to gNB5 at t=38.6995s
+Logical handover: UE17 from gNB5 to gNB1 at t=40.0395s
+[ 43/ 45] trafficReshaping UMa seed 58 ok       (60 h 34 min 32 s run, 60 h 35 min 12 s elapsed, batch ETA 7 h 52 min 02 s)
+Logical handover: UE17 from gNB1 to gNB5 at t=40.3095s
+[ 44/ 45] combined UMa seed 58   ok       (61 h 04 min 04 s run, 61 h 04 min 44 s elapsed, batch ETA 7 h 11 min 05 s)
+Logical handover: UE6 from gNB2 to gNB1 at t=36.7795s
+Logical handover: UE14 from gNB2 to gNB3 at t=36.9895s
+Logical handover: UE19 from gNB5 to gNB1 at t=37.6395s
+Logical handover: UE18 from gNB1 to gNB3 at t=39.2495s
+Logical handover: UE14 from gNB3 to gNB2 at t=39.4695s
+Logical handover: UE18 from gNB3 to gNB2 at t=39.8195s
+Logical handover: UE17 from gNB5 to gNB1 at t=40.2795s
+[100.0%] runs 44/45 done, 1 running  |  overall 100.0%  |  wall 66 h 29 min 41 s  |  ETA 0 s  |  cost x2.35 vs model
+[ 45/ 45] lowAltitude UMa seed 58 ok       (66 h 29 min 42 s run, 66 h 30 min 16 s elapsed, batch ETA 0 s)
+
+================================================================
+DONE  all 45 scenario run(s) finished in 66 h 30 min 16 s
+      45 ok, 0 failed, 0 skipped
+      45 run(s) executed this batch
+================================================================
+Cost model: 79.8 s per (sim-s x gNB x UE) from 45 run(s) at 45 worker(s), spread 75.6 to 87.1.
+  That is 2.38x the configured prior of 33.6. Set cfg.batch.costModel.sPerSimSecPerGNBPerUE = 79.8 to make the projection match, or leave it: measurements on disk already take precedence.
+
+Batch complete in 66 h 30 min 16 s: 45 ok, 0 skipped, 0 failed.
+Manifest: C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\manifest_20260809_085436.csv
+Merge the per-run CSVs with: phase7_MergeDataset
+
+ans =
+
+  45×34 table
+
+    runIdx        condition         scenario    seed    status    evasionAlt_m    trafficReshaped    speedReduced    simReached_s    truncated    numGNB    siteRadius_m    ueAreaSpan_m    numUE    numTerrestrial    numAerial    isMultiAerial    aerialFraction    anchorLoadMax    simTime_s    windowLen_s    windowStride_s    settleTime_s    shadowFading    rateJitterFrac    numRows    hoCountTotal    hoCountAerial    pingPongTotal    wallTime_s    matlabRelease                                                csvFile                                                                                           replayFile                                              errorMessage
+    ______    __________________    ________    ____    ______    ____________    _______________    ____________    ____________    _________    ______    ____________    ____________    _____    ______________    _________    _____________    ______________    _____________    _________    ___________    ______________    ____________    ____________    ______________    _______    ____________    _____________    _____________    __________    _____________    ________________________________________________________________________________________________    ______________________________________________________________________________________________    ____________
+
+       1      "lowAltitude"          "UMa"       46      "ok"          15                0                0              40.5            0          5            750            2200         12            8               4              1             0.33333              3            40.5           10               1               0.5              1               0.15           360           40              24                3          1.9401e+05       "2024b"       "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\lowAltitude\features_UMa_seed46.csv"         "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\lowAltitude\replay_UMa_seed46.mat"              ""     
+       2      "trafficReshaping"     "UMa"       46      "ok"         NaN                1                0              40.5            0          5            750            2200         12            8               4              1             0.33333              3            40.5           10               1               0.5              1               0.15           360           19               3                1          1.9361e+05       "2024b"       "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\trafficReshaping\features_UMa_seed46.csv"    "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\trafficReshaping\replay_UMa_seed46.mat"         ""     
+       3      "combined"             "UMa"       46      "ok"          15                1                1              40.5            0          5            750            2200         12            8               4              1             0.33333              3            40.5           10               1               0.5              1               0.15           360           22               6                1          1.8377e+05       "2024b"       "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\combined\features_UMa_seed46.csv"            "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\combined\replay_UMa_seed46.mat"                 ""     
+       4      "lowAltitude"          "RMa"       47      "ok"          15                0                0              40.5            0          5           1500            3600          9            8               1              0             0.11111              4            40.5           10               1               0.5              1               0.15           270           17               1                1          1.4213e+05       "2024b"       "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\lowAltitude\features_RMa_seed47.csv"         "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\lowAltitude\replay_RMa_seed47.mat"              ""     
+       5      "trafficReshaping"     "RMa"       47      "ok"         NaN                1                0              40.5            0          5           1500            3600          9            8               1              0             0.11111              4            40.5           10               1               0.5              1               0.15           270           17               1                1          1.4816e+05       "2024b"       "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\trafficReshaping\features_RMa_seed47.csv"    "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\trafficReshaping\replay_RMa_seed47.mat"         ""     
+       6      "combined"             "RMa"       47      "ok"          15                1                1              40.5            0          5           1500            3600          9            8               1              0             0.11111              4            40.5           10               1               0.5              1               0.15           270           17               1                1          1.4083e+05       "2024b"       "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\combined\features_RMa_seed47.csv"            "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\combined\replay_RMa_seed47.mat"                 ""     
+
+      :               :                :         :        :            :                 :                :               :              :          :            :               :            :            :               :              :                :                 :              :             :               :                :               :                :              :            :                :                :              :               :                                                         :                                                                                                  :                                                        :      
+
+      40      "lowAltitude"          "RMa"       59      "ok"          15                0                0              40.5            0          5           1500            3600          9            8               1              0             0.11111              3            40.5           10               1               0.5              1               0.15           270           28               4                0           1.587e+05       "2024b"       "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\lowAltitude\features_RMa_seed59.csv"         "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\lowAltitude\replay_RMa_seed59.mat"              ""     
+      41      "trafficReshaping"     "RMa"       59      "ok"         NaN                1                0              40.5            0          5           1500            3600          9            8               1              0             0.11111              3            40.5           10               1               0.5              1               0.15           270           25               1                0          1.5789e+05       "2024b"       "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\trafficReshaping\features_RMa_seed59.csv"    "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\trafficReshaping\replay_RMa_seed59.mat"         ""     
+      42      "combined"             "RMa"       59      "ok"          15                1                1              40.5            0          5           1500            3600          9            8               1              0             0.11111              3            40.5           10               1               0.5              1               0.15           270           25               1                0          1.4952e+05       "2024b"       "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\combined\features_RMa_seed59.csv"            "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\combined\replay_RMa_seed59.mat"                 ""     
+      43      "lowAltitude"          "UMi"       60      "ok"          15                0                0              40.5            0          5            400            1200          9            8               1              0             0.11111              3            40.5           10               1               0.5              1               0.15           270           61              23                4          1.4738e+05       "2024b"       "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\lowAltitude\features_UMi_seed60.csv"         "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\lowAltitude\replay_UMi_seed60.mat"              ""     
+      44      "trafficReshaping"     "UMi"       60      "ok"         NaN                1                0              40.5            0          5            400            1200          9            8               1              0             0.11111              3            40.5           10               1               0.5              1               0.15           270           48              10                4          1.4132e+05       "2024b"       "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\trafficReshaping\features_UMi_seed60.csv"    "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\trafficReshaping\replay_UMi_seed60.mat"         ""     
+      45      "combined"             "UMi"       60      "ok"          15                1                1              40.5            0          5            400            1200          9            8               1              0             0.11111              3            40.5           10               1               0.5              1               0.15           270           38               0                1          1.3894e+05       "2024b"       "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\combined\features_UMi_seed60.csv"            "C:\Users\Admin\Documents\MATLAB\MScs\Joe\Phase 7\data\combined\replay_UMi_seed60.mat"                 ""     
+
+	Display all 45 rows.
+
+IdleTimeout has been reached.
+Parallel pool using the 'Processes' profile is shutting down.

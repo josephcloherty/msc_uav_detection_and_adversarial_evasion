@@ -117,37 +117,94 @@ writetable(C, fullfile(root, 'results', 'ue_rule_candidates.csv'));
 chosen = struct('type', {}, 'M', {}, 'N', {});
 chosenRows = cell(nM, 1);
 bestIdx = nan(nM, 1);
+pooledRecall = nan(nM, 1);  pooledFPR = nan(nM, 1);
+pooledAUC    = nan(nM, 1);  pooledPAUC = nan(nM, 1);
+
 for m = 1:nM
     score = recallCV(m, :) + 1e-6 * aucCV(m, :);
     [bestScore, bestR] = max(score);
     if bestScore <= score(1) + 1e-9
         bestR = 1;                          % no persistence rule beats the mean posterior
     end
-    bestIdx(m)    = bestR;
-    chosen(m)     = rules(bestR);
+    bestIdx(m) = bestR;
+    chosen(m)  = rules(bestR);
+
+    % Pooled evaluation under the chosen rule.
+    %
+    % The fold-wise figures above are the right basis for selecting a rule, each rule
+    % being scored on UEs whose threshold was set without them, but they are the wrong
+    % basis for comparing one family against another. A fold holds around seventy-two
+    % terrestrial UEs, so its false alarm rate moves in steps of about 1.4 per cent and
+    % a nominal 1 per cent target cannot be resolved at all: two families reporting
+    % recall "at 1 per cent" may in fact be sitting at 0.8 and 1.4 per cent, and the one
+    % that overshot will look better for having done so. Pooling all folds puts every
+    % family at the same three false alarms in three hundred and sixty, which is a
+    % like-for-like comparison, and the partial AUC below 5 per cent removes the
+    % dependence on a single discrete operating point altogether.
+    Sp = U.perUEScore(oofScore(:, m), ueKeyDev, winStartDev, isPos, chosen(m));
+    Yp = categorical(double(Sp.IsPos), [0 1], {'Terrestrial', 'Aerial'});
+    [xp, yp, pooledAUC(m)] = U.rocCurve(Yp, Sp.Score, posClass);
+    [~, pooledPAUC(m)] = U.partialAUC(xp, yp, 0.05);
+    [~, pooledFPR(m), pooledRecall(m)] = U.pickThreshold(Sp.Score, Sp.IsPos, targetFPR);
+
     chosenRows{m} = {modelNames{m}, U.ruleLabel(rules(bestR)), string(rules(bestR).type), ...
         rules(bestR).M, rules(bestR).N, recallCV(m, bestR), recallSD(m, bestR), ...
-        achFPRCV(m, bestR), aucCV(m, bestR), recallCV(m, 1), aucCV(m, 1)};
+        achFPRCV(m, bestR), aucCV(m, bestR), recallCV(m, 1), aucCV(m, 1), ...
+        pooledRecall(m), pooledFPR(m), pooledAUC(m), pooledPAUC(m)};
 end
 
 Ch = cell2table(vertcat(chosenRows{:}), 'VariableNames', ...
     {'Model', 'ChosenRule', 'RuleType', 'M', 'N', ...
      'Recall_at_1pctFPR_mean', 'Recall_at_1pctFPR_sd', 'AchievedFPR_mean', ...
-     'PerUE_AUC_mean', 'MeanPosterior_Recall', 'MeanPosterior_AUC'});
+     'PerUE_AUC_mean', 'MeanPosterior_Recall', 'MeanPosterior_AUC', ...
+     'Pooled_Recall_at_1pctFPR', 'Pooled_AchievedFPR', ...
+     'Pooled_PerUE_AUC', 'Pooled_PerUE_pAUC5norm'});
 writetable(Ch, fullfile(root, 'results', 'ue_rule_chosen.csv'));
 
 %% Report
-fprintf('\n%-22s %-22s %14s %14s %10s\n', ...
-    'Model', 'Chosen rule', 'Recall@1%FPR', 'vs mean post.', 'Per-UE AUC');
+%  The achieved false alarm rate is printed beside the recall, not left in the CSV. The
+%  threshold is fixed on roughly four fifths of the UEs and applied to the remaining
+%  fifth, where a single false alarm is already about 1.4 per cent, so the rate achieved
+%  on the held-out fold routinely differs from the nominal one and the recall figure is
+%  not interpretable without it.
+fprintf('\n%-22s %-22s %15s %13s %11s %10s\n', ...
+    'Model', 'Chosen rule', 'Recall@1%FPR', 'AchievedFPR', 'vs mean post.', 'Per-UE AUC');
 for m = 1:nM
     b = bestIdx(m);
-    fprintf('%-22s %-22s  %5.3f +/-%5.3f       %+6.3f      %5.3f\n', ...
+    fprintf('%-22s %-22s  %5.3f +/-%5.3f %11.3f%% %11.3f %10.3f\n', ...
         modelNames{m}, U.ruleLabel(chosen(m)), ...
-        recallCV(m, b), recallSD(m, b), recallCV(m, b) - recallCV(m, 1), aucCV(m, b));
+        recallCV(m, b), recallSD(m, b), 100 * achFPRCV(m, b), ...
+        recallCV(m, b) - recallCV(m, 1), aucCV(m, b));
 end
+fprintf(['\nRecall is quoted at the nominal 1%% per-UE false alarm rate; the achieved column\n' ...
+         'is what the held-out folds actually delivered and is the figure to report.\n']);
+over = find(achFPRCV(sub2ind(size(achFPRCV), (1:nM)', bestIdx)) > targetFPR * 1.2);
+if ~isempty(over)
+    fprintf('Achieved rate exceeds the target by more than a fifth for: %s.\n', ...
+        strjoin(modelNames(over), ', '));
+end
+
+%% Pooled comparison across families
+%  This is the table D6.7 selects from. Every family sits at the same achieved false
+%  alarm rate here, so the recalls are directly comparable, and the partial AUC is the
+%  criterion because a single operating point on three hundred and sixty terrestrial UEs
+%  can only separate two good families by a whole UE at a time.
+fprintf('\nPooled over all folds, every family at the same achieved false alarm rate:\n');
+fprintf('%-22s %13s %13s %12s %16s\n', ...
+    'Model', 'Recall', 'AchievedFPR', 'Per-UE AUC', 'pAUC<5%FPR');
+[~, ord] = sort(pooledPAUC, 'descend');
+for m = ord'
+    fprintf('%-22s %13.4f %12.3f%% %12.4f %16.4f\n', ...
+        modelNames{m}, pooledRecall(m), 100 * pooledFPR(m), pooledAUC(m), pooledPAUC(m));
+end
+nAerUE = sum(arrayfun(@(u) any(isPos(ueKeyDev == u)), ueList));
+fprintf(['Pooled recall moves in steps of 1/%d = %.4f, so a gap narrower than that between\n' ...
+         'two families is not a difference the data can resolve; the partial AUC is.\n'], ...
+    nAerUE, 1 / nAerUE);
 
 save(fullfile(root, 'prepared_data', 'ue_rule.mat'), ...
      'chosen', 'rules', 'bestIdx', 'recallCV', 'recallSD', 'aucCV', 'achFPRCV', ...
+     'pooledRecall', 'pooledFPR', 'pooledAUC', 'pooledPAUC', ...
      'modelNames', 'modelKeys', 'ueList', 'ueFold', 'targetFPR');
 
 fprintf('\nSaved results/ue_rule_candidates.csv, results/ue_rule_chosen.csv and prepared_data/ue_rule.mat\n');

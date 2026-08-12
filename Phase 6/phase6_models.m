@@ -19,9 +19,8 @@ function M = phase6_models(numPredictors)
 %
 %   .score returns a posterior on a common [0, 1] scale for all five, not each family's
 %   native score. This matters because D6.3 averages scores across a UE's windows, and
-%   averaging the raw margin of a linear model is not the same operation as averaging a
-%   probability. fitclinear with a logistic learner returns the linear predictor, so the
-%   logistic link is applied here to recover the probability exactly.
+%   averaging an uncalibrated transform of a score is not the same operation as
+%   averaging a probability.
 
 if nargin < 1 || isempty(numPredictors)
     error('phase6_models:noPredictorCount', ...
@@ -32,14 +31,22 @@ numVars = max(1, round(sqrt(numPredictors)));
 M = struct('name', {}, 'key', {}, 'needsZ', {}, 'fit', {}, 'score', {});
 
 %% K-nearest neighbours
-%  Distance-based, so 'Standardize' rescales using training statistics only. With
-%  k = 10 the posterior takes eleven distinct values, which makes the ROC coarse and
-%  is worth remembering when reading its recall at a 1 per cent false alarm rate.
+%  Distance-based, so 'Standardize' rescales using training statistics only.
+%
+%  The neighbour count is set by a measurement requirement rather than by accuracy. An
+%  unweighted k-neighbour vote can only take k+1 distinct values, so the ROC has k+1
+%  points; at k = 10 the first execution found that the highest available threshold in
+%  one fold already sat at a false alarm rate of 1.083 per cent, leaving no operating
+%  point at or below the 1 per cent target and making recall there unmeasurable rather
+%  than merely poor. Fifty neighbours with inverse distance weighting gives a score that
+%  is effectively continuous, so an operating point exists wherever it is asked for. The
+%  weighting also restores the local sensitivity that a larger neighbourhood would
+%  otherwise cost, since near neighbours dominate the vote.
 M(1).name   = 'KNN';
 M(1).key    = 'knn';
 M(1).needsZ = false;
-M(1).fit    = @(X, Y) fitcknn(X, Y, 'NumNeighbors', 10, ...
-                              'Distance', 'euclidean', 'Standardize', true);
+M(1).fit    = @(X, Y) fitcknn(X, Y, 'NumNeighbors', 50, 'Distance', 'euclidean', ...
+                              'DistanceWeight', 'inverse', 'Standardize', true);
 M(1).score  = @posteriorScore;
 
 %% Random forest
@@ -66,11 +73,20 @@ M(3).score  = @posteriorScore;
 %  fitclinear applies a ridge penalty, which is not invariant to predictor scale, and
 %  the predictors span standard deviations over several orders of magnitude. Without
 %  standardisation the penalty falls almost entirely on the decibel-scale features.
+%
+%  The second output of predict is used directly, as for the other families. An earlier
+%  version applied a logistic link to it on the assumption that a logistic learner
+%  returns the linear predictor. It does not: for this learner the value is already a
+%  posterior, and applying the link a second time compressed every score in the
+%  development set into the range 0.5001 to 0.7310. The ranking survived, the link being
+%  monotone, so the AUC and the recall at fixed false alarm rates were unaffected, but
+%  the value was no longer a probability, every window fell above 0.5, and any figure
+%  read at that threshold was meaningless. The check below now catches a repeat.
 M(4).name   = 'Logistic Regression';
 M(4).key    = 'logistic_regression';
 M(4).needsZ = true;
 M(4).fit    = @(X, Y) fitclinear(X, Y, 'Learner', 'logistic');
-M(4).score  = @logisticScore;
+M(4).score  = @posteriorScore;
 
 %% Discriminant analysis
 %  pseudoLinear tolerates the near-singular covariance that collinear radio features
@@ -84,19 +100,17 @@ M(5).score  = @posteriorScore;
 end
 
 
-%% ---- families whose second predict output is already a posterior ----
+%% ---- posterior probability of the Aerial class ----
+%  All five families return a posterior in the second output of predict. The range is
+%  checked rather than assumed, because a score that is monotone in the truth but not on
+%  the probability scale passes every rank-based metric silently and only shows itself
+%  when a fixed threshold is applied or when scores are averaged across a UE's windows.
 function p = posteriorScore(mdl, X)
     [~, s] = predict(mdl, X);
     p = s(:, mdl.ClassNames == 'Aerial');
-end
-
-
-%% ---- fitclinear returns the linear predictor, so apply the logistic link ----
-%  Monotone in the raw score, so the ROC is unchanged, but the value is now a
-%  probability and can be averaged across a UE's windows on the same footing as the
-%  other four families.
-function p = logisticScore(mdl, X)
-    [~, s] = predict(mdl, X);
-    raw = s(:, mdl.ClassNames == 'Aerial');
-    p = 1 ./ (1 + exp(-raw));
+    assert(all(p >= -1e-9 & p <= 1 + 1e-9), 'phase6_models:notAPosterior', ...
+        ['Scores from %s fall outside [0, 1] (observed %.4f to %.4f), so they are not ' ...
+         'posteriors. Fix the scoring function before using any threshold or per-UE ' ...
+         'average.'], class(mdl), min(p), max(p));
+    p = min(max(p, 0), 1);
 end

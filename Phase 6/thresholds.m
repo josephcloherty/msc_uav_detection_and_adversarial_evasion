@@ -74,9 +74,19 @@ for i = 1:height(T)
         100 * T.AchievedFPR(i), T.Recall(i), T.FalsePositives(i), T.NegativeUnits(i));
 end
 
+%  Recall at the per-UE operating point moves in whole UEs, so ties are common and are
+%  reported as ties. Naming whichever family happened to sort first would read as a
+%  result and is exactly the claim this phase must not make by accident.
 primary = T(T.NominalFPR == 0.01 & strcmp(T.Level, 'PerUE'), :);
-fprintf('\nPrimary operating point, 1%% per-UE FPR, best recall: %s at %.3f.\n', ...
-    primary.Model{find(primary.Recall == max(primary.Recall), 1)}, max(primary.Recall));
+best    = primary.Model(primary.Recall == max(primary.Recall));
+if numel(best) == 1
+    fprintf('\nPrimary operating point, 1%% per-UE FPR, best recall: %s at %.3f.\n', ...
+        best{1}, max(primary.Recall));
+else
+    fprintf(['\nPrimary operating point, 1%% per-UE FPR: %d families tie on best recall at ' ...
+             '%.3f (%s).\nRecall alone cannot separate them; D6.7 selects on the partial ' ...
+             'AUC.\n'], numel(best), max(primary.Recall), strjoin(best', ', '));
+end
 
 save(fullfile(root, 'prepared_data', 'thresholds.mat'), ...
      'winThr', 'ueThr', 'nominalFPR', 'modelNames', 'modelKeys', 'ueScoreAll', 'T');

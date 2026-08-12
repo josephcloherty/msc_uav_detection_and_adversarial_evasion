@@ -24,8 +24,13 @@ addpath(root);
 U = phase6_util();
 
 nominalFPR = [0.01 0.05];
-maxWindows = 30;                             % beyond this the curve is flat and the
-                                             % surviving UE count starts to fall away
+maxWindows = 50;                             % every UE in the development set carries
+                                             % exactly fifty windows, so the whole
+                                             % trajectory is available at no cost in
+                                             % population; stopping short of it truncates
+                                             % the curve before it plateaus and reports
+                                             % levels as unreached that are in fact
+                                             % reached by the end of the observation
 
 load(fullfile(root, 'prepared_data', 'oof_scores.mat'), ...
      'oofScore', 'modelNames', 'modelKeys', 'Ydev', 'ueKeyDev', 'winStartDev', 'posClass');
@@ -84,13 +89,16 @@ writetable(C, fullfile(root, 'results', 'latency_curve.csv'));
 %% Report the windows needed to reach a usable recall
 %  Quoted at the primary operating point. A model that never reaches the level is
 %  reported as such rather than being given an extrapolated figure.
-fprintf('\nWindows observed before recall first reaches a level, at 1%% per-UE FPR:\n');
-fprintf('%-22s %10s %10s %10s %14s\n', 'Model', '0.50', '0.80', '0.90', 'Recall@30win');
+fprintf(['\nWindows observed before recall reaches a level and stays there, at 1%% per-UE FPR.\n' ...
+         'A transient crossing is not reported, the curve being non-monotone: re-deriving\n' ...
+         'the threshold at each length lets recall touch a level and fall back below it.\n\n']);
+fprintf('%-22s %10s %10s %10s %14s %12s\n', ...
+    'Model', '0.50', '0.80', '0.90', 'Recall@1win', 'Recall@end');
 for m = 1:nM
     r = squeeze(recall(m, :, 1));
-    fprintf('%-22s %10s %10s %10s %14.3f\n', modelNames{m}, ...
+    fprintf('%-22s %10s %10s %10s %14.3f %12.3f\n', modelNames{m}, ...
         U.firstReach(r, Lgrid, 0.50), U.firstReach(r, Lgrid, 0.80), ...
-        U.firstReach(r, Lgrid, 0.90), r(end));
+        U.firstReach(r, Lgrid, 0.90), r(1), r(end));
 end
 
 %% Figure

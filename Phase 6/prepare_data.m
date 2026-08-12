@@ -73,7 +73,13 @@ featureSwitch = {
     % --- handover and mobility ---
     'hoCount_win'               1
     'meanInterHO_s'             0
-    'hoRate_perS'               1
+    'hoRate_perS'               0     % identical to hoCount_win: the window is always
+                                      % 10 s, so hoRate_perS * 10 == hoCount_win exactly
+                                      % and the two correlate at 1.000000. Carrying both
+                                      % splits the handover block's permutation
+                                      % importance between two surrogates, because
+                                      % permuting one leaves the other for the forest to
+                                      % fall back on, and understates the block in D6.6.
     'pingPongCount_win'         1
     'timeSinceHO_mean_s'        0
     'timeSinceHO_min_s'         0
@@ -226,6 +232,32 @@ X            = X(:, selected);
 featureNames = featureNames(selected);
 assert(~isempty(featureNames), 'prepare_data:noFeatures', ...
     'Every feature is switched off in featureSwitch.');
+
+%% Collinearity tripwire on the selected predictors
+%  A pair of predictors that are the same quantity in different units survives every
+%  other check in this script: neither is empty, neither is constant, and neither is a
+%  leak. It does damage further downstream instead. Permutation importance splits
+%  between perfect surrogates, because permuting one leaves the other for the model to
+%  fall back on, so a duplicated feature block is reported as two unimportant features
+%  rather than one important one. hoRate_perS and hoCount_win were exactly this: the
+%  window is always 10 s, so one is ten times the other.
+Xsel = X{:, :};
+Csel = corrcoef(U.imputeWith(Xsel, median(Xsel, 1, 'omitnan')), 'Rows', 'pairwise');
+Csel(logical(eye(size(Csel)))) = 0;
+[iDup, jDup] = find(triu(abs(Csel) >= 0.999, 1));
+if ~isempty(iDup)
+    msg = arrayfun(@(a, b) sprintf('%s and %s (r = %.6f)', ...
+        featureNames{a}, featureNames{b}, Csel(a, b)), iDup, jDup, 'UniformOutput', false);
+    error('prepare_data:duplicatePredictor', ...
+        ['These selected predictors are the same quantity: %s. Switch one of each pair ' ...
+         'off in featureSwitch; carrying both distorts the D6.6 importance ranking.'], ...
+        strjoin(msg, '; '));
+end
+[iHi, jHi] = find(triu(abs(Csel) >= 0.95, 1));
+for k = 1:numel(iHi)
+    fprintf('Note: %s and %s correlate at %.3f; importance will be shared between them.\n', ...
+        featureNames{iHi(k)}, featureNames{jHi(k)}, Csel(iHi(k), jHi(k)));
+end
 
 %% Hand the predictors on as a numeric matrix
 %  Every downstream script standardises, imputes or permutes columns, all of which are

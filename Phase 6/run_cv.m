@@ -100,6 +100,47 @@ end
 assert(~any(isnan(oofScore), 'all'), 'run_cv:missingScore', ...
     'Some rows received no out-of-fold score; check the fold assignment.');
 
+%% Calibration check
+%  A score that ranks correctly but is not on the probability scale passes every
+%  rank-based metric silently, so it has to be tested against something a rank cannot
+%  satisfy. Accuracy at the 0.5 threshold falling below the majority-class rate is the
+%  symptom: it means the score is systematically displaced rather than merely imprecise.
+%  This is not a model-quality test and a warning here does not invalidate the AUC,
+%  partial AUC or recall figures, which are rank-based; it invalidates anything read at
+%  a fixed threshold and anything averaged across a UE's windows.
+baseline = max(mean(isPos), 1 - mean(isPos));
+for m = 1:nM
+    s = oofScore(:, m);
+    if mean(acc(m, :)) < baseline
+        warning('run_cv:poorCalibration', ...
+            ['%s scores %.3f accuracy at the 0.5 threshold against a %.3f majority-class ' ...
+             'baseline, and span %.4f to %.4f. The ranking may be sound but the score is ' ...
+             'not behaving as a posterior; do not quote its accuracy and treat its per-UE ' ...
+             'mean with caution.'], ...
+            M(m).name, mean(acc(m, :)), baseline, min(s), max(s));
+    end
+end
+
+%% Score resolution check
+%  Recall at a fixed false alarm rate can only be read where the ROC has a point at or
+%  below that rate. A score with few distinct values may have none, in which case the
+%  metric returns exactly zero, which reads as a model failure when it is a measurement
+%  failure. The two are told apart by the company the zero keeps: a fold that returns no
+%  recall at 1 per cent while holding a high AUC has not failed to separate the classes,
+%  it has failed to offer an operating point.
+for m = 1:nM
+    bad = find(rec01(m, :) == 0 & auc(m, :) > 0.7);
+    if ~isempty(bad)
+        warning('run_cv:unmeasurableRecall', ...
+            ['%s returns zero recall at 1%% FPR in fold(s) %s while holding AUC above ' ...
+             '0.7 there. Its score takes only %d distinct values across %d rows, so the ' ...
+             'ROC has no point at or below the target and the metric is unmeasurable ' ...
+             'rather than poor. The mean and dispersion for this family are artefacts; ' ...
+             'increase the score resolution and rerun before quoting them.'], ...
+            M(m).name, mat2str(bad), numel(unique(oofScore(:, m))), nRow);
+    end
+end
+
 %% Report
 %  AUC is the headline, but the partial AUC below a 5 per cent false alarm rate is the
 %  number that matters operationally: at network scale a detector is only usable in the

@@ -230,9 +230,17 @@ function s = rangeText(v)
 end
 
 
-%% ---- first grid point at which a curve reaches a level ----
+%% ---- first grid point from which a curve stays at or above a level ----
+%  The first crossing is not the answer to "how long must the detector watch". A latency
+%  curve whose threshold is re-derived at every observation length is not monotone, so it
+%  can touch a level early and fall back below it; reporting that touch would claim an
+%  observation length at which the detector does not reliably perform. The running
+%  minimum from each point to the end of the curve gives the first length from which the
+%  level is held for good.
 function s = firstReach(r, grid, level)
-    k = find(r >= level, 1, 'first');
+    r = r(:)';
+    sustained = flip(cummin(flip(r)));      % sustained(i) = min(r(i:end))
+    k = find(sustained >= level, 1, 'first');
     if isempty(k)
         s = 'not reached';
     else
