@@ -46,6 +46,35 @@ featureSwitch = {
     'servMinusBestNbr_mean_dB'  0
     'servMinusBestNbr_min_dB'   0
 
+    % --- received power and quality (RRC measurement report quantities) ---
+    %  RSRQ = N * RSRP / RSSI by definition, and the identity holds exactly in this
+    %  data: rsrp_mean - rssi_mean - rsrq_mean is -17.0757 dB for every row with zero
+    %  variance, which is 10*log10(51) for the 51 resource blocks of the measurement
+    %  bandwidth. The three are therefore linearly dependent and only two of them carry
+    %  information. RSRP and RSRQ are kept as the level and quality pair; RSSI is
+    %  switched off because it is also the harder of the three to justify an operator
+    %  holding, existing in both LTE and NR mainly as the RSRQ denominator rather than
+    %  as a quantity reported in its own right.
+    %
+    %  RSRP and RSSI additionally correlate at 0.9976 in this data, the serving cell
+    %  dominating the received wideband power, so keeping both would have been close to
+    %  duplication even without the identity.
+    'rsrp_mean_dBm'             1
+    'rsrp_var_dB2'              0
+    'rsrp_min_dBm'              0
+    'rsrp_max_dBm'              0
+    'rsrp_trend_dBperS'         0
+    'rsrq_mean_dB'              1
+    'rsrq_var_dB2'              0
+    'rsrq_min_dB'               0
+    'rsrq_max_dB'               0
+    'rsrq_trend_dBperS'         0
+    'rssi_mean_dBm'             0
+    'rssi_var_dB2'              0
+    'rssi_min_dBm'              0
+    'rssi_max_dBm'              0
+    'rssi_trend_dBperS'         0
+
     % --- channel quality and link adaptation ---
     'cqi_mean'                  1
     'cqi_var'                   0
@@ -233,16 +262,48 @@ featureNames = featureNames(selected);
 assert(~isempty(featureNames), 'prepare_data:noFeatures', ...
     'Every feature is switched off in featureSwitch.');
 
-%% Collinearity tripwire on the selected predictors
-%  A pair of predictors that are the same quantity in different units survives every
-%  other check in this script: neither is empty, neither is constant, and neither is a
-%  leak. It does damage further downstream instead. Permutation importance splits
-%  between perfect surrogates, because permuting one leaves the other for the model to
-%  fall back on, so a duplicated feature block is reported as two unimportant features
-%  rather than one important one. hoRate_perS and hoCount_win were exactly this: the
-%  window is always 10 s, so one is ten times the other.
-Xsel = X{:, :};
-Csel = corrcoef(U.imputeWith(Xsel, median(Xsel, 1, 'omitnan')), 'Rows', 'pairwise');
+%% Redundancy tripwire on the selected predictors
+%  A predictor carrying no information beyond the others survives every other check in
+%  this script: it is not empty, not constant, and not a leak. It does its damage
+%  further downstream, where permutation importance splits between surrogates because
+%  permuting one leaves the others for the model to fall back on, so a duplicated block
+%  is reported as several unimportant features rather than one important one.
+%
+%  Two tests are needed, because either alone misses a case seen in this project.
+%  hoRate_perS and hoCount_win were a pairwise duplicate, the window being always 10 s
+%  so that one was ten times the other, and a pairwise correlation catches that. RSRP,
+%  RSSI and RSRQ are not a pairwise duplicate at all, RSRQ correlating only 0.74 and
+%  0.69 with the other two, yet the three are exactly linearly dependent through
+%  RSRQ = N * RSRP / RSSI and the trio carries the information of two columns. Only a
+%  rank test sees that, and only a pairwise test names the offending pair cleanly, so
+%  both are run.
+Xsel = U.imputeWith(X{:, :}, median(X{:, :}, 1, 'omitnan'));
+
+% Test one: linear dependence among the selected columns, judged on the condition
+% number rather than on the rank alone. An identity that holds exactly in the physics
+% does not present as an exact rank drop, because the feature CSVs carry six decimal
+% places and the rounding is enough to make the matrix formally full rank. With RSRP,
+% RSSI and RSRQ all switched on the rank test passed while the condition number stood
+% at 1.0e+08, so rank alone would have waved the redundancy through.
+Zsel = (Xsel - mean(Xsel, 1)) ./ max(std(Xsel, 0, 1), eps);
+sv   = svd([Zsel, ones(size(Zsel, 1), 1)]);
+rankSel = sum(sv > max(size(Zsel)) * eps(max(sv)));
+condSel = sv(1) / max(sv(end), eps);
+if rankSel < numel(featureNames) + 1 || condSel > 1e6
+    error('prepare_data:linearlyDependent', ...
+        ['The %d selected predictors are linearly dependent: rank %d of %d with the ' ...
+         'intercept included, condition number %.3g. At least one carries no ' ...
+         'information the others do not already hold. Switch it off in featureSwitch. ' ...
+         'A trio related by an identity, as RSRP, RSSI and RSRQ are, will not show up ' ...
+         'as a correlated pair.'], ...
+        numel(featureNames), rankSel, numel(featureNames) + 1, condSel);
+elseif condSel > 1e4
+    fprintf(['Note: the selected predictors have condition number %.3g, which is high ' ...
+             'enough that some are close to linearly dependent.\n'], condSel);
+end
+
+% Test two: pairwise duplicates, which the rank test detects but cannot name.
+Csel = corrcoef(Xsel);
 Csel(logical(eye(size(Csel)))) = 0;
 [iDup, jDup] = find(triu(abs(Csel) >= 0.999, 1));
 if ~isempty(iDup)
@@ -337,3 +398,98 @@ if ~isempty(flagged)
         fprintf('  %-24s AUC %.4f\n', flagged.Feature{j}, flagged.SingleFeatureAUC(j));
     end
 end
+
+
+%% ============================================================================
+%% Report outputs
+%  Everything below is presentation. It computes nothing new: it draws what the
+%  script has already established, so a result can be lifted into the write-up as a
+%  figure rather than retyped from a console that is gone as soon as the next stage
+%  clears it. Figures land in figures/, and the running key-results file starts here
+%  because prepare_data is always the first stage to run.
+%% ============================================================================
+R       = report_util();
+figDir  = fullfile(root, 'figures');
+keyFile = fullfile(root, 'results', 'phase6_key_results.txt');
+R.ensureDir(figDir);
+R.logNew(keyFile, 'PHASE 6 KEY RESULTS');
+
+%% T6.1 Development set composition
+scList = unique(scenDev);
+rowsT  = cell(numel(scList) + 1, 1);
+for i = 1:numel(scList)
+    pick   = (scenDev == scList(i));
+    ueHere = unique(ueKeyDev(pick));
+    nAer   = sum(arrayfun(@(u) any(Ydev(ueKeyDev == u) == posClass), ueHere));
+    rowsT{i} = {char(scList(i)), numel(unique(runKeyDev(pick))), sum(pick), ...
+                numel(ueHere), nAer, 100 * nAer / numel(ueHere)};
+end
+rowsT{end} = {'All scenarios', numel(unique(runKeyDev)), numel(Ydev), numel(ueAll), ...
+              sum(ueIsAer), 100 * mean(ueIsAer)};
+Tcomp = cell2table(vertcat(rowsT{:}), 'VariableNames', ...
+    {'Scenario', 'Runs', 'Windows', 'UE_runs', 'Aerial_UE_runs', 'Aerial_pct'});
+
+R.tableFigure(Tcomp, fullfile(figDir, 'T6_1_development_set.png'), struct( ...
+    'Title', sprintf('T6.1  Phase 6 development set, seeds %s', U.rangeText(devSeeds)), ...
+    'Highlight', [false(numel(scList), 1); true], ...
+    'Note', ["";sprintf('%d predictors in use after the feature switchboard.', numel(featureNames)); ...
+             sprintf('Per-UE false alarm rate moves in steps of 1/%d = %.3f%%; a nominal 1%% target admits %d false alarms.', ...
+                     nNegUE, 100 / nNegUE, floor(0.01 * nNegUE))]));
+
+%% F6.1 Correlation between the selected predictors
+%  The collinearity tripwire above rejects a duplicated pair outright. This shows the
+%  rest of the structure, which is what the shared-importance note in D6.6 refers to.
+Ccorr = corrcoef(U.imputeWith(Xdev, median(Xdev, 1, 'omitnan')), 'Rows', 'pairwise');
+nF    = numel(featureNames);
+
+fig = figure('Visible', 'off', 'Color', 'w', ...
+             'Position', [100 100 200 + 46 * nF, 150 + 46 * nF]);
+ax = axes('Parent', fig);
+imagesc(ax, Ccorr, [-1 1]);
+tt   = linspace(0, 1, 128)';
+lo   = [0.13 0.30 0.55];
+hi   = [0.72 0.13 0.16];
+cmap = [lo + tt .* ([1 1 1] - lo); [1 1 1] + tt .* (hi - [1 1 1])];
+colormap(ax, cmap);
+set(ax, 'XTick', 1:nF, 'XTickLabel', featureNames, 'YTick', 1:nF, ...
+        'YTickLabel', featureNames, 'TickLabelInterpreter', 'none', ...
+        'FontName', 'Helvetica', 'FontSize', 8, 'TickDir', 'out');
+xtickangle(ax, 45);
+axis(ax, 'square');
+cb = colorbar(ax);
+cb.Label.String = 'Pearson correlation';
+cb.Label.FontSize = 9;
+for a = 1:nF
+    for b = 1:nF
+        if abs(Ccorr(a, b)) > 0.62, tc = [1 1 1]; else, tc = [0.15 0.15 0.15]; end
+        text(ax, b, a, sprintf('%.2f', Ccorr(a, b)), 'HorizontalAlignment', 'center', ...
+             'VerticalAlignment', 'middle', 'FontSize', 6.5, 'Color', tc);
+    end
+end
+title(ax, 'F6.1  Correlation between the selected predictors', ...
+      'FontSize', 11, 'FontWeight', 'bold');
+R.saveFig(fig, fullfile(figDir, 'F6_1_feature_correlation.png'));
+close(fig);
+
+%% T6.2 Single-feature separability (the leakage tripwire)
+Tleak = leakageCheck;
+Tleak.Properties.VariableNames = {'Predictor', 'Single_feature_AUC'};
+R.tableFigure(Tleak, fullfile(figDir, 'T6_2_leakage_check.png'), struct( ...
+    'Title', 'T6.2  Single-predictor separability', ...
+    'Highlight', Tleak.Single_feature_AUC >= 0.99, ...
+    'Note', ["";"A predictor reaching AUC 1.000 on its own is the label in another column, not a signal."; ...
+             "Nothing here is flagged, so no selected predictor separates the classes by itself."]));
+
+%% Key results
+R.logSection(keyFile, 'D6.1  Development set', [""; ...
+    sprintf('Seeds                 : %s', U.rangeText(devSeeds)); ...
+    sprintf('Runs / windows        : %d runs, %d windows', numel(unique(runKeyDev)), numel(Ydev)); ...
+    sprintf('UE-runs               : %d, of which %d aerial (%.1f%%)', ...
+            numel(ueAll), sum(ueIsAer), 100 * mean(ueIsAer)); ...
+    sprintf('Predictors in use     : %d of %d listed', numel(featureNames), numel(switchNames)); ...
+    sprintf('Predictors switched off: %d', sum(~switchOn)); ...
+    sprintf('Per-UE FPR resolution : 1/%d = %.3f%%', nNegUE, 100 / nNegUE); ...
+    sprintf('Highest single-feature AUC: %.4f (%s)', ...
+            leakageCheck.SingleFeatureAUC(1), leakageCheck.Feature{1})]);
+R.logSection(keyFile, 'D6.1  Development set by scenario', "");
+R.logTable(keyFile, Tcomp, 10);

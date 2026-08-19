@@ -190,3 +190,157 @@ save(fullfile(root, 'prepared_data', 'oof_scores.mat'), ...
 
 fprintf('\nSaved results/cv_results.csv, results/cv_results_perfold.csv and prepared_data/oof_scores.mat\n');
 fprintf('Run per_ue_rule.m next.\n');
+
+
+%% ============================================================================
+%% Report outputs
+%  The console block above is the same evidence, but it disappears when the next
+%  stage clears. These are the versions that go in the report.
+%% ============================================================================
+RPT     = report_util();
+figDir  = fullfile(root, 'figures');
+keyFile = fullfile(root, 'results', 'phase6_key_results.txt');
+RPT.ensureDir(figDir);
+pal = RPT.palette(nM);
+
+%% T6.3 Cross-validation summary, one row per family
+cvMean = [R.AUC_mean, R.pAUC5norm_mean, R.Recall_at_1pctFPR_mean, R.Recall_at_5pctFPR_mean];
+cvSD   = [R.AUC_sd,   R.pAUC5norm_sd,   R.Recall_at_1pctFPR_sd,   R.Recall_at_5pctFPR_sd];
+cvTxt  = strings(nM, 4);
+for i = 1:nM
+    for j = 1:4
+        cvTxt(i, j) = RPT.pmSD(cvMean(i, j), cvSD(i, j));
+    end
+end
+Tcv = table(string(R.Model), cvTxt(:, 1), cvTxt(:, 2), cvTxt(:, 3), cvTxt(:, 4), ...
+    'VariableNames', {'Model', 'AUC', 'pAUC_below_5pct_FPR', ...
+                      'Recall_at_1pct_FPR', 'Recall_at_5pct_FPR'});
+
+RPT.tableFigure(Tcv, fullfile(figDir, 'T6_3_cv_results.png'), struct( ...
+    'Title', sprintf('T6.3  Grouped %d-fold cross-validation, %d development runs', K, numel(runs)), ...
+    'Highlight', [true; false(nM - 1, 1)], ...
+    'Note', ["";"Dispersion is across folds and describes run-to-run variation, not sampling error within a fold."; ...
+             "Rows are ordered by the normalised partial AUC below a 5% false alarm rate, which is the selection criterion."; ...
+             "pAUC is normalised by the 0.05 FPR width, so it reads as mean recall over that range."]));
+
+%% F6.2 The four headline metrics side by side
+vals = [R.AUC_mean, R.pAUC5norm_mean, R.Recall_at_1pctFPR_mean, R.Recall_at_5pctFPR_mean];
+errs = [R.AUC_sd,   R.pAUC5norm_sd,   R.Recall_at_1pctFPR_sd,   R.Recall_at_5pctFPR_sd];
+metricNames = {'AUC', 'pAUC<5% FPR', 'Recall @1% FPR', 'Recall @5% FPR'};
+
+fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 860 420]);
+ax  = axes('Parent', fig); hold(ax, 'on');
+bh  = bar(ax, vals, 'grouped', 'EdgeColor', 'none');
+mp  = RPT.palette(numel(metricNames));
+for i = 1:numel(bh)
+    bh(i).FaceColor = mp(i, :);
+    bh(i).FaceAlpha = 0.85;
+    errorbar(ax, bh(i).XEndPoints, vals(:, i), errs(:, i), 'k', 'LineStyle', 'none', ...
+             'LineWidth', 0.8, 'CapSize', 3, 'HandleVisibility', 'off');
+end
+set(ax, 'XTick', 1:nM, 'XTickLabel', R.Model);
+xtickangle(ax, 15);
+ylim(ax, [0 1.05]);
+ylabel(ax, 'Metric value');
+legend(ax, metricNames, 'Location', 'southoutside', 'Orientation', 'horizontal', 'Box', 'off');
+title(ax, 'F6.2  Cross-validated performance of the five classifier families', ...
+      'FontSize', 11, 'FontWeight', 'bold');
+RPT.styleAxes(ax);
+RPT.saveFig(fig, fullfile(figDir, 'F6_2_cv_metric_comparison.png'));
+close(fig);
+
+%% F6.3 Fold-to-fold dispersion
+%  A mean with a standard deviation hides whether one fold is carrying the result.
+fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 880 380]);
+tl  = tiledlayout(fig, 1, 2, 'Padding', 'compact', 'TileSpacing', 'compact');
+panels = {auc, 'AUC'; pauc5n, 'pAUC below 5% FPR'};
+for q = 1:2
+    ax = nexttile(tl); hold(ax, 'on');
+    Yv = panels{q, 1};
+    for m = 1:nM
+        plot(ax, 1:K, Yv(m, :), '-o', 'LineWidth', 1.2, 'MarkerSize', 4, ...
+             'Color', pal(m, :), 'MarkerFaceColor', pal(m, :), 'DisplayName', M(m).name);
+    end
+    xlim(ax, [0.7 K + 0.3]);
+    set(ax, 'XTick', 1:K);
+    xlabel(ax, 'Fold');
+    ylabel(ax, panels{q, 2});
+    title(ax, panels{q, 2});
+    RPT.styleAxes(ax);
+end
+legend(ax, 'Location', 'southeast', 'Box', 'off', 'FontSize', 8);
+title(tl, 'F6.3  Fold-to-fold dispersion, whole runs held out together', ...
+      'FontWeight', 'bold');
+RPT.saveFig(fig, fullfile(figDir, 'F6_3_cv_fold_dispersion.png'));
+close(fig);
+
+%% F6.4 Pooled out-of-fold ROC
+%  Every score here came from a model that had not seen the run it came from, so this
+%  is the honest development-set ROC and not a resubstitution curve.
+fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 880 400]);
+tl  = tiledlayout(fig, 1, 2, 'Padding', 'compact', 'TileSpacing', 'compact');
+zoomTo = [1 0.05];
+for q = 1:2
+    ax = nexttile(tl); hold(ax, 'on');
+    for m = 1:nM
+        [xr, yr, ar] = U.rocCurve(Ydev, oofScore(:, m), posClass);
+        plot(ax, xr, yr, 'LineWidth', 1.3, 'Color', pal(m, :), ...
+             'DisplayName', sprintf('%s (AUC %.3f)', M(m).name, ar));
+    end
+    plot(ax, [0 1], [0 1], ':', 'Color', [0.6 0.6 0.6], 'HandleVisibility', 'off');
+    xline(ax, 0.01, '--', 'Color', [0.7 0.2 0.2], 'HandleVisibility', 'off');
+    xlim(ax, [0 zoomTo(q)]); ylim(ax, [0 1]);
+    xlabel(ax, 'False positive rate');
+    ylabel(ax, 'True positive rate');
+    if q == 1
+        title(ax, 'Full range');
+    else
+        title(ax, 'The region an operator can work in');
+        legend(ax, 'Location', 'southeast', 'Box', 'off', 'FontSize', 8);
+    end
+    RPT.styleAxes(ax);
+end
+title(tl, 'F6.4  Pooled out-of-fold ROC, window level', 'FontWeight', 'bold');
+RPT.saveFig(fig, fullfile(figDir, 'F6_4_oof_roc.png'));
+close(fig);
+
+%% F6.5 Out-of-fold score distributions
+%  A family can rank well and still put every window on one side of 0.5. That is
+%  invisible in an AUC and decisive for anything read at a fixed threshold.
+nCol = min(3, nM);
+nRowP = ceil(nM / nCol);
+fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 300 * nCol, 260 * nRowP]);
+tl  = tiledlayout(fig, nRowP, nCol, 'Padding', 'compact', 'TileSpacing', 'compact');
+for m = 1:nM
+    ax = nexttile(tl); hold(ax, 'on');
+    edges = linspace(0, 1, 41);
+    histogram(ax, oofScore(~isPos, m), edges, 'Normalization', 'probability', ...
+              'FaceColor', [0.35 0.35 0.35], 'EdgeColor', 'none', 'FaceAlpha', 0.75, ...
+              'DisplayName', 'Terrestrial');
+    histogram(ax, oofScore(isPos, m), edges, 'Normalization', 'probability', ...
+              'FaceColor', [0.00 0.45 0.70], 'EdgeColor', 'none', 'FaceAlpha', 0.70, ...
+              'DisplayName', 'Aerial');
+    xline(ax, 0.5, '--', 'Color', [0.7 0.2 0.2], 'HandleVisibility', 'off');
+    xlim(ax, [0 1]);
+    xlabel(ax, 'Out-of-fold posterior');
+    ylabel(ax, 'Fraction of windows');
+    title(ax, M(m).name, 'FontSize', 10);
+    if m == 1, legend(ax, 'Location', 'north', 'Box', 'off', 'FontSize', 8); end
+    RPT.styleAxes(ax);
+end
+title(tl, 'F6.5  Out-of-fold score distributions by class, dashed line at 0.5', ...
+      'FontWeight', 'bold');
+RPT.saveFig(fig, fullfile(figDir, 'F6_5_oof_score_distributions.png'));
+close(fig);
+
+%% Key results
+RPT.logSection(keyFile, 'D6.2  Cross-validation', [""; ...
+    sprintf('Design                : grouped stratified %d-fold, whole runs held out together', K); ...
+    sprintf('Rows / predictors     : %d windows, %d predictors', nRow, numel(featureNames)); ...
+    sprintf('Best by pAUC<5%%FPR    : %s at %.4f', R.Model{1}, R.pAUC5norm_mean(1)); ...
+    sprintf('Best by AUC           : %s at %.4f', ...
+            R.Model{find(R.AUC_mean == max(R.AUC_mean), 1)}, max(R.AUC_mean)); ...
+    sprintf('Best recall at 1%% FPR : %s at %.4f', ...
+            R.Model{find(R.Recall_at_1pctFPR_mean == max(R.Recall_at_1pctFPR_mean), 1)}, ...
+            max(R.Recall_at_1pctFPR_mean))]);
+RPT.logTable(keyFile, Tcv, 10);

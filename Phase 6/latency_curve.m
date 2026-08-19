@@ -119,3 +119,69 @@ close(fig);
 
 fprintf('\nSaved results/latency_curve.csv and results/latency_curve.png\n');
 fprintf('Run feature_importance.m next.\n');
+
+
+%% ============================================================================
+%% Report outputs
+%% ============================================================================
+RPT     = report_util();
+figDir  = fullfile(root, 'figures');
+keyFile = fullfile(root, 'results', 'phase6_key_results.txt');
+RPT.ensureDir(figDir);
+palM = RPT.palette(nM);
+
+%% T6.7 How long the detector has to watch
+reachTxt = strings(nM, 3);
+firstRec = zeros(nM, 1);
+lastRec  = zeros(nM, 1);
+for m = 1:nM
+    r = squeeze(recall(m, :, 1));
+    reachTxt(m, 1) = string(U.firstReach(r, Lgrid, 0.50));
+    reachTxt(m, 2) = string(U.firstReach(r, Lgrid, 0.80));
+    reachTxt(m, 3) = string(U.firstReach(r, Lgrid, 0.90));
+    firstRec(m) = r(1);
+    lastRec(m)  = r(end);
+end
+Tlat = table(string(modelNames), reachTxt(:, 1), reachTxt(:, 2), reachTxt(:, 3), ...
+    firstRec, lastRec, ...
+    'VariableNames', {'Model', 'Windows_to_recall_0p50', 'Windows_to_recall_0p80', ...
+                      'Windows_to_recall_0p90', 'Recall_at_1_window', 'Recall_at_end'});
+
+RPT.tableFigure(Tlat, fullfile(figDir, 'T6_7_detection_latency.png'), struct( ...
+    'Title', sprintf('T6.7  Detection latency at 1%% per-UE FPR, %d UE-runs', numel(keepUE)), ...
+    'Note', ["";"Windows are 10 s long on a 1 s stride, so one extra window is one extra second of observation."; ...
+             "A level is reported only where recall reaches it and stays there; the curve is non-monotone because"; ...
+             "the threshold is re-derived at every observation length so that every point sits at the same 1% FPR."]));
+
+%% F6.8 The latency curve at the primary operating point
+fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 760 450]);
+ax  = axes('Parent', fig); hold(ax, 'on');
+for m = 1:nM
+    plot(ax, Lgrid, squeeze(recall(m, :, 1)), '-', 'LineWidth', 1.6, 'Color', palM(m, :), ...
+         'DisplayName', modelNames{m});
+end
+for lv = [0.5 0.8 0.9]
+    yline(ax, lv, ':', 'Color', [0.6 0.6 0.6], 'HandleVisibility', 'off');
+    text(ax, maxWindows * 0.995, lv + 0.018, sprintf('%.2f', lv), 'FontSize', 8, ...
+         'Color', [0.45 0.45 0.45], 'HorizontalAlignment', 'right');
+end
+xlim(ax, [1 maxWindows]); ylim(ax, [0 1]);
+xlabel(ax, 'Windows observed  (one window = one further second of observation)');
+ylabel(ax, 'Per-UE recall at 1% false positive rate');
+legend(ax, 'Location', 'southeast', 'Box', 'off', 'FontSize', 9);
+title(ax, 'F6.8  How long the detector has to watch a UE before it can act', ...
+      'FontSize', 11, 'FontWeight', 'bold');
+RPT.styleAxes(ax);
+RPT.saveFig(fig, fullfile(figDir, 'F6_8_detection_latency.png'));
+close(fig);
+
+%% Key results
+RPT.logSection(keyFile, 'D6.5  Detection latency', [""; ...
+    sprintf('Population              : %d of %d UE-runs, each with at least %d windows', ...
+            numel(keepUE), numel(ueList), maxWindows); ...
+    sprintf('Best recall after 1 window : %.4f (%s)', max(firstRec), ...
+            modelNames{find(firstRec == max(firstRec), 1)}); ...
+    sprintf('Best recall at %d windows  : %.4f (%s)', maxWindows, max(lastRec), ...
+            modelNames{find(lastRec == max(lastRec), 1)}); ...
+    "The threshold is re-derived at every observation length, so every point sits at the same 1% FPR."]);
+RPT.logTable(keyFile, Tlat, 10);

@@ -93,3 +93,80 @@ save(fullfile(root, 'prepared_data', 'thresholds.mat'), ...
 
 fprintf('\nSaved results/thresholds.csv and prepared_data/thresholds.mat\n');
 fprintf('Run latency_curve.m next.\n');
+
+
+%% ============================================================================
+%% Report outputs
+%% ============================================================================
+RPT     = report_util();
+figDir  = fullfile(root, 'figures');
+keyFile = fullfile(root, 'results', 'phase6_key_results.txt');
+RPT.ensureDir(figDir);
+
+%% T6.5 / T6.6 Operating points, one table per decision level
+levels = {'PerUE', 'Window'};
+labels = {'T6.5  Per-UE operating points, fixed on pooled out-of-fold scores', ...
+          'T6.6  Window-level operating points, fixed on pooled out-of-fold scores'};
+files  = {'T6_5_thresholds_per_ue.png', 'T6_6_thresholds_window.png'};
+
+for L = 1:2
+    S = T(strcmp(T.Level, levels{L}), :);
+    Tshow = table(string(S.Model), string(S.DecisionRule), 100 * S.NominalFPR, ...
+        S.Threshold, 100 * S.AchievedFPR, S.Recall, ...
+        strcat(string(S.FalsePositives), " / ", string(S.NegativeUnits)), ...
+        'VariableNames', {'Model', 'Decision_rule', 'Nominal_FPR_pct', 'Threshold', ...
+                          'Achieved_FPR_pct', 'Recall', 'False_pos_per_negatives'});
+    RPT.tableFigure(Tshow, fullfile(figDir, files{L}), struct( ...
+        'Title', labels{L}, ...
+        'Highlight', S.NominalFPR == 0.01, ...
+        'Note', ["";"The 1% rows are the primary operating point; the 5% rows are a sensitivity check."; ...
+                 "Achieved is what the finite sample delivers. A nominal rate cannot in general be hit exactly."; ...
+                 "No hold-out data is involved: every score here is out-of-fold."]));
+end
+
+%% F6.7 What the two operating points buy
+recPerUE = zeros(nM, 2);
+recWin   = zeros(nM, 2);
+for m = 1:nM
+    for q = 1:numel(nominalFPR)
+        recPerUE(m, q) = T.Recall(strcmp(T.Model, modelNames{m}) & ...
+                                  strcmp(T.Level, 'PerUE') & T.NominalFPR == nominalFPR(q));
+        recWin(m, q)   = T.Recall(strcmp(T.Model, modelNames{m}) & ...
+                                  strcmp(T.Level, 'Window') & T.NominalFPR == nominalFPR(q));
+    end
+end
+
+fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 880 400]);
+tl  = tiledlayout(fig, 1, 2, 'Padding', 'compact', 'TileSpacing', 'compact');
+mp  = RPT.palette(2);
+panels = {recWin, 'Window level'; recPerUE, 'Per-UE level'};
+for q = 1:2
+    ax = nexttile(tl); hold(ax, 'on');
+    bh = bar(ax, panels{q, 1}, 'grouped', 'EdgeColor', 'none');
+    for i = 1:numel(bh)
+        bh(i).FaceColor = mp(i, :);
+        bh(i).FaceAlpha = 0.85;
+    end
+    set(ax, 'XTick', 1:nM, 'XTickLabel', modelNames);
+    xtickangle(ax, 20);
+    ylim(ax, [0 1]);
+    ylabel(ax, 'Recall');
+    title(ax, panels{q, 2});
+    if q == 2
+        legend(ax, {'at 1% FPR', 'at 5% FPR'}, 'Location', 'northoutside', ...
+               'Orientation', 'horizontal', 'Box', 'off');
+    end
+    RPT.styleAxes(ax);
+end
+title(tl, 'F6.7  Recall at the two frozen operating points', 'FontWeight', 'bold');
+RPT.saveFig(fig, fullfile(figDir, 'F6_7_operating_points.png'));
+close(fig);
+
+%% Key results
+RPT.logSection(keyFile, 'D6.4  Operating thresholds', [""; ...
+    sprintf('Nominal points          : %s', strjoin(cellstr(string(100 * nominalFPR) + "%"), ', ')); ...
+    sprintf('Best per-UE recall at 1%%: %.4f (%s)', max(primary.Recall), ...
+            strjoin(cellstr(string(best)), ', ')); ...
+    "Thresholds are read off pooled out-of-fold scores, never from hold-out data."; ...
+    "Achieved rates are reported beside nominal because the per-UE rate moves in whole UE-runs."]);
+RPT.logTable(keyFile, T(strcmp(T.Level, 'PerUE'), :), 12);

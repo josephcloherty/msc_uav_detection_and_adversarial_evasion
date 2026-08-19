@@ -1,6 +1,6 @@
 %% Phase 8 D8.1 - Honest hold-out performance of the five frozen classifiers
 %  Reads:  results/scores_ue.csv, results/scores_window.csv, results/thresholds_frozen.csv
-%  Writes: results/D81_holdout.csv, results/D81_by_scenario.csv, figures/D81_roc.png
+%  Writes: results/holdout.csv, results/holdout_by_scenario.csv, figures/holdout_roc.png
 %
 %  The headline table for seeds 46 to 60 with the thresholds applied exactly as frozen.
 %  Nothing is re-derived from these data: the operating points came from pooled
@@ -32,7 +32,7 @@ Thr = readtable(fullfile(C.resultsDir, 'thresholds_frozen.csv'), 'TextType', 'st
 
 Uue = Uue(Uue.Condition == "honest", :);
 Uwn = Uwn(Uwn.Condition == "honest", :);
-assert(~isempty(Uue), 'p8_D1:noHonest', 'No honest rows in the score table; run p8_score.m.');
+assert(~isempty(Uue), 'p8_holdout:noHonest', 'No honest rows in the score table; run p8_score.m.');
 
 pAUCmax = 0.05;                              % the low false alarm region, as in Phase 6
 rows = {};
@@ -76,7 +76,7 @@ for m = 1:numel(C.modelNames)
             for q = 1:numel(C.opLabels)
                 t = Thr.Threshold(Thr.Model == mdl & Thr.Level == level & ...
                                   Thr.OperatingPoint == string(C.opLabels{q}));
-                assert(isscalar(t), 'p8_D1:threshold', ...
+                assert(isscalar(t), 'p8_holdout:threshold', ...
                     'Expected one frozen threshold for %s / %s / %s.', mdl, level, C.opLabels{q});
 
                 pt = V.metricsAt(score, isPos, t);
@@ -103,7 +103,7 @@ T = cell2table(vertcat(rows{:}), 'VariableNames', ...
      'AUC', 'AUC_lo', 'AUC_hi', 'pAUC5norm', ...
      'TPR', 'TPR_lo', 'TPR_hi', 'FPR', 'FPR_lo', 'FPR_hi', ...
      'Precision', 'F1', 'TP', 'FP', 'FN', 'TN', 'IsPrimary'});
-writetable(T, fullfile(C.resultsDir, 'D81_holdout.csv'));
+writetable(T, fullfile(C.resultsDir, 'holdout.csv'));
 
 %% Per-scenario breakdown
 %  Supporting evidence, not a headline. Five seeds each of three deployment scenarios is
@@ -126,7 +126,7 @@ end
 Tsc = cell2table(vertcat(scRows{:}), 'VariableNames', ...
     {'Model', 'Scenario', 'Runs', 'AerialUERuns', 'TerrestrialUERuns', ...
      'TPR', 'FPR', 'TP', 'FP'});
-writetable(Tsc, fullfile(C.resultsDir, 'D81_by_scenario.csv'));
+writetable(Tsc, fullfile(C.resultsDir, 'holdout_by_scenario.csv'));
 
 %% ROC figure
 fig = figure('Position', [100 100 900 400], 'Color', 'w');
@@ -159,7 +159,7 @@ end
 legend(ax, 'Location', 'southeast', 'Box', 'off');
 title(tl, sprintf('D8.1 honest hold-out, seeds %d to %d', ...
     min(C.holdoutSeeds), max(C.holdoutSeeds)));
-V.saveFig(fig, fullfile(C.figureDir, 'D81_roc.png'));
+V.saveFig(fig, fullfile(C.figureDir, 'holdout_roc.png'));
 close(fig);
 
 %% Report
@@ -174,4 +174,145 @@ for i = 1:height(P)
 end
 fprintf(['\nThe truncated row is the baseline D8.2 and D8.3 compare against. Any drift ' ...
          'between\nthe two rows is observation length, not evasion.\n']);
-fprintf('\nWrote results/D81_holdout.csv, results/D81_by_scenario.csv, figures/D81_roc.png\n');
+fprintf('\nWrote results/holdout.csv, results/holdout_by_scenario.csv, figures/holdout_roc.png\n');
+
+
+%% ============================================================================
+%% Report outputs
+%% ============================================================================
+RPT     = report_util();
+figDir  = C.figureDir;
+keyFile = fullfile(C.resultsDir, 'phase8_key_results.txt');
+RPT.ensureDir(figDir);
+opLab   = string(C.opLabels{C.opIdx});
+palM    = RPT.palette(numel(C.modelNames));
+
+%% T8.2 The headline: every family at the frozen per-UE operating point
+Hh = T(T.Level == "PerUE" & T.Length == "Truncated" & T.OperatingPoint == opLab, :);
+Hh = sortrows(Hh, 'AUC', 'descend');
+aucTxt = strings(height(Hh), 1);
+tprTxt = strings(height(Hh), 1);
+fprTxt = strings(height(Hh), 1);
+for i = 1:height(Hh)
+    aucTxt(i) = RPT.fmtCI(Hh.AUC(i), Hh.AUC_lo(i), Hh.AUC_hi(i));
+    tprTxt(i) = RPT.fmtCI(Hh.TPR(i), Hh.TPR_lo(i), Hh.TPR_hi(i));
+    fprTxt(i) = RPT.fmtCI(Hh.FPR(i), Hh.FPR_lo(i), Hh.FPR_hi(i), 4);
+end
+T82 = table(Hh.Model, aucTxt, Hh.pAUC5norm, tprTxt, fprTxt, Hh.TP, Hh.FP, Hh.FN, ...
+    'VariableNames', {'Model', 'AUC_95pct_CI', 'pAUC_below_5pct', ...
+                      'Recall_95pct_CI', 'FPR_95pct_CI', 'TP', 'FP', 'FN'});
+
+RPT.tableFigure(T82, fullfile(figDir, 'T8_2_holdout_headline.png'), struct( ...
+    'Title', sprintf('T8.2  D8.1 honest hold-out, per-UE, %s, first %d windows', opLab, C.nWin), ...
+    'Highlight', Hh.IsPrimary, ...
+    'Note', ["";sprintf('Seeds %d to %d, %d aerial and %d terrestrial UE-runs. Thresholds applied exactly as frozen.', ...
+                     min(C.holdoutSeeds), max(C.holdoutSeeds), Hh.nPos(1), Hh.nNeg(1)); ...
+             sprintf('Intervals are a %d-resample cluster bootstrap over whole simulation runs.', C.nBoot); ...
+             sprintf('Recall moves in steps of 1/%d = %.1f percentage points, so read the interval, not the point.', ...
+                     Hh.nPos(1), 100 / Hh.nPos(1))]));
+
+%% T8.3 The primary family at both observation lengths and both levels
+Pp = T(T.IsPrimary & T.OperatingPoint == opLab, :);
+tprTxt = strings(height(Pp), 1);
+fprTxt = strings(height(Pp), 1);
+aucTxt = strings(height(Pp), 1);
+for i = 1:height(Pp)
+    tprTxt(i) = RPT.fmtCI(Pp.TPR(i), Pp.TPR_lo(i), Pp.TPR_hi(i));
+    fprTxt(i) = RPT.fmtCI(Pp.FPR(i), Pp.FPR_lo(i), Pp.FPR_hi(i), 4);
+    aucTxt(i) = RPT.fmtCI(Pp.AUC(i), Pp.AUC_lo(i), Pp.AUC_hi(i));
+end
+T83 = table(Pp.Level, Pp.Length, Pp.Threshold, Pp.Units, aucTxt, tprTxt, fprTxt, ...
+    'VariableNames', {'Level', 'Observation_length', 'Frozen_threshold', 'Units', ...
+                      'AUC_95pct_CI', 'Recall_95pct_CI', 'FPR_95pct_CI'});
+
+RPT.tableFigure(T83, fullfile(figDir, 'T8_3_holdout_primary_lengths.png'), struct( ...
+    'Title', sprintf('T8.3  %s at both observation lengths, %s', C.primaryName, opLab), ...
+    'Highlight', Pp.Level == "PerUE" & Pp.Length == "Truncated", ...
+    'Note', ["";"Full is the geometry the models were frozen on and is the honest answer to how well the detector works."; ...
+             "Truncated is the baseline every evasive comparison in D8.2 and D8.3 is drawn against."; ...
+             "Drift between the two rows is observation length, not evasion. The highlighted row is the reference."]));
+
+%% F8.1 Every family, three quantities, with intervals
+fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 940 380]);
+tl  = tiledlayout(fig, 1, 3, 'Padding', 'compact', 'TileSpacing', 'compact');
+spec = {'AUC', 'AUC_lo', 'AUC_hi', 'Area under the ROC'; ...
+        'TPR', 'TPR_lo', 'TPR_hi', sprintf('Recall at %s', opLab); ...
+        'FPR', 'FPR_lo', 'FPR_hi', sprintf('False positive rate at %s', opLab)};
+for q = 1:3
+    ax = nexttile(tl); hold(ax, 'on');
+    v  = Hh.(spec{q, 1});
+    lo = Hh.(spec{q, 2});
+    hi = Hh.(spec{q, 3});
+    for i = 1:height(Hh)
+        if Hh.IsPrimary(i), col = [0.85 0.37 0.01]; else, col = [0.35 0.45 0.60]; end
+        bar(ax, i, v(i), 0.6, 'FaceColor', col, 'FaceAlpha', 0.88, 'EdgeColor', 'none');
+    end
+    errorbar(ax, 1:height(Hh), v, v - lo, hi - v, 'k', 'LineStyle', 'none', ...
+             'LineWidth', 0.9, 'CapSize', 3);
+    if q == 3
+        nomFPR = Thr.NominalFPR(find(Thr.OperatingPoint == opLab, 1));
+        yline(ax, nomFPR, '--', 'Color', [0.7 0.2 0.2], 'Label', 'nominal', ...
+              'FontSize', 8, 'LabelHorizontalAlignment', 'left');
+    end
+    set(ax, 'XTick', 1:height(Hh), 'XTickLabel', Hh.Model);
+    xtickangle(ax, 25);
+    ylabel(ax, spec{q, 4});
+    title(ax, spec{q, 4});
+    RPT.styleAxes(ax);
+end
+title(tl, sprintf('F8.1  Honest hold-out, per-UE level, first %d windows (primary in orange)', C.nWin), ...
+      'FontWeight', 'bold');
+RPT.saveFig(fig, fullfile(figDir, 'F8_1_holdout_model_comparison.png'));
+close(fig);
+
+%% F8.2 Is the result carried by one deployment scenario
+scens = unique(Tsc.Scenario);
+mdls  = string(C.modelNames);
+recM  = nan(numel(scens), numel(mdls));
+for s = 1:numel(scens)
+    for m = 1:numel(mdls)
+        v = Tsc.TPR(Tsc.Scenario == scens(s) & Tsc.Model == mdls(m));
+        if ~isempty(v), recM(s, m) = v(1); end
+    end
+end
+fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 760 400]);
+ax  = axes('Parent', fig); hold(ax, 'on');
+bh  = bar(ax, recM, 'grouped', 'EdgeColor', 'none');
+for m = 1:numel(bh)
+    bh(m).FaceColor = palM(m, :);
+    bh(m).FaceAlpha = 0.88;
+end
+set(ax, 'XTick', 1:numel(scens), 'XTickLabel', cellstr(scens));
+ylim(ax, [0 1]);
+ylabel(ax, sprintf('Per-UE recall at %s', opLab));
+legend(ax, C.modelNames, 'Location', 'northoutside', 'Orientation', 'horizontal', ...
+       'Box', 'off', 'FontSize', 8);
+title(ax, 'F8.2  Hold-out recall by deployment scenario', 'FontSize', 11, 'FontWeight', 'bold');
+RPT.styleAxes(ax);
+RPT.saveFig(fig, fullfile(figDir, 'F8_2_holdout_by_scenario.png'));
+close(fig);
+
+%% T8.4 The per-scenario table behind it, primary family only
+Sc = Tsc(Tsc.Model == string(C.primaryName), :);
+T84 = table(Sc.Scenario, Sc.Runs, Sc.AerialUERuns, Sc.TerrestrialUERuns, ...
+    Sc.TPR, Sc.FPR, Sc.TP, Sc.FP, ...
+    'VariableNames', {'Scenario', 'Runs', 'Aerial_UE_runs', 'Terrestrial_UE_runs', ...
+                      'Recall', 'FPR', 'TP', 'FP'});
+RPT.tableFigure(T84, fullfile(figDir, 'T8_4_holdout_by_scenario.png'), struct( ...
+    'Title', sprintf('T8.4  %s by deployment scenario, %s', C.primaryName, opLab), ...
+    'Note', ["";"Five seeds per scenario is too few for an interval, so these are point estimates."; ...
+             "The purpose is to show the pooled result is not carried by one deployment type."]));
+
+%% Key results
+Pr = Hh(Hh.IsPrimary, :);
+RPT.logSection(keyFile, 'D8.1  Honest hold-out', [""; ...
+    sprintf('Primary model          : %s', C.primaryName); ...
+    sprintf('Per-UE AUC             : %s', RPT.fmtCI(Pr.AUC, Pr.AUC_lo, Pr.AUC_hi)); ...
+    sprintf('Per-UE recall at %s : %s', opLab, RPT.fmtCI(Pr.TPR, Pr.TPR_lo, Pr.TPR_hi)); ...
+    sprintf('Per-UE FPR at %s    : %s', opLab, RPT.fmtCI(Pr.FPR, Pr.FPR_lo, Pr.FPR_hi, 4)); ...
+    sprintf('Confusion              : TP %d, FP %d, FN %d, TN %d', Pr.TP, Pr.FP, Pr.FN, Pr.TN); ...
+    sprintf('Aerial / terrestrial   : %d / %d UE-runs', Pr.nPos, Pr.nNeg); ...
+    sprintf('Best AUC of the five   : %s at %.4f', Hh.Model(1), Hh.AUC(1))]);
+RPT.logTable(keyFile, T82, 8);
+RPT.logSection(keyFile, 'D8.1  By deployment scenario, primary model', "");
+RPT.logTable(keyFile, T84, 6);

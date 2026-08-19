@@ -3,8 +3,8 @@ function V = p8_util()
 %   V = p8_util() returns a struct of function handles, following the Phase 6 pattern:
 %   MATLAB local functions are not visible outside their defining file, so exporting
 %   handles is what lets every stage share one definition of each quantity. The stages
-%   themselves are plain scripts with no local functions, so they can be called from
-%   run_phase8 without any question about how a local function would resolve.
+%   themselves are plain scripts with no local functions, so each can be run on its own
+%   from the editor without any question about how a local function would resolve.
 %
 %   V.clusterBoot(runKey, stat, nBoot, seed, level)  run-level cluster bootstrap
 %   V.metricsAt(score, isPos, thr)        TPR, FPR, precision, F1 and counts at a threshold
@@ -20,7 +20,7 @@ function V = p8_util()
 %
 %   The scalar wrappers exist so that the deliverable stages can build bootstrap
 %   statistics as anonymous functions and stay free of local functions themselves, which
-%   is what lets run_phase8 call them as plain scripts.
+%   is what keeps them runnable as plain scripts.
 
 V.clusterBoot = @clusterBoot;
 V.metricsAt   = @metricsAt;

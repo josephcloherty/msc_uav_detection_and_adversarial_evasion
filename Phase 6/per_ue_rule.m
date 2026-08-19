@@ -209,3 +209,84 @@ save(fullfile(root, 'prepared_data', 'ue_rule.mat'), ...
 
 fprintf('\nSaved results/ue_rule_candidates.csv, results/ue_rule_chosen.csv and prepared_data/ue_rule.mat\n');
 fprintf('Run thresholds.m next.\n');
+
+
+%% ============================================================================
+%% Report outputs
+%% ============================================================================
+RPT     = report_util();
+figDir  = fullfile(root, 'figures');
+keyFile = fullfile(root, 'results', 'phase6_key_results.txt');
+RPT.ensureDir(figDir);
+palM = RPT.palette(nM);
+
+%% T6.4 The decision rule each family was given, and how the families then compare
+%  The fold-wise columns are what the rule was selected on; the pooled columns are the
+%  like-for-like comparison, every family sitting at the same achieved false alarm rate.
+cvRecTxt = strings(nM, 1);
+for m = 1:nM
+    cvRecTxt(m) = RPT.pmSD(recallCV(m, bestIdx(m)), recallSD(m, bestIdx(m)));
+end
+ruleTxt = strings(nM, 1);
+for m = 1:nM
+    ruleTxt(m) = string(U.ruleLabel(chosen(m)));
+end
+
+Trule = table(string(modelNames), ruleTxt, cvRecTxt, ...
+    100 * achFPRCV(sub2ind(size(achFPRCV), (1:nM)', bestIdx)), ...
+    pooledRecall, 100 * pooledFPR, pooledAUC, pooledPAUC, ...
+    'VariableNames', {'Model', 'Chosen_rule', 'CV_recall_at_1pct_FPR', ...
+                      'CV_achieved_FPR_pct', 'Pooled_recall', 'Pooled_achieved_FPR_pct', ...
+                      'Pooled_per_UE_AUC', 'Pooled_pAUC_below_5pct'});
+Trule = sortrows(Trule, 'Pooled_pAUC_below_5pct', 'descend');
+
+RPT.tableFigure(Trule, fullfile(figDir, 'T6_4_per_ue_rule.png'), struct( ...
+    'Title', 'T6.4  Per-UE decision rule and like-for-like family comparison', ...
+    'Highlight', [true; false(nM - 1, 1)], ...
+    'Note', ["";sprintf('Pooled over all folds, so every family sits at the same achieved false alarm rate on %d terrestrial UE-runs.', nUEneg); ...
+             sprintf('Pooled recall moves in steps of 1/%d = %.4f; a narrower gap than that is not a difference the data can resolve.', nAerUE, 1 / nAerUE); ...
+             "Where no persistence rule beat the mean posterior, the mean was kept because it has no fitted parameters."]));
+
+%% F6.6 Per-UE ROC under each family's own chosen rule
+fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 880 400]);
+tl  = tiledlayout(fig, 1, 2, 'Padding', 'compact', 'TileSpacing', 'compact');
+zoomTo = [1 0.05];
+for q = 1:2
+    ax = nexttile(tl); hold(ax, 'on');
+    for m = 1:nM
+        Sm = U.perUEScore(oofScore(:, m), ueKeyDev, winStartDev, isPos, chosen(m));
+        Ym = categorical(double(Sm.IsPos), [0 1], {'Terrestrial', 'Aerial'});
+        [xr, yr, ar] = U.rocCurve(Ym, Sm.Score, posClass);
+        plot(ax, xr, yr, 'LineWidth', 1.3, 'Color', palM(m, :), ...
+             'DisplayName', sprintf('%s (AUC %.3f)', modelNames{m}, ar));
+    end
+    plot(ax, [0 1], [0 1], ':', 'Color', [0.6 0.6 0.6], 'HandleVisibility', 'off');
+    xline(ax, targetFPR, '--', 'Color', [0.7 0.2 0.2], 'HandleVisibility', 'off');
+    xlim(ax, [0 zoomTo(q)]); ylim(ax, [0 1]);
+    xlabel(ax, 'Per-UE false positive rate');
+    ylabel(ax, 'Per-UE recall');
+    if q == 1
+        title(ax, 'Full range');
+    else
+        title(ax, 'The region an operator can work in');
+        legend(ax, 'Location', 'southeast', 'Box', 'off', 'FontSize', 8);
+    end
+    RPT.styleAxes(ax);
+end
+title(tl, 'F6.6  Per-UE ROC on pooled out-of-fold scores, each family under its own rule', ...
+      'FontWeight', 'bold');
+RPT.saveFig(fig, fullfile(figDir, 'F6_6_per_ue_roc.png'));
+close(fig);
+
+%% Key results
+[~, bestPooled] = max(pooledPAUC);
+RPT.logSection(keyFile, 'D6.3  Per-UE decision rule', [""; ...
+    sprintf('UE-runs                 : %d, of which %d terrestrial', numel(ueList), nUEneg); ...
+    sprintf('Candidate rules tested   : %d per family (mean posterior plus M-of-N over N in %s)', ...
+            numel(rules), mat2str(Ncand)); ...
+    sprintf('Best pooled pAUC<5%%FPR   : %s at %.4f', modelNames{bestPooled}, pooledPAUC(bestPooled)); ...
+    sprintf('Its rule                 : %s', U.ruleLabel(chosen(bestPooled))); ...
+    sprintf('Its pooled recall at 1%%  : %.4f at an achieved %.3f%% FPR', ...
+            pooledRecall(bestPooled), 100 * pooledFPR(bestPooled)); ...
+    sprintf('Pooled recall resolution : 1/%d = %.4f', nAerUE, 1 / nAerUE)]);
+RPT.logTable(keyFile, Trule, 10);

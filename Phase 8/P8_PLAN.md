@@ -185,39 +185,73 @@ runs once.
 
 ```
 Phase 8/
-  models/                 frozen_*.mat, freeze_manifest.csv, phase6_util.m,
-                          phase6_models.m, score_pipeline.m, COPIED.txt
-  p8_setup.m              one-time: copy the frozen artefacts across, make folders
-  p8_config.m             all tunables, paths, and the integrity assertions
-  p8_util.m               cluster bootstrap, paired tests, scalar metric wrappers, plot style
-  p8_score.m              scores every condition with every model, once
-  p8_D1_holdout.m         D8.1
-  p8_D2_conditions.m      D8.2
-  p8_D3_compounding.m     D8.3
-  p8_D4_fpr_audit.m       D8.4
-  p8_D5_baserate.m        D8.5
-  p8_D6_frontier.m        D8.6
-  run_phase8.m            driver, runs the seven stages in order
+  models/                    frozen pipelines and the code that reads them (see setup below)
+  p8_config.m                all tunables, paths, and the integrity assertions
+  p8_util.m                  cluster bootstrap, paired tests, metric wrappers, plot style
+  p8_score.m                 scores every condition with every model, once
+  p8_holdout.m               honest hold-out performance                        D8.1
+  p8_evasion_individual.m    each evasion action against the honest baseline    D8.2
+  p8_evasion_combined.m      the combined condition, and whether actions compound  D8.3
+  p8_fpr_audit.m             did the operating point hold under every condition  D8.4
+  p8_base_rate.m             predictive value and alert load against prevalence  D8.5
+  p8_frontier.m              detectability against mission cost                 D8.6
   results/  figures/
 ```
 
-One script per deliverable, plus a scoring stage that is not a deliverable but is the
-prerequisite for all of them. `p8_score.m` is the only script that reads a raw feature
-CSV or opens a frozen model; the deliverable stages read its two long-format score
-tables. The one exception is the terrestrial-invariance diagnostic in D8.4, which asks
-a question about the features themselves and so has to reopen them.
+Scripts are named for what they do; the deliverable each satisfies is recorded in its
+header comment and in the table below. Outputs follow the same convention.
 
-### Outputs
+`p8_score.m` is the only script that reads a raw feature CSV or opens a frozen model,
+so it is the only one that needs rerunning when the dataset changes. The one exception
+is the terrestrial-invariance diagnostic in `p8_fpr_audit.m`, which asks a question
+about the features themselves and so has to reopen them.
 
-| Stage | Writes |
-|---|---|
-| `p8_score` | `scores_window.csv`, `scores_ue.csv`, `thresholds_frozen.csv`, `provenance.csv` |
-| `p8_D1_holdout` | `D81_holdout.csv`, `D81_by_scenario.csv`, `D81_roc.png` |
-| `p8_D2_conditions` | `D82_summary.csv`, `D82_perrun.csv`, `D82_perue.csv`, `D82_paired.png` |
-| `p8_D3_compounding` | `D83_compounding.csv`, `D83_perue.csv`, `D83_interaction.png` |
-| `p8_D4_fpr_audit` | `D84_fpr.csv`, `D84_terrestrial_invariance.csv`, `D84_fpr.png` |
-| `p8_D5_baserate` | `D85_ppv.csv`, `D85_summary.csv`, `D85_ppv.png` |
-| `p8_D6_frontier` | `D86_frontier.csv`, `D86_frontier_perrun.csv`, `D86_frontier_allmodels.csv`, `D86_frontier.png` |
+### Manual setup
+
+Once, after `freeze_models.m` has completed in Phase 6. Everything is a copy, because a
+frozen pipeline evaluated through a live working directory is not really frozen, and
+because the `.mat` files carry function handles into `phase6_models.m` that will not
+resolve unless that file is on the path.
+
+1. Create three folders inside `Phase 8/`: `models`, `results`, `figures`.
+2. Copy from `Phase 6/models/` into `Phase 8/models/`:
+   - every `frozen_*.mat` (five of them)
+3. Copy from `Phase 6/results/` into `Phase 8/models/`:
+   - `freeze_manifest.csv`
+4. Copy from `Phase 6/` into `Phase 8/models/`:
+   - `phase6_util.m`
+   - `phase6_models.m`
+   - `score_pipeline.m`
+5. Open `p8_config.m` and confirm `C.missionCostFile` points at the per-seed mission
+   cost table you intend to use. It is named explicitly rather than found by pattern
+   because more than one timestamped run sits in `Phase 7/results/`.
+
+`p8_config.m` adds `Phase 8/models` to the path, so nothing else needs configuring. If
+any of the above is missing, the first script run will say which.
+
+### Run order
+
+Set the current folder to `Phase 8` and run these one at a time. `p8_score` prints the
+list again when it finishes.
+
+| Order | Script | Deliverable | Depends on | Writes |
+|---|---|---|---|---|
+| 1 | `p8_score` | prerequisite | the frozen models | `scores_window.csv`, `scores_ue.csv`, `thresholds_frozen.csv`, `provenance.csv` |
+| 2 | `p8_holdout` | D8.1 | `p8_score` | `holdout.csv`, `holdout_by_scenario.csv`, `holdout_roc.png` |
+| 3 | `p8_evasion_individual` | D8.2 | `p8_score` | `evasion_individual_summary.csv`, `evasion_individual_perrun.csv`, `evasion_individual_perue.csv`, `evasion_individual_paired.png` |
+| 4 | `p8_evasion_combined` | D8.3 | `p8_evasion_individual` | `evasion_combined_summary.csv`, `evasion_combined_perue.csv`, `evasion_combined_interaction.png` |
+| 5 | `p8_fpr_audit` | D8.4 | `p8_score` | `fpr_audit.csv`, `fpr_audit_terrestrial_invariance.csv`, `fpr_audit.png` |
+| 6 | `p8_base_rate` | D8.5 | `p8_holdout` | `base_rate_curve.csv`, `base_rate_summary.csv`, `base_rate.png` |
+| 7 | `p8_frontier` | D8.6 | `p8_score` | `frontier.csv`, `frontier_perrun.csv`, `frontier_allmodels.csv`, `frontier.png` |
+| 8 | `p8_latency` | D8.7 | `p8_score` | `latency_under_evasion.csv`, `F8_7_latency_under_evasion.png`, `T8_11_latency_under_evasion.png` |
+
+Every stage now also writes report figures into `figures/` and appends its headline
+numbers to `results/phase8_key_results.txt`. Tables worth quoting are drawn as figures
+(`T8_*.png`) rather than printed to the console. `report_util.m` sits in `Phase 8/` and
+is put on the path by `p8_config`; it does not need copying into `models/`.
+
+Only `p8_score` is expensive. Stages 2 to 7 read its score tables, so any of them can be
+rerun on its own while a table or figure is being settled.
 
 ### Decisions taken in the implementation
 
@@ -239,19 +273,11 @@ a question about the features themselves and so has to reopen them.
   conditioned on a profile choice that would have to be defended.
 - **The mission cost file is named explicitly** in `p8_config`, not found by pattern,
   because more than one timestamped run sits in `Phase 7/results`.
-- **D8.7 (detection latency under evasion) was not built.** It remains the strongest
-  cheap addition and can be written against the same score tables later.
-
-### Execution order
-
-```
->> freeze_models          % in Phase 6, produces models/frozen_*.mat
->> p8_setup               % once, copies them into Phase 8
->> run_phase8             % everything
-```
-
-Only `p8_score` is expensive and only it needs rerunning when the dataset changes. The
-deliverable stages can be rerun individually while a table or figure is being settled.
+- **D8.7 (detection latency under evasion) is now built**, as `p8_latency.m`, against the
+  same score tables. It applies the frozen threshold at every observation length rather
+  than re-deriving it as Phase 6 does, because re-deriving on the hold-out would be
+  fitting an operating point to the test set; the achieved false positive rate is
+  therefore plotted beside the recall rather than assumed away.
 
 ---
 

@@ -331,6 +331,9 @@ if opt.Export
     agg = fullfile(outDir, sprintf('phase7_missioncost_summary_%s.csv', stamp));
     writetable(S, agg);
 
+    % Figures, figure-tables and the key-results file for the report.
+    reportOutputs(C, S, A, here, stamp);
+
     if opt.Verbose
         fprintf('\nWritten:\n  %s\n  %s\n', perRun, agg);
         fprintf(['\nFor the frontier: join the per-seed file to the Phase 8 ' ...
@@ -607,4 +610,233 @@ fprintf(['\n   ben = seeds where the evasion improved serving SINR, so the\n' ..
          '   margin component of dR is negative for that run.\n']);
 fprintf(['   Tier 0 flight or configuration change, 1 host software, ' ...
          '2 modem firmware.\n   Tier is ordinal and is not included in C_op.\n\n']);
+end
+
+
+% =========================================================================
+% REPORT OUTPUTS
+% =========================================================================
+
+function reportOutputs(C, S, A, here, stamp)
+%REPORTOUTPUTS Figures, figure-tables and the key-results file for Phase 7.
+%
+%   Phase 7 previously wrote two CSVs and a console block and nothing else, which
+%   left the most figure-ready data in the project undrawn. Everything below is
+%   presentation only: it re-reads what the cost model has already produced and
+%   renders it, so no number here can differ from the CSVs.
+%
+%   The component and physical-quantity views are taken from a single mission
+%   profile, because dT to dK do not depend on the profile. Only the weights do,
+%   and those are what the per-profile panels of F7.1 show.
+
+addpath(here);
+R       = report_util();
+figDir  = fullfile(here, 'figures');
+keyFile = fullfile(here, 'results', 'phase7_key_results.txt');
+R.ensureDir(figDir);
+R.logNew(keyFile, 'PHASE 7 KEY RESULTS');
+
+conds = unique(C.condition, 'stable');
+scens = sort(unique(C.scenario));
+profs = unique(C.profile,   'stable');
+nc = numel(conds);  ns = numel(scens);  np = numel(profs);
+
+pal     = R.palette(nc + 1);
+condCol = pal(2:nc + 1, :);
+compCol = R.palette(5);
+compLbl = {'dT payload', 'dR link', 'dL responsiveness', 'dV volatility', 'dK duration'};
+
+% One profile carries the profile-independent quantities.
+Cp = C(C.profile == profs(1), :);
+
+%% F7.1 Mean mission cost per condition and scenario, one panel per profile
+mu = nan(ns, nc, np);
+se = nan(ns, nc, np);
+for p = 1:np
+    for s = 1:ns
+        for c = 1:nc
+            v = C.C_op(C.profile == profs(p) & C.scenario == scens(s) & ...
+                       C.condition == conds(c));
+            if ~isempty(v)
+                mu(s, c, p) = mean(v);
+                if numel(v) > 1, se(s, c, p) = std(v) / sqrt(numel(v)); else, se(s, c, p) = 0; end
+            end
+        end
+    end
+end
+
+fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 330 * np + 70, 430]);
+tl  = tiledlayout(fig, 1, np, 'Padding', 'compact', 'TileSpacing', 'compact');
+yl  = [min(0, min(mu(:) - se(:), [], 'omitnan')) * 1.25, ...
+       max(mu(:) + se(:), [], 'omitnan') * 1.25];
+for p = 1:np
+    ax = nexttile(tl); hold(ax, 'on');
+    bh = bar(ax, mu(:, :, p), 'grouped', 'EdgeColor', 'none');
+    for c = 1:numel(bh)
+        bh(c).FaceColor = condCol(c, :);
+        bh(c).FaceAlpha = 0.88;
+        errorbar(ax, bh(c).XEndPoints, mu(:, c, p), se(:, c, p), 'k', 'LineStyle', 'none', ...
+                 'LineWidth', 0.8, 'CapSize', 3, 'HandleVisibility', 'off');
+    end
+    yline(ax, 0, '-', 'Color', [0.45 0.45 0.45], 'HandleVisibility', 'off');
+    set(ax, 'XTick', 1:ns, 'XTickLabel', cellstr(scens));
+    ylim(ax, yl);
+    if p == 1, ylabel(ax, 'Mean mission cost C_op', 'Interpreter', 'none'); end
+    title(ax, char(profs(p)), 'Interpreter', 'none');
+    R.styleAxes(ax);
+end
+legend(ax, cellstr(conds), 'Location', 'northeast', 'Box', 'off', 'FontSize', 8, ...
+       'Interpreter', 'none');
+title(tl, sprintf('F7.1  Mission cost of each evasion condition, averaged over %d seeds per scenario', ...
+                  round(height(Cp) / max(1, nc * ns))), 'FontWeight', 'bold');
+R.saveFig(fig, fullfile(figDir, 'F7_1_mission_cost_by_condition_scenario.png'));
+close(fig);
+
+%% F7.2 What the cost is made of
+%  The five terms do not depend on the mission profile; only the weights that
+%  combine them do. A condition can carry a large cost for entirely different
+%  reasons in different scenarios, and C_op alone hides that.
+comps = zeros(nc * ns, 5);
+labs  = strings(nc * ns, 1);
+k = 0;
+for c = 1:nc
+    for s = 1:ns
+        k = k + 1;
+        m = (Cp.condition == conds(c)) & (Cp.scenario == scens(s));
+        comps(k, :) = [mean(Cp.dT(m)), mean(Cp.dR(m)), mean(Cp.dL(m)), ...
+                       mean(Cp.dV(m)), mean(Cp.dK(m))];
+        labs(k) = conds(c) + "  " + scens(s);
+    end
+end
+
+fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 900 460]);
+ax  = axes('Parent', fig); hold(ax, 'on');
+bh  = bar(ax, comps, 'stacked', 'EdgeColor', 'none');
+for i = 1:numel(bh)
+    bh(i).FaceColor = compCol(i, :);
+    bh(i).FaceAlpha = 0.88;
+end
+yline(ax, 0, '-', 'Color', [0.35 0.35 0.35], 'HandleVisibility', 'off');
+set(ax, 'XTick', 1:numel(labs), 'XTickLabel', cellstr(labs), 'TickLabelInterpreter', 'none');
+xtickangle(ax, 30);
+ylabel(ax, 'Unweighted cost component');
+legend(ax, compLbl, 'Location', 'northoutside', 'Orientation', 'horizontal', ...
+       'Box', 'off', 'FontSize', 8);
+title(ax, 'F7.2  What the mission cost is made of, before any profile weighting', ...
+      'FontSize', 11, 'FontWeight', 'bold');
+R.styleAxes(ax);
+R.saveFig(fig, fullfile(figDir, 'F7_2_cost_components.png'));
+close(fig);
+
+%% F7.3 What evasion actually did to the radio link
+%  One marker per run. Anything below the diagonal is a run the evasion made worse
+%  for the drone; anything above it is a run where evading was free or better.
+quants = {'sinr_honest_dB',      'sinr_evade_dB',      'Mean serving SINR (dB)',        false; ...
+          'outage_honest',       'outage_evade',       'Outage fraction',               false; ...
+          'sinrVar_honest_dB2',  'sinrVar_evade_dB2',  'Within-window SINR variance',   true};
+
+fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 960 350]);
+tl  = tiledlayout(fig, 1, size(quants, 1), 'Padding', 'compact', 'TileSpacing', 'compact');
+for q = 1:size(quants, 1)
+    ax = nexttile(tl); hold(ax, 'on');
+    for c = 1:nc
+        m = (Cp.condition == conds(c));
+        scatter(ax, Cp.(quants{q, 1})(m), Cp.(quants{q, 2})(m), 34, condCol(c, :), ...
+                'filled', 'MarkerFaceAlpha', 0.7, 'DisplayName', char(conds(c)));
+    end
+    xv  = [Cp.(quants{q, 1}); Cp.(quants{q, 2})];
+    xv  = xv(isfinite(xv));
+    lim = [min(xv), max(xv)];
+    if quants{q, 4}
+        lim  = [max(min(xv(xv > 0)), eps), max(xv)];
+        shown = [lim(1) * 0.7, lim(2) * 1.4];
+        set(ax, 'XScale', 'log', 'YScale', 'log');
+    else
+        pad   = max(0.05 * (lim(2) - lim(1)), eps);
+        shown = [lim(1) - pad, lim(2) + pad];
+    end
+    plot(ax, lim, lim, ':', 'Color', [0.5 0.5 0.5], 'HandleVisibility', 'off');
+    xlim(ax, shown); ylim(ax, shown);
+    axis(ax, 'square');
+    xlabel(ax, ['Honest: ' quants{q, 3}], 'Interpreter', 'none');
+    ylabel(ax, 'Evasive', 'Interpreter', 'none');
+    title(ax, quants{q, 3}, 'Interpreter', 'none');
+    R.styleAxes(ax);
+end
+legend(ax, 'Location', 'southeast', 'Box', 'off', 'FontSize', 8, 'Interpreter', 'none');
+title(tl, 'F7.3  Honest against evasive, paired on scenario and seed, aerial UEs only', ...
+      'FontWeight', 'bold');
+R.saveFig(fig, fullfile(figDir, 'F7_3_link_effects_paired.png'));
+close(fig);
+
+%% T7.1 Mission cost summary
+ciTxt = strings(height(S), 1);
+for i = 1:height(S)
+    ciTxt(i) = R.fmtCI(S.C_mean(i), S.C_lo(i), S.C_hi(i));
+end
+T1 = table(S.condition, S.profile, S.tier, S.nSeeds, ciTxt, ...
+    S.dT, S.dR, S.dL, S.dV, S.dK, ...
+    'VariableNames', {'Condition', 'Profile', 'Tier', 'Seeds', 'C_op_95pct_CI', ...
+                      'dT', 'dR', 'dL', 'dV', 'dK'});
+R.tableFigure(T1, fullfile(figDir, 'T7_1_mission_cost_summary.png'), struct( ...
+    'Title', 'T7.1  Mission cost by evasion condition and mission profile', ...
+    'Note', ["";sprintf('Intervals are a %d-resample bootstrap over seeds at the %.0f%% level.', A.bootstrapN, 100 * A.ciLevel); ...
+             "Terms are signed: a negative component is an evasion that improved that aspect of the link."; ...
+             "Tier is the adversary capability required (0 flight or config, 1 host software, 2 modem firmware)."; ...
+             "Tier is ordinal and is never summed into C_op."]));
+
+%% T7.2 The measured effect on the link, per condition and scenario
+rowsP = cell(nc * ns, 1);
+k = 0;
+for c = 1:nc
+    for s = 1:ns
+        k = k + 1;
+        m = (Cp.condition == conds(c)) & (Cp.scenario == scens(s));
+        rowsP{k} = {char(conds(c)), char(scens(s)), ...
+            mean(Cp.sinr_honest_dB(m)), mean(Cp.sinr_evade_dB(m)), ...
+            mean(Cp.outage_honest(m)),  mean(Cp.outage_evade(m)), ...
+            mean(Cp.sinrVar_evade_dB2(m)) / max(mean(Cp.sinrVar_honest_dB2(m)), eps), ...
+            mean(Cp.payload_honest_Mbps(m)), mean(Cp.payload_evade_Mbps(m))};
+    end
+end
+T2 = cell2table(vertcat(rowsP{:}), 'VariableNames', ...
+    {'Condition', 'Scenario', 'SINR_honest_dB', 'SINR_evasive_dB', ...
+     'Outage_honest', 'Outage_evasive', 'SINR_var_ratio', ...
+     'Payload_honest_Mbps', 'Payload_evasive_Mbps'});
+R.tableFigure(T2, fullfile(figDir, 'T7_2_link_effects.png'), struct( ...
+    'Title', 'T7.2  What each evasion condition did to the aerial link', ...
+    'Note', ["";sprintf('Honest baselines are truncated to the evasive window count (%d) before any metric is formed.', ...
+                     round(mean(Cp.nWin_evade))); ...
+             "SINR var ratio above 1 means the link became less stable under evasion."; ...
+             "Averaged over the seeds of each scenario; aerial UEs only, since the cost is borne by the drone."]));
+
+%% Key results
+[~, worst] = max(S.C_mean);
+[~, cheap] = min(S.C_mean);
+lines = strings(0, 1);
+lines(end + 1) = sprintf('Conditions priced      : %s', strjoin(cellstr(conds), ', '));
+lines(end + 1) = sprintf('Scenarios              : %s', strjoin(cellstr(scens), ', '));
+lines(end + 1) = sprintf('Mission profiles       : %s', strjoin(cellstr(profs), ', '));
+lines(end + 1) = sprintf('Seeds per condition    : %d', max(S.nSeeds));
+lines(end + 1) = sprintf('Aggregation            : %s, signed terms = %d, clamp +/-%.1f', ...
+                         A.aggregation, A.allowNegative, A.clampLimit);
+lines(end + 1) = sprintf('Most expensive         : %s under %s, C_op = %.3f [%.3f, %.3f]', ...
+                         S.condition(worst), S.profile(worst), S.C_mean(worst), S.C_lo(worst), S.C_hi(worst));
+lines(end + 1) = sprintf('Cheapest               : %s under %s, C_op = %.3f [%.3f, %.3f]', ...
+                         S.condition(cheap), S.profile(cheap), S.C_mean(cheap), S.C_lo(cheap), S.C_hi(cheap));
+lines(end + 1) = sprintf('Runs where the link improved: %d of %d', ...
+                         sum(Cp.dR_margin < 0), height(Cp));
+lines(end + 1) = sprintf('Cost table stamp       : %s', stamp);
+R.logSection(keyFile, 'D7  Mission cost of evasion', lines);
+R.logTable(keyFile, T1, 12);
+R.logSection(keyFile, 'D7  Measured effect on the aerial link', "");
+R.logTable(keyFile, T2, 12);
+R.logSection(keyFile, 'Phase 7 figures written to figures/', [""; ...
+    "F7_1_mission_cost_by_condition_scenario.png  mean C_op per condition and scenario, per profile"; ...
+    "F7_2_cost_components.png                     unweighted dT/dR/dL/dV/dK decomposition"; ...
+    "F7_3_link_effects_paired.png                 honest against evasive, paired per run"; ...
+    "T7_1_mission_cost_summary.png                cost by condition and profile with CIs"; ...
+    "T7_2_link_effects.png                        measured link effect per condition and scenario"]);
+
+fprintf('\nReport figures in %s\nKey results in %s\n', figDir, keyFile);
 end

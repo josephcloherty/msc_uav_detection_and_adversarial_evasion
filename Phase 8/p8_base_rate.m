@@ -1,6 +1,6 @@
 %% Phase 8 D8.5 - Positive predictive value against assumed aerial prevalence
-%  Reads:  results/D81_holdout.csv
-%  Writes: results/D85_ppv.csv, results/D85_summary.csv, figures/D85_ppv.png
+%  Reads:  results/holdout.csv
+%  Writes: results/base_rate_curve.csv, results/base_rate_summary.csv, figures/base_rate.png
 %
 %  A detector holding a one per cent false positive rate against a rare positive class
 %  produces mostly false alarms, and the rarer the class the worse it gets. This is the
@@ -26,10 +26,10 @@ clear; clc;
 C = p8_config();
 V = p8_util();
 
-H = readtable(fullfile(C.resultsDir, 'D81_holdout.csv'), 'TextType', 'string');
+H = readtable(fullfile(C.resultsDir, 'holdout.csv'), 'TextType', 'string');
 opLab = string(C.opLabels{C.opIdx});
 H = H(H.Level == "PerUE" & H.Length == "Truncated" & H.OperatingPoint == opLab, :);
-assert(~isempty(H), 'p8_D5:noRows', 'No matching rows in D81_holdout.csv; run p8_D1 first.');
+assert(~isempty(H), 'p8_baserate:noRows', 'No matching rows in holdout.csv; run p8_holdout.m first.');
 
 p = C.prevalenceGrid(:);
 gridRows = {};  sumRows = {};
@@ -90,8 +90,8 @@ Tsum  = cell2table(vertcat(sumRows{:}), 'VariableNames', ...
      'AlertsPerCellPerDay', 'TruePerCellPerDay', 'FalsePerCellPerDay', ...
      'BreakEvenPrevalence', 'IsPrimary'});
 
-writetable(Tgrid, fullfile(C.resultsDir, 'D85_ppv.csv'));
-writetable(Tsum,  fullfile(C.resultsDir, 'D85_summary.csv'));
+writetable(Tgrid, fullfile(C.resultsDir, 'base_rate_curve.csv'));
+writetable(Tsum,  fullfile(C.resultsDir, 'base_rate_summary.csv'));
 
 %% Figure
 fig = figure('Position', [100 100 860 400], 'Color', 'w');
@@ -136,7 +136,7 @@ legend(ax, 'Location', 'northwest', 'Box', 'off', 'FontSize', 8);
 V.styleAxes(ax);
 
 title(tl, sprintf('D8.5 base rate at the %s operating point, %s', opLab, C.primaryName));
-V.saveFig(fig, fullfile(C.figureDir, 'D85_ppv.png'));
+V.saveFig(fig, fullfile(C.figureDir, 'base_rate.png'));
 close(fig);
 
 %% Report
@@ -156,4 +156,85 @@ for i = 1:height(P)
     fprintf('%-14.0e %10.3f %14.1f %14.1f\n', ...
         P.Prevalence(i), P.PPV(i), P.AlertsPerCellPerDay(i), P.FalsePerCellPerDay(i));
 end
-fprintf('\nWrote results/D85_ppv.csv, D85_summary.csv, figures/D85_ppv.png\n');
+fprintf('\nWrote results/base_rate_curve.csv, base_rate_summary.csv, figures/base_rate.png\n');
+
+
+%% ============================================================================
+%% Report outputs
+%% ============================================================================
+RPT     = report_util();
+figDir  = C.figureDir;
+keyFile = fullfile(C.resultsDir, 'phase8_key_results.txt');
+RPT.ensureDir(figDir);
+
+%% T8.9 What a flag is worth, and how many arrive
+Pb = Tsum(Tsum.IsPrimary == 1, :);
+T89 = table(Pb.Prevalence, Pb.PPV, Pb.AlertsPerCellPerDay, Pb.TruePerCellPerDay, ...
+    Pb.FalsePerCellPerDay, ...
+    'VariableNames', {'Assumed_aerial_prevalence', 'Positive_predictive_value', ...
+                      'Alerts_per_cell_per_day', 'True_per_cell_per_day', ...
+                      'False_per_cell_per_day'});
+
+subNote = "The measured false positive rate was used directly.";
+if Pb.FPR_substituted(1)
+    subNote = sprintf(['The measured rate was zero on %d terrestrial UE-runs, so a rule-of-three upper bound ' ...
+                       'of %.4f was substituted.'], Pb.TerrestrialUERuns(1), Pb.FPR_used(1));
+end
+
+RPT.tableFigure(T89, fullfile(figDir, 'T8_9_base_rate.png'), struct( ...
+    'Title', sprintf('T8.9  D8.5 predictive value against assumed prevalence, %s, %s', ...
+                     C.primaryName, opLab), ...
+    'Note', ["";sprintf('Recall %.3f, false positive rate %.4f, break-even prevalence %.3g.', ...
+                     Pb.TPR(1), Pb.FPR_used(1), Pb.BreakEvenPrevalence(1)); ...
+             sprintf('Alert load assumes %d distinct UEs per cell per day and is linear in that number.', ...
+                     C.uesPerCellPerDay); ...
+             subNote; ...
+             "Below the break-even prevalence most alerts are false, however good the recall figure looks."]));
+
+%% F8.6 Predictive value at each assumed prevalence, every family
+mk = C.prevalenceMarkers;
+ppvM = nan(numel(C.modelNames), numel(mk));
+for m = 1:numel(C.modelNames)
+    for k = 1:numel(mk)
+        v = Tsum.PPV(Tsum.Model == string(C.modelNames{m}) & ...
+                     abs(Tsum.Prevalence - mk(k)) < 1e-12);
+        if ~isempty(v), ppvM(m, k) = v(1); end
+    end
+end
+
+fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 760 400]);
+ax  = axes('Parent', fig); hold(ax, 'on');
+mp  = RPT.palette(numel(mk));
+bh  = bar(ax, ppvM, 'grouped', 'EdgeColor', 'none');
+for k = 1:numel(bh)
+    bh(k).FaceColor = mp(k, :);
+    bh(k).FaceAlpha = 0.88;
+end
+yline(ax, 0.5, ':', 'Color', [0.5 0.5 0.5], 'Label', 'as likely aerial as not', ...
+      'FontSize', 8, 'HandleVisibility', 'off');
+set(ax, 'XTick', 1:numel(C.modelNames), 'XTickLabel', C.modelNames);
+xtickangle(ax, 20);
+ylim(ax, [0 1]);
+ylabel(ax, 'Positive predictive value');
+legend(ax, arrayfun(@(v) sprintf('prevalence %.0e', v), mk, 'UniformOutput', false), ...
+       'Location', 'northwest', 'Box', 'off', 'FontSize', 8);
+title(ax, 'F8.6  A flagged UE is aerial with this probability', ...
+      'FontSize', 11, 'FontWeight', 'bold');
+RPT.styleAxes(ax);
+RPT.saveFig(fig, fullfile(figDir, 'F8_6_ppv_by_prevalence.png'));
+close(fig);
+
+%% Key results
+lines = strings(0, 1);
+lines(end + 1) = sprintf('Primary model          : %s at the %s operating point', C.primaryName, opLab);
+lines(end + 1) = sprintf('Recall / FPR used      : %.3f / %.4f', Pb.TPR(1), Pb.FPR_used(1));
+lines(end + 1) = sprintf('Break-even prevalence  : %.3g. Below it, most alerts are false.', ...
+                         Pb.BreakEvenPrevalence(1));
+lines(end + 1) = sprintf('Alert-load assumption  : %d distinct UEs per cell per day', C.uesPerCellPerDay);
+lines(end + 1) = subNote;
+for i = 1:height(Pb)
+    lines(end + 1) = sprintf('prevalence %.0e -> PPV %.3f, %.1f alerts/cell/day of which %.1f false', ...
+        Pb.Prevalence(i), Pb.PPV(i), Pb.AlertsPerCellPerDay(i), Pb.FalsePerCellPerDay(i));
+end
+RPT.logSection(keyFile, 'D8.5  Base rate and alert load', lines);
+RPT.logTable(keyFile, T89, 6);

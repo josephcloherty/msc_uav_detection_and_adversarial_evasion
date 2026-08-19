@@ -88,7 +88,8 @@ C.f = struct( ...
 %% Discover the frozen pipelines
 mf = dir(fullfile(C.modelDir, 'frozen_*.mat'));
 assert(~isempty(mf), 'p8_config:noModels', ...
-    'No frozen_*.mat in %s. Run p8_setup.m, and freeze_models.m before that.', C.modelDir);
+    ['No frozen_*.mat in %s. Run freeze_models.m in Phase 6, then copy the frozen ' ...
+     'artefacts and their code dependencies into that folder.'], C.modelDir);
 C.modelFiles = arrayfun(@(s) fullfile(s.folder, s.name), mf, 'UniformOutput', false);
 
 C.modelNames = cell(numel(mf), 1);

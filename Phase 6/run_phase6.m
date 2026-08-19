@@ -12,6 +12,11 @@ function run_phase6()
 %   feature_importance   D6.6         results/feature_importance.csv and .png
 %   freeze_models        D6.7         models/frozen_*.mat, results/freeze_manifest.csv
 %
+%   Every stage also writes report figures into figures/ and appends its headline
+%   numbers to results/phase6_key_results.txt. Tables that are worth quoting are drawn
+%   as figures rather than printed, so they can be lifted straight into the write-up.
+%   prepare_data starts the key-results file, so run the stages in order.
+%
 %   Exit: five frozen pipelines, each producing a window score, a per-UE score and a
 %   decision at a threshold fixed without reference to any hold-out data. Apply one with
 %   score_pipeline.m; nothing in Phase 7 should refit any part of them.
@@ -35,6 +40,8 @@ for k = 1:numel(stages)
 end
 
 fprintf('\nPhase 6 complete in %.1f minutes.\n', toc(t0) / 60);
+fprintf('Report figures : %s\n', fullfile(root, 'figures'));
+fprintf('Key results    : %s\n', fullfile(root, 'results', 'phase6_key_results.txt'));
 end
 
 

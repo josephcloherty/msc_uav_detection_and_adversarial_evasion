@@ -147,3 +147,85 @@ close(fig);
 
 fprintf('\nSaved results/feature_importance.csv and results/feature_importance.png\n');
 fprintf('Run freeze_models.m next.\n');
+
+
+%% ============================================================================
+%% Report outputs
+%% ============================================================================
+RPT     = report_util();
+figDir  = fullfile(root, 'figures');
+keyFile = fullfile(root, 'results', 'phase6_key_results.txt');
+RPT.ensureDir(figDir);
+
+%% T6.8 The ranking, with the judgement that decides deployability
+Timp = table(string(F.Feature), F.MeanRank, F.RF_OOBImportance_mean, ...
+    F.Logistic_absCoef_mean, F.SingleFeatureAUC, F.FeatureBlock, F.Manipulability, ...
+    'VariableNames', {'Predictor', 'Mean_rank', 'RF_OOB_importance', ...
+                      'Logistic_abs_coef', 'Single_feature_AUC', 'Feature_block', ...
+                      'Manipulability'});
+
+RPT.tableFigure(Timp, fullfile(figDir, 'T6_8_feature_importance.png'), struct( ...
+    'Title', 'T6.8  Predictor importance, ranked across four independent measures', ...
+    'Highlight', F.MeanRank <= 5, ...
+    'Note', ["";"Mean rank averages the ranks from four measures, because they sit on incomparable scales."; ...
+             "Manipulability is the judgement that decides deployability: a detector resting on features"; ...
+             "a UE controls can be defeated by the UE, however well it scores here."; ...
+             "Blank block and manipulability columns mean results/literature_expectations.csv is unfilled."]));
+
+%% F6.9 Where each measure puts each predictor
+%  Four measures, one ranking each. A predictor that is high on all of them is carrying
+%  discriminative load in a way that does not depend on the choice of measure.
+rankShow = ranks(finalOrd, [1 2 3 4 5]);
+measLbl  = {'RF OOB permuted', 'Tree split', 'Logistic |coef|', 'Discriminant |coef|', 'Single-feature AUC'};
+
+fig = figure('Visible', 'off', 'Color', 'w', ...
+             'Position', [100 100 620, 130 + 34 * nF]);
+ax = axes('Parent', fig);
+imagesc(ax, rankShow, [1 nF]);
+cmap = flipud([linspace(0.13, 1, 256)', linspace(0.30, 1, 256)', linspace(0.55, 1, 256)']);
+colormap(ax, cmap);
+set(ax, 'XTick', 1:numel(measLbl), 'XTickLabel', measLbl, ...
+        'YTick', 1:nF, 'YTickLabel', F.Feature, 'TickLabelInterpreter', 'none', ...
+        'FontName', 'Helvetica', 'FontSize', 8, 'TickDir', 'out');
+xtickangle(ax, 25);
+cb = colorbar(ax);
+cb.Label.String = 'Rank (1 = most important)';
+for a = 1:nF
+    for b = 1:size(rankShow, 2)
+        if rankShow(a, b) <= nF / 2.4, tc = [1 1 1]; else, tc = [0.2 0.2 0.2]; end
+        text(ax, b, a, sprintf('%d', rankShow(a, b)), 'HorizontalAlignment', 'center', ...
+             'VerticalAlignment', 'middle', 'FontSize', 8, 'Color', tc);
+    end
+end
+title(ax, 'F6.9  Predictor rank under each importance measure', ...
+      'FontSize', 11, 'FontWeight', 'bold');
+RPT.saveFig(fig, fullfile(figDir, 'F6_9_importance_rank_heatmap.png'));
+close(fig);
+
+%% F6.10 Out-of-bag permuted importance with fold-to-fold spread
+fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 720, 140 + 30 * nF]);
+ax  = axes('Parent', fig); hold(ax, 'on');
+vals = flipud(F.RF_OOBImportance_mean);
+sds  = flipud(F.RF_OOBImportance_sd);
+barh(ax, vals, 0.68, 'FaceColor', [0.00 0.45 0.70], 'FaceAlpha', 0.85, 'EdgeColor', 'none');
+errorbar(ax, vals, (1:nF)', sds, 'horizontal', 'LineStyle', 'none', ...
+         'Color', 'k', 'LineWidth', 0.8, 'CapSize', 3);
+set(ax, 'YTick', 1:nF, 'YTickLabel', flipud(F.Feature), 'TickLabelInterpreter', 'none');
+ylim(ax, [0.4 nF + 0.6]);
+xlabel(ax, 'Out-of-bag permuted importance, mean over folds');
+title(ax, 'F6.10  Random forest importance, ordered by mean rank across four measures', ...
+      'FontSize', 11, 'FontWeight', 'bold');
+RPT.styleAxes(ax);
+RPT.saveFig(fig, fullfile(figDir, 'F6_10_rf_importance.png'));
+close(fig);
+
+%% Key results
+topN = min(5, height(F));
+RPT.logSection(keyFile, 'D6.6  Feature importance', [""; ...
+    sprintf('Predictors ranked        : %d, over %d folds with a refit in each', nF, K); ...
+    sprintf('Top five by mean rank    : %s', strjoin(F.Feature(1:topN)', ', ')); ...
+    sprintf('Of those, hard to manipulate: %d', ...
+            sum(ismember(F.Feature(1:topN), lowMan.Feature))); ...
+    sprintf('Highest single-feature AUC : %.4f (%s)', ...
+            max(F.SingleFeatureAUC), F.Feature{find(F.SingleFeatureAUC == max(F.SingleFeatureAUC), 1)})]);
+RPT.logTable(keyFile, Timp, 14);

@@ -1,6 +1,6 @@
 %% Phase 8 D8.3 - The combined condition, and whether the evasion actions compound
-%  Reads:  results/scores_ue.csv, results/D82_perue.csv, results/thresholds_frozen.csv
-%  Writes: results/D83_compounding.csv, results/D83_perue.csv, figures/D83_interaction.png
+%  Reads:  results/scores_ue.csv, results/evasion_individual_perue.csv, results/thresholds_frozen.csv
+%  Writes: results/evasion_combined_summary.csv, results/evasion_combined_perue.csv, figures/evasion_combined_interaction.png
 %
 %  The question is whether running two evasion actions together buys the drone more than
 %  running them separately would suggest, and it is asked on the log-odds scale rather
@@ -33,13 +33,13 @@ clear; clc;
 C = p8_config();
 V = p8_util();
 
-assert(~isempty(C.combinedCondition), 'p8_D3:noCombined', ...
+assert(~isempty(C.combinedCondition), 'p8_combined:noCombined', ...
     'No combined condition found on disk. D8.3 has nothing to test.');
 combined = string(C.combinedCondition{1});
 conds    = C.individualConditions;
 
 Uue  = readtable(C.f.scoresUE, 'TextType', 'string');
-Pind = readtable(fullfile(C.resultsDir, 'D82_perue.csv'), 'TextType', 'string');
+Pind = readtable(fullfile(C.resultsDir, 'evasion_individual_perue.csv'), 'TextType', 'string');
 Thr  = readtable(fullfile(C.resultsDir, 'thresholds_frozen.csv'), 'TextType', 'string');
 
 opLab = string(C.opLabels{C.opIdx});
@@ -58,7 +58,7 @@ for m = 1:numel(C.modelNames)
     K = Uue(Uue.Model == mdl & Uue.Condition == combined & Uue.Label == 1, :);
 
     [tf, loc] = ismember(H.UEKey, K.UEKey);
-    assert(all(tf), 'p8_D3:unpairedUE', ...
+    assert(all(tf), 'p8_combined:unpairedUE', ...
         '%d aerial UE-run(s) have no counterpart in the combined condition.', sum(~tf));
 
     sH = H.ScoreTrunc;   sK = K.ScoreTrunc(loc);
@@ -71,7 +71,7 @@ for m = 1:numel(C.modelNames)
     for k = 1:numel(conds)
         Q = Pind(Pind.Model == mdl & Pind.Condition == string(conds{k}), :);
         [tf2, loc2] = ismember(H.UEKey, Q.UEKey);
-        assert(all(tf2), 'p8_D3:missingIndividual', ...
+        assert(all(tf2), 'p8_combined:missingIndividual', ...
             'Condition "%s" does not cover every aerial UE-run that the combined one does.', ...
             conds{k});
         dEach(:, k) = Q.DeltaLogit(loc2);
@@ -135,8 +135,8 @@ Tsum = cell2table(vertcat(sumRows{:}), 'VariableNames', ...
      'DeltaLogitSum', 'DeltaLogitSum_lo', 'DeltaLogitSum_hi', ...
      'Interaction', 'Interaction_lo', 'Interaction_hi', 'Interaction_p', 'Verdict', 'IsPrimary'});
 
-writetable(Tsum, fullfile(C.resultsDir, 'D83_compounding.csv'));
-writetable(vertcat(ueRows{:}), fullfile(C.resultsDir, 'D83_perue.csv'));
+writetable(Tsum, fullfile(C.resultsDir, 'evasion_combined_summary.csv'));
+writetable(vertcat(ueRows{:}), fullfile(C.resultsDir, 'evasion_combined_perue.csv'));
 
 %% Figure: observed combined shift against the additive prediction
 %  Left panel places every model's observed combined shift against the sum of its
@@ -188,7 +188,7 @@ title(ax, sprintf('%s, %d aerial UE-runs over %d runs', ...
 V.styleAxes(ax);
 
 title(tl, 'D8.3 do the evasion actions compound');
-V.saveFig(fig, fullfile(C.figureDir, 'D83_interaction.png'));
+V.saveFig(fig, fullfile(C.figureDir, 'evasion_combined_interaction.png'));
 close(fig);
 
 %% Report
@@ -211,4 +211,87 @@ fprintf('Log odds: combined %s, additive prediction %s\n', ...
 fprintf('Interaction %s, signed-rank p = %s. Verdict: %s\n', ...
     V.fmtCI(P.Interaction, P.Interaction_lo, P.Interaction_hi, 2), ...
     V.fmtP(P.Interaction_p), P.Verdict);
-fprintf('\nWrote results/D83_compounding.csv, D83_perue.csv, figures/D83_interaction.png\n');
+fprintf('\nWrote results/evasion_combined_summary.csv, evasion_combined_perue.csv, figures/evasion_combined_interaction.png\n');
+
+
+%% ============================================================================
+%% Report outputs
+%% ============================================================================
+RPT     = report_util();
+figDir  = C.figureDir;
+keyFile = fullfile(C.resultsDir, 'phase8_key_results.txt');
+RPT.ensureDir(figDir);
+
+%% T8.6 Does running the actions together buy more than running them apart
+recTxt = strings(height(Tsum), 1);
+cmbTxt = strings(height(Tsum), 1);
+sumTxt = strings(height(Tsum), 1);
+intTxt = strings(height(Tsum), 1);
+for i = 1:height(Tsum)
+    recTxt(i) = RPT.fmtCI(Tsum.DeltaRecall(i), Tsum.DeltaRecall_lo(i), Tsum.DeltaRecall_hi(i));
+    cmbTxt(i) = RPT.fmtCI(Tsum.DeltaLogitCombined(i), Tsum.DeltaLogitCombined_lo(i), ...
+                          Tsum.DeltaLogitCombined_hi(i), 2);
+    sumTxt(i) = RPT.fmtCI(Tsum.DeltaLogitSum(i), Tsum.DeltaLogitSum_lo(i), ...
+                          Tsum.DeltaLogitSum_hi(i), 2);
+    intTxt(i) = RPT.fmtCI(Tsum.Interaction(i), Tsum.Interaction_lo(i), Tsum.Interaction_hi(i), 2);
+end
+T86 = table(Tsum.Model, Tsum.RecallHonest, Tsum.RecallCombined, recTxt, ...
+    cmbTxt, sumTxt, intTxt, Tsum.Verdict, ...
+    'VariableNames', {'Model', 'Recall_honest', 'Recall_combined', 'Delta_recall_95pct_CI', ...
+                      'Combined_log_odds', 'Additive_prediction', 'Interaction', 'Verdict'});
+
+RPT.tableFigure(T86, fullfile(figDir, 'T8_6_evasion_combined.png'), struct( ...
+    'Title', sprintf('T8.6  D8.3 do the evasion actions compound, %s, first %d windows', opLab, C.nWin), ...
+    'Highlight', Tsum.IsPrimary, ...
+    'Note', ["";"Tested on log odds, not on recall: recall is bounded in [0,1] so two large drops cannot sum near the floor."; ...
+             "Interaction below zero means the actions reinforce each other; above zero means they interfere."; ...
+             sprintf('Sum of the individual recall drops is %.3f against an honest recall of %.3f, achievable = %d.', ...
+                     Tsum.SumOfIndividualRecallDrops(find(Tsum.IsPrimary, 1)), ...
+                     Tsum.RecallHonest(find(Tsum.IsPrimary, 1)), ...
+                     Tsum.SumIsAchievable(find(Tsum.IsPrimary, 1)))]));
+
+%% F8.5 Recall under every condition, primary family
+condAll = [{'honest'}, conds, {char(combined)}];
+recVals = nan(numel(condAll), 1);
+recVals(1) = Tsum.RecallHonest(find(Tsum.IsPrimary, 1));
+for k = 1:numel(conds)
+    Q = Pind(Pind.Model == string(C.primaryName) & Pind.Condition == string(conds{k}), :);
+    recVals(k + 1) = mean(double(Q.FlagEvasive));
+end
+recVals(end) = Tsum.RecallCombined(find(Tsum.IsPrimary, 1));
+
+fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 660 400]);
+ax  = axes('Parent', fig); hold(ax, 'on');
+palA = RPT.palette(numel(condAll));
+for k = 1:numel(condAll)
+    bar(ax, k, recVals(k), 0.6, 'FaceColor', palA(k, :), 'FaceAlpha', 0.88, 'EdgeColor', 'none');
+    text(ax, k, recVals(k) + 0.03, sprintf('%.3f', recVals(k)), ...
+         'HorizontalAlignment', 'center', 'FontSize', 9);
+end
+yline(ax, recVals(1), ':', 'Color', [0.4 0.4 0.4], 'Label', 'honest baseline', ...
+      'FontSize', 8, 'LabelHorizontalAlignment', 'right');
+set(ax, 'XTick', 1:numel(condAll), 'XTickLabel', condAll, 'TickLabelInterpreter', 'none');
+xtickangle(ax, 20);
+ylim(ax, [0 1.08]);
+ylabel(ax, sprintf('Per-UE recall at %s', opLab));
+title(ax, sprintf('F8.5  What the detector retains under every condition, %s', C.primaryName), ...
+      'FontSize', 11, 'FontWeight', 'bold');
+RPT.styleAxes(ax);
+RPT.saveFig(fig, fullfile(figDir, 'F8_5_recall_by_condition.png'));
+close(fig);
+
+%% Key results
+Pk = Tsum(Tsum.IsPrimary, :);
+RPT.logSection(keyFile, 'D8.3  The combined condition and compounding', [""; ...
+    sprintf('Combined condition     : %s', combined); ...
+    sprintf('Components             : %s', strjoin(conds, ' + ')); ...
+    sprintf('Recall                 : %.3f -> %.3f, change %s', Pk.RecallHonest, Pk.RecallCombined, ...
+            RPT.fmtCI(Pk.DeltaRecall, Pk.DeltaRecall_lo, Pk.DeltaRecall_hi)); ...
+    sprintf('Combined log-odds shift: %s', ...
+            RPT.fmtCI(Pk.DeltaLogitCombined, Pk.DeltaLogitCombined_lo, Pk.DeltaLogitCombined_hi, 2)); ...
+    sprintf('Additive prediction    : %s', ...
+            RPT.fmtCI(Pk.DeltaLogitSum, Pk.DeltaLogitSum_lo, Pk.DeltaLogitSum_hi, 2)); ...
+    sprintf('Interaction            : %s, signed-rank p = %s', ...
+            RPT.fmtCI(Pk.Interaction, Pk.Interaction_lo, Pk.Interaction_hi, 2), V.fmtP(Pk.Interaction_p)); ...
+    sprintf('Verdict                : %s', Pk.Verdict)]);
+RPT.logTable(keyFile, T86, 8);
