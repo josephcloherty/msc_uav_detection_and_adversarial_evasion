@@ -52,19 +52,19 @@ featureSwitch = {
     %  variance, which is 10*log10(51) for the 51 resource blocks of the measurement
     %  bandwidth. The three are therefore linearly dependent and only two of them carry
     %  information. RSRP and RSRQ are kept as the level and quality pair; RSSI is
-    %  switched off because it is also the harder of the three to justify an operator
+    %  switched off because it is also the hardest of the three to justify an operator
     %  holding, existing in both LTE and NR mainly as the RSRQ denominator rather than
     %  as a quantity reported in its own right.
     %
     %  RSRP and RSSI additionally correlate at 0.9976 in this data, the serving cell
     %  dominating the received wideband power, so keeping both would have been close to
     %  duplication even without the identity.
-    'rsrp_mean_dBm'             1
+    'rsrp_mean_dBm'             0
     'rsrp_var_dB2'              0
     'rsrp_min_dBm'              0
     'rsrp_max_dBm'              0
     'rsrp_trend_dBperS'         0
-    'rsrq_mean_dB'              1
+    'rsrq_mean_dB'              0
     'rsrq_var_dB2'              0
     'rsrq_min_dB'               0
     'rsrq_max_dB'               0
@@ -275,8 +275,7 @@ assert(~isempty(featureNames), 'prepare_data:noFeatures', ...
 %  RSSI and RSRQ are not a pairwise duplicate at all, RSRQ correlating only 0.74 and
 %  0.69 with the other two, yet the three are exactly linearly dependent through
 %  RSRQ = N * RSRP / RSSI and the trio carries the information of two columns. Only a
-%  rank test sees that, and only a pairwise test names the offending pair cleanly, so
-%  both are run.
+%  rank test sees that, and only a pairwise test names the offending pair cleanly.
 Xsel = U.imputeWith(X{:, :}, median(X{:, :}, 1, 'omitnan'));
 
 % Test one: linear dependence among the selected columns, judged on the condition
@@ -463,7 +462,8 @@ for a = 1:nF
     for b = 1:nF
         if abs(Ccorr(a, b)) > 0.62, tc = [1 1 1]; else, tc = [0.15 0.15 0.15]; end
         text(ax, b, a, sprintf('%.2f', Ccorr(a, b)), 'HorizontalAlignment', 'center', ...
-             'VerticalAlignment', 'middle', 'FontSize', 6.5, 'Color', tc);
+             'VerticalAlignment', 'middle', 'FontSize', 6.5, 'Color', tc, ...
+             'FontName', 'Helvetica', 'Tag', 'keepColor');
     end
 end
 title(ax, 'F6.1  Correlation between the selected predictors', ...

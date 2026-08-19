@@ -29,7 +29,19 @@ function cfg = phase7_Config()
     % Overlays are applied by applyEvasion in phase7_RunBatch; these are just
     % the names it dispatches on.
     cfg.evasion = struct();
-    cfg.evasion.conditions = ["lowAltitude", "trafficReshaping", "combined"];
+    % lowAltLowSpeed was called "combined" until the Phase 8 analysis was written up.
+    % The old name implied it was the superposition of the other two conditions, and it
+    % is not: it applies a speed reduction that neither of them contains, which made an
+    % additivity test on it look computable when the residual was really the main effect
+    % of a third action. Naming it for what the evader does removes the trap.
+    %
+    % trafficReshaping is no longer generated. The Phase 6 leakage audit switched the
+    % whole traffic block off, because those columns encoded the Phase 5 application
+    % model rather than any radio consequence of being airborne, so the condition is
+    % inert on the frozen predictors by construction and costs simulation time for a
+    % result that is a null by design. applyEvasion in phase7_RunBatch still implements
+    % it, so it can be reinstated by adding the name back to this list.
+    cfg.evasion.conditions = ["lowAltitude", "lowAltLowSpeed"];
 
     % 15 m sits below the TR 36.777 overlay floor in UMa/UMi (22.5 m) but
     % above it in RMa (10 m), so the scenarios are deliberately asymmetric.

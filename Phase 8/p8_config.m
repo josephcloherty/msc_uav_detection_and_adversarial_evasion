@@ -17,12 +17,29 @@ C.root       = root;
 C.modelDir   = fullfile(root, 'models');
 C.resultsDir = fullfile(root, 'results');
 C.figureDir  = fullfile(root, 'figures');
-C.phase7Dir  = fullfile(fileparts(root), 'Phase 7');
-C.dataDir    = fullfile(C.phase7Dir, 'data');
+C.dataDir    = fullfile(root, 'data');
 
 for d = {C.resultsDir, C.figureDir}
     if ~isfolder(d{1}), mkdir(d{1}); end
 end
+
+%% Phase 8 reads only its own copy of the data
+%  Everything Phase 8 touches is a copy held inside Phase 8, for the same reason the
+%  frozen pipelines are copied here: a hold-out evaluation that reaches into a live
+%  working directory is one edit away from no longer being a hold-out evaluation.
+%
+%  It also lets the hold-out assertion below stay an outright refusal rather than a
+%  filter. Phase 7 generates the honest condition across all sixty seeds because it
+%  shares a generator with Phase 5, so reading it directly would mean Phase 8 depended
+%  on a seed filter for its central guarantee. Copying only seeds 46 to 60 into this
+%  folder makes the guarantee physical: there is no development data here to leak.
+assert(isfolder(C.dataDir), 'p8_config:noData', ...
+    ['%s does not exist. Copy the hold-out data into it before running Phase 8:\n' ...
+     '  data/honest/                 seeds 46-60 only, from Phase 7/data/honest\n' ...
+     '  data/evasive/<condition>/    each condition folder from Phase 7/data/evasive\n' ...
+     '  data/<mission cost csv>      the per-seed output of phase7_MissionCost\n' ...
+     'Do not copy the development seeds; the hold-out check below will refuse them.'], ...
+    C.dataDir);
 
 %% Experimental design
 C.holdoutSeeds = 46:60;
@@ -74,8 +91,22 @@ C.uesPerCellPerDay  = 5000;
 %% D8.6 frontier
 %  Three panels, one per mission profile, so the trade-off is not conditioned on a
 %  profile choice that would have to be defended.
-C.missionCostFile = fullfile(C.phase7Dir, 'results', ...
-                             'phase7_missioncost_perseed_20260812_160237.csv');
+%  Named explicitly rather than found by pattern, because more than one timestamped run
+%  may sit in the folder and the frontier must be traceable to a stated cost table.
+%
+%  Phase 8's copy of this table has been relabelled: the condition Phase 7 wrote as
+%  "combined" is named lowAltLowSpeed here, and the trafficReshaping rows are removed. No
+%  cost was recomputed. Every cost in the table is derived from the simulation output of
+%  that condition, so the values are unchanged and only the label differs; the original
+%  from phase7_MissionCost is left in Phase 7/results as the provenance record. Phase 7
+%  has since been refactored to emit the new name directly, so a regenerated table will
+%  need no relabelling.
+C.missionCostFile = fullfile(C.dataDir, ...
+                             'phase7_missioncost_perseed_20260819_134743.csv');
+assert(isfile(C.missionCostFile), 'p8_config:noMissionCost', ...
+    ['Mission cost table not found at %s. Copy the per-seed output of ' ...
+     'phase7_MissionCost into Phase 8/data/, or update C.missionCostFile.'], ...
+    C.missionCostFile);
 C.costMetric      = 'C_op';
 C.profiles        = {'reconnaissance', 'remotePiloting', 'terminalApproach'};
 
@@ -113,19 +144,61 @@ C.primaryName  = C.modelNames{C.primaryIdx};
 assert(isfolder(fullfile(C.dataDir, 'honest')), 'p8_config:noHonest', ...
     'Cannot find %s', fullfile(C.dataDir, 'honest'));
 
+%  The evasion conditions are peers. There is no "combined" condition in the sense of a
+%  superposition to be decomposed, because the two folders differ by which actions the
+%  evader takes and not by whether one is the sum of others:
+%
+%    lowAltitude       the aerial UE descends to 15 m
+%    lowAltLowSpeed    it descends to 15 m and also flies at terrestrial speeds
+%
+%  An earlier version treated the second as lowAltitude + trafficReshaping and tested
+%  whether the two compounded. That test was not computable as posed: the folder also
+%  applies a speed reduction that neither individual condition contains, so the residual
+%  was the main effect of a third action rather than an interaction. Naming the condition
+%  for what the evader actually does removes the trap.
+%
+%  trafficReshaping is not analysed. It alters only the traffic and scheduling columns,
+%  and the Phase 6 leakage audit switched that whole block off because it encoded the
+%  Phase 5 application model rather than any radio consequence of being airborne. On the
+%  twelve frozen predictors it is inert by construction: matched aerial windows differ
+%  from honest by a median of 0.0000 dB in serving SINR. It belongs in the write-up as a
+%  stated null result, not as a column in every table.
+C.condLabelMap = { ...
+    'honest',         'honest'
+    'lowAltitude',    'low altitude'
+    'lowAltLowSpeed', 'low altitude + low speed' };
+
 ev = dir(fullfile(C.dataDir, 'evasive'));
 ev = ev([ev.isdir] & ~startsWith({ev.name}, '.'));
-evNames = sort({ev.name});
-isComb  = strcmpi(evNames, 'combined');
-C.individualConditions = evNames(~isComb);
-C.combinedCondition    = evNames(isComb);
-assert(numel(C.combinedCondition) <= 1, 'p8_config:manyCombined', ...
-    'More than one folder looks like the combined condition.');
+evNames = {ev.name};
 
-C.conditions = [{'honest'}, C.individualConditions, C.combinedCondition];
+known = C.condLabelMap(:, 1);
+unknown = setdiff(evNames, known);
+assert(isempty(unknown), 'p8_config:unknownCondition', ...
+    ['Condition folder(s) %s have no entry in C.condLabelMap. Add a display label, or ' ...
+     'remove the folder if the condition is not being analysed.'], strjoin(unknown, ', '));
+
+%  Ordered by the label map, which lists the conditions by increasing aggression, and not
+%  alphabetically. An alphabetical sort puts lowAltLowSpeed before lowAltitude, because
+%  the capital L sorts ahead of the lower-case i, so every figure legend and every bar
+%  group would show the more aggressive posture first. That reads as a mistake to anyone
+%  looking at the plot and it is the kind of thing that is only noticed after printing.
+[~, ord] = ismember(evNames, known);
+[~, byMap] = sort(ord);
+evNames = evNames(byMap);
+
+C.conditions = [{'honest'}, evNames];
 C.condPaths  = [{fullfile(C.dataDir, 'honest')}, ...
-                cellfun(@(n) fullfile(C.dataDir, 'evasive', n), ...
-                        [C.individualConditions, C.combinedCondition], 'UniformOutput', false)];
+                cellfun(@(n) fullfile(C.dataDir, 'evasive', n), evNames, ...
+                        'UniformOutput', false)];
+C.evasiveConditions = evNames;
+
+% Display labels, resolved once so no stage invents its own wording.
+C.condLabels = cell(size(C.conditions));
+for c = 1:numel(C.conditions)
+    C.condLabels{c} = C.condLabelMap{strcmp(known, C.conditions{c}), 2};
+end
+C.labelOf = @(name) C.condLabelMap{strcmp(C.condLabelMap(:, 1), name), 2};
 
 %% Integrity check: the hold-out must be disjoint from the development seeds
 S = load(C.modelFiles{1}, 'pipeline');
@@ -142,7 +215,20 @@ C.frozenFeatureNames = S.pipeline.featureNames;
 %% Integrity check: schema and window counts across the conditions
 %  Reads one header per condition and one file per condition rather than the whole
 %  dataset, so this stays cheap enough to run at the top of every stage.
+%
+%  The hold-out filter is applied here and nowhere else. Phase 7 generates the honest
+%  condition across all sixty seeds because it shares a generator with Phase 5, so the
+%  copied data folder contains development runs that must never reach a Phase 8 number.
+%  Rather than let each stage glob its own directory and hope every one of them filters
+%  identically, this loop resolves the file list once and publishes it as C.condFiles.
+%  Every stage reads that list. A stage that globs the folder itself is a bug.
+%
+%  The two failure modes are treated differently on purpose. A development seed present
+%  on disk is expected and is silently excluded, with a count reported. A declared
+%  hold-out seed that is absent is fatal, because a hold-out quietly evaluated on twelve
+%  runs instead of fifteen is a worse problem than one that refuses to start.
 minWin = Inf;
+C.condFiles = cell(size(C.conditions));
 for c = 1:numel(C.conditions)
     files = dir(fullfile(C.condPaths{c}, 'features_*.csv'));
     assert(~isempty(files), 'p8_config:emptyCondition', ...
@@ -155,11 +241,27 @@ for c = 1:numel(C.conditions)
             'Cannot read a seed from the filename %s', files(k).name);
         seeds(k) = str2double(tok{1});
     end
-    stray = setdiff(seeds, C.holdoutSeeds);
-    assert(isempty(stray), 'p8_config:strayseed', ...
-        ['Condition "%s" contains seed(s) %s outside the declared hold-out range. A ' ...
-         'development seed in the test data would invalidate every Phase 8 number.'], ...
-        C.conditions{c}, mat2str(stray'));
+
+    keep  = ismember(seeds, C.holdoutSeeds);
+    stray = sort(seeds(~keep))';
+    files = files(keep);
+    seeds = seeds(keep);
+
+    missing = setdiff(C.holdoutSeeds, seeds');
+    assert(isempty(missing), 'p8_config:missingHoldoutSeed', ...
+        ['Condition "%s" is missing hold-out seed(s) %s. Every declared hold-out seed ' ...
+         'must be present, or the conditions are not evaluated on the same runs.'], ...
+        C.conditions{c}, mat2str(missing));
+    assert(numel(unique(seeds)) == numel(seeds), 'p8_config:duplicateSeed', ...
+        'Condition "%s" has more than one file for the same seed.', C.conditions{c});
+
+    if ~isempty(stray)
+        fprintf(['Condition "%s": excluded %d file(s) outside the hold-out range ' ...
+                 '(seeds %d to %d); %d hold-out runs retained.\n'], ...
+            C.conditions{c}, numel(stray), min(stray), max(stray), numel(files));
+    end
+    C.condFiles{c} = arrayfun(@(f) fullfile(f.folder, f.name), files, ...
+                              'UniformOutput', false);
 
     T = readtable(fullfile(files(1).folder, files(1).name));
     missing = setdiff(C.frozenFeatureNames, T.Properties.VariableNames);

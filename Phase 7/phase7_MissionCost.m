@@ -8,7 +8,7 @@ function [C, R] = phase7_MissionCost(condition, seed, varargin)
 %   USAGE
 %     C = phase7_MissionCost()                        % every condition, every seed
 %     C = phase7_MissionCost('lowAltitude')           % one condition, all seeds
-%     C = phase7_MissionCost('combined', 46)          % one condition, one seed
+%     C = phase7_MissionCost('lowAltLowSpeed', 46)    % one condition, one seed
 %     C = phase7_MissionCost('all', 46:50)            % seed subset
 %     [C,R] = phase7_MissionCost(...)                 % R = raw per-run metrics
 %
@@ -126,12 +126,12 @@ A.volatilityColumn  = 'servSINR_var_dB2';
 A.volatilityRatio   = 10.0;    % fold-increase in variance counted as unit cost
 
 % ---- Mission duration term, dK ------------------------------------------
-% 'combined' swaps the aerial speed band for the terrestrial one, so the same
+% lowAltLowSpeed swaps the aerial speed band for the terrestrial one, so the same
 % mission takes mean(15,30)/mean(1,5) = 7.5x longer. That penalty is invisible
 % in the feature CSV and has to come from the configuration.
 A.aerialSpeed_ms      = [15 30];
 A.terrestrialSpeed_ms = [1 5];
-A.durationConditions  = {'combined'};   % conditions that reduce cruise speed
+A.durationConditions  = {'lowAltLowSpeed'};  % conditions that reduce cruise speed
 
 % ---- Mission profiles: weights on [dT dR dL dV dK], each row sums to 1 --
 % The weights encode what a mission values when it degrades. No single
@@ -163,7 +163,7 @@ A.clampLimit        = 1.0;          % terms bounded to [-limit, +limit]
 % conditions reaches tier 2: no policy here requires modifying the modem.
 A.tier.lowAltitude      = 0;
 A.tier.trafficReshaping = 1;
-A.tier.combined         = 1;
+A.tier.lowAltLowSpeed   = 1;
 
 % ---- Window matching ----------------------------------------------------
 A.matchWindowCount  = true;    % truncate honest to the evasive window count
@@ -451,7 +451,7 @@ function L = delayProxy(hoPerWin, idleFrac, A)
 %   uniformly waits half the off-time on average, conditional on arriving
 %   during one, which occurs with probability trafficIdle_frac.
 %
-%   The two pull in opposite directions for the combined condition: reducing
+%   The two pull in opposite directions for lowAltLowSpeed: reducing
 %   cruise speed cuts handovers while reshaping traffic adds gating delay.
 
 L = hoPerWin * A.hoInterrupt_s + idleFrac * (A.ulOffTime_s / 2);
@@ -490,7 +490,7 @@ d.dL = bound((E.delaySec - H.delaySec) / max(A.latencyBudget_s, eps), A);
 
 % --- dV link volatility --------------------------------------------------
 % Log ratio, so that improvement and degradation are symmetric and a single
-% unstable seed cannot dominate the condition mean. Signed: the combined
+% unstable seed cannot dominate the condition mean. Signed: the lowAltLowSpeed
 % condition reduces variance below the honest baseline, because slowing the
 % aircraft stabilises the link by more than descending destabilises it.
 vh = max(H.sinrVarDb2, eps);
@@ -836,7 +836,9 @@ R.logSection(keyFile, 'Phase 7 figures written to figures/', [""; ...
     "F7_2_cost_components.png                     unweighted dT/dR/dL/dV/dK decomposition"; ...
     "F7_3_link_effects_paired.png                 honest against evasive, paired per run"; ...
     "T7_1_mission_cost_summary.png                cost by condition and profile with CIs"; ...
-    "T7_2_link_effects.png                        measured link effect per condition and scenario"]);
+    "T7_2_link_effects.png                        measured link effect per condition and scenario"; ...
+    ""; ...
+    "Each name above is written twice: <name>.png for the report, <name>.fig to edit."]);
 
 fprintf('\nReport figures in %s\nKey results in %s\n', figDir, keyFile);
 end

@@ -68,7 +68,7 @@ function M = phase7_DryRun(cfg)
                 note = sprintf('aerial pinned to %.1f m', cfg.evasion.lowAltitude_m);
             case "trafficReshaping"
                 note = 'aerial traffic set to the terrestrial profile';
-            case "combined"
+            case "lowAltLowSpeed"
                 note = sprintf(['aerial pinned to %.1f m, terrestrial traffic ' ...
                     'and speeds'], cfg.evasion.lowAltitude_m);
             otherwise

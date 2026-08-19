@@ -98,31 +98,38 @@ writetable(T, fullfile(C.resultsDir, 'latency_under_evasion.csv'));
 %% F8.7 The curves
 Pt  = T(T.IsPrimary, :);
 pal = RPT.palette(numel(C.conditions));
+halfLine = ceil(0.50 * max(Pt.AerialUERuns));
+mostLine = ceil(0.80 * max(Pt.AerialUERuns));
 
 fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 940 400]);
 tl  = tiledlayout(fig, 1, 2, 'Padding', 'compact', 'TileSpacing', 'compact');
 
-panels = {'Recall', sprintf('Per-UE recall at the frozen %s threshold', opLab); ...
-          'FPR',    'Per-UE false positive rate at the same threshold'};
+%  Both axes are counts of UE-runs. Recall and false positive rate are the same curves
+%  multiplied by a constant, but drawn on a 0 to 25 axis the reader can see that the
+%  low-altitude curve never rises past a handful of UE-runs, which a 0 to 1 axis makes
+%  look like a respectable fraction.
+nAerP = max(Pt.AerialUERuns);
+nNegP = max(Pt.TerrestrialUERuns);
+panels = {'Recall', sprintf('Aerial UE-runs detected (of %d)', nAerP), nAerP; ...
+          'FPR',    sprintf('Terrestrial UE-runs falsely flagged (of %d)', nNegP), nNegP};
 for q = 1:2
     ax = nexttile(tl); hold(ax, 'on');
     for c = 1:numel(C.conditions)
         Q = Pt(Pt.Condition == string(C.conditions{c}), :);
         Q = sortrows(Q, 'WindowsObserved');
         lw = 1.2 + 0.8 * (c == 1);
-        plot(ax, Q.WindowsObserved, Q.(panels{q, 1}), '-', 'LineWidth', lw, ...
-             'Color', pal(c, :), 'DisplayName', C.conditions{c});
+        plot(ax, Q.WindowsObserved, Q.(panels{q, 1}) * panels{q, 3}, '-', 'LineWidth', lw, ...
+             'Color', pal(c, :), 'DisplayName', C.labelOf(C.conditions{c}));
     end
     if q == 2
         nomFPR = Thr.NominalFPR(find(Thr.OperatingPoint == opLab, 1));
-        yline(ax, nomFPR, '--', 'Color', [0.7 0.2 0.2], 'Label', 'nominal', ...
-              'FontSize', 8, 'HandleVisibility', 'off');
+        yline(ax, nomFPR * nNegP, '--', 'Color', [0.7 0.2 0.2], ...
+              'Label', sprintf('%s budget', opLab), 'FontSize', 8, 'HandleVisibility', 'off');
     else
-        for lv = [0.5 0.8]
+        for lv = [halfLine mostLine]
             yline(ax, lv, ':', 'Color', [0.65 0.65 0.65], 'HandleVisibility', 'off');
         end
-        legend(ax, 'Location', 'southeast', 'Box', 'off', 'FontSize', 8, ...
-               'Interpreter', 'none');
+        legend(ax, 'Location', 'southeast', 'Box', 'off', 'FontSize', 8);
     end
     xlim(ax, [1 C.nWin]);
     xlabel(ax, 'Windows observed  (one window = one further second of observation)');
@@ -137,19 +144,29 @@ RPT.saveFig(fig, fullfile(figDir, 'F8_7_latency_under_evasion.png'));
 close(fig);
 
 %% T8.11 How much time each evasion buys
+%  Thresholds for "half" and "most" are expressed as counts of the aerial UE-runs
+%  present, so the column headings do not smuggle a percentage back in.
+nAer = max(Pt.AerialUERuns);
+nNeg = max(Pt.TerrestrialUERuns);
+halfN = ceil(0.50 * nAer);
+mostN = ceil(0.80 * nAer);
 tabRows = cell(numel(C.conditions), 1);
 for c = 1:numel(C.conditions)
     Q = Pt(Pt.Condition == string(C.conditions{c}), :);
     Q = sortrows(Q, 'WindowsObserved');
     r = Q.Recall';
-    tabRows{c} = {C.conditions{c}, ...
+    tabRows{c} = {C.labelOf(C.conditions{c}), ...
         char(string(U.firstReach(r, Lgrid, 0.50))), ...
         char(string(U.firstReach(r, Lgrid, 0.80))), ...
-        r(1), r(end), Q.FPR(end)};
+        sprintf('%d of %d', round(r(1) * nAer), nAer), ...
+        sprintf('%d of %d', round(r(end) * nAer), nAer), ...
+        sprintf('%d of %d', round(Q.FPR(end) * nNeg), nNeg)};
 end
 T811 = cell2table(vertcat(tabRows{:}), 'VariableNames', ...
-    {'Condition', 'Windows_to_recall_0p50', 'Windows_to_recall_0p80', ...
-     'Recall_at_1_window', 'Recall_at_end', 'FPR_at_end'});
+    {'Condition', ...
+     sprintf('Windows_to_detect_%d_of_%d', halfN, nAer), ...
+     sprintf('Windows_to_detect_%d_of_%d', mostN, nAer), ...
+     'Detected_at_1_window', 'Detected_at_end', 'Falsely_flagged_at_end'});
 
 RPT.tableFigure(T811, fullfile(figDir, 'T8_11_latency_under_evasion.png'), struct( ...
     'Title', sprintf('T8.11  D8.7 how much observation each evasion condition costs the operator, %s', ...
@@ -161,13 +178,15 @@ RPT.tableFigure(T811, fullfile(figDir, 'T8_11_latency_under_evasion.png'), struc
              sprintf('Windows are 10 s long on a 1 s stride, capped at the %d-window truncation.', C.nWin)]));
 
 %% Report
-fprintf('\n%-18s %14s %14s %14s %12s\n', ...
-    'Condition', 'Recall@1win', 'Recall@end', 'Win to 0.80', 'FPR@end');
+fprintf('\n%-26s %16s %16s %16s %18s\n', 'Condition', 'at 1 window', 'at end', ...
+    sprintf('win to %d of %d', mostN, nAer), 'falsely flagged');
 for c = 1:numel(C.conditions)
-    fprintf('%-18s %14.3f %14.3f %14s %12.4f\n', T811.Condition{c}, ...
-        T811.Recall_at_1_window(c), T811.Recall_at_end(c), ...
-        T811.Windows_to_recall_0p80{c}, T811.FPR_at_end(c));
+    fprintf('%-26s %16s %16s %16s %18s\n', T811.Condition{c}, ...
+        T811.Detected_at_1_window{c}, T811.Detected_at_end{c}, ...
+        T811.(sprintf('Windows_to_detect_%d_of_%d', mostN, nAer)){c}, ...
+        T811.Falsely_flagged_at_end{c});
 end
+fprintf('\nCounts are aerial UE-runs detected, and terrestrial UE-runs falsely flagged.\n');
 
 RPT.logSection(keyFile, 'D8.7  Detection latency under evasion', [""; ...
     sprintf('Primary model          : %s', C.primaryName); ...

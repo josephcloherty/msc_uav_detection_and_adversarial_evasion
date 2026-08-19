@@ -3,7 +3,7 @@
 %          Phase 7 feature CSVs, for the terrestrial invariance diagnostic only
 %  Writes: results/fpr_audit.csv, results/fpr_audit_terrestrial_invariance.csv, figures/fpr_audit.png
 %
-%  The purpose is to establish that the recall changes reported in D8.2 and D8.3 are
+%  The purpose is to establish that the detection changes reported in D8.2 are
 %  attributable to the evasion policy and not to the operating point having moved. If the
 %  false positive rate drifts between conditions then the detector is not being held at
 %  the same place on its own curve and the recall comparison is not like for like.
@@ -106,7 +106,11 @@ tol   = 1e-9;
 invRows = {};
 feats = C.frozenFeatureNames;
 
-honestFiles = dir(fullfile(C.dataDir, 'honest', 'features_*.csv'));
+% Hold-out files only, taken from the list p8_config resolved. The copied data folder
+% still contains the development runs, so globbing 'honest' here would pull them in.
+assert(strcmp(C.conditions{1}, 'honest'), 'p8_fpr_audit:conditionOrder', ...
+    'Expected the honest condition first in C.conditions.');
+honestFiles = C.condFiles{1};
 for c = 2:numel(C.conditions)
     cond = string(C.conditions{c});
     nMatched = 0;  nIdentical = 0;
@@ -115,8 +119,9 @@ for c = 2:numel(C.conditions)
     accum     = cell(numel(feats), 1);
 
     for k = 1:numel(honestFiles)
-        hf = fullfile(honestFiles(k).folder, honestFiles(k).name);
-        ef = fullfile(C.condPaths{c}, honestFiles(k).name);
+        hf = honestFiles{k};
+        [~, nm, ext] = fileparts(hf);
+        ef = fullfile(C.condPaths{c}, [nm ext]);
         if ~isfile(ef), continue; end
 
         Hh = readtable(hf);  Ee = readtable(ef);
@@ -180,25 +185,33 @@ for level = ["Window", "PerUE"]
     [~, srt] = sort(ord);
     S = S(srt, :);
     x = 1:height(S);
+    nUnits = S.NegativeUnits(1);
+    cnt = S.FalsePositives;
+    lo  = arrayfun(@(k) floor(V.cpLo(k, nUnits) * nUnits), cnt);
+    hi  = arrayfun(@(k) ceil(V.cpHi(k, nUnits) * nUnits),  cnt);
     for i = x
-        bar(ax, i, S.FPR(i), 0.6, 'FaceColor', pal(min(i, size(pal, 1)), :), ...
+        bar(ax, i, cnt(i), 0.6, 'FaceColor', pal(min(i, size(pal, 1)), :), ...
             'FaceAlpha', 0.75, 'EdgeColor', 'none');
+        text(ax, i, double(cnt(i)) + 0.02 * max(hi), sprintf('%d', cnt(i)), ...
+            'HorizontalAlignment', 'center', 'FontSize', 8, 'FontWeight', 'bold');
     end
-    errorbar(ax, x, S.FPR, S.FPR - S.FPR_lo, S.FPR_hi - S.FPR, 'k', ...
-        'LineStyle', 'none', 'LineWidth', 1);
-    yline(ax, S.NominalFPR(1), '--', 'Color', [0.7 0.2 0.2], 'LineWidth', 1, ...
-        'Label', 'nominal', 'LabelHorizontalAlignment', 'left', 'FontSize', 8);
+    errorbar(ax, x, cnt, cnt - lo, hi - cnt, 'k', 'LineStyle', 'none', 'LineWidth', 1);
+    yline(ax, S.NominalFPR(1) * nUnits, '--', 'Color', [0.7 0.2 0.2], 'LineWidth', 1, ...
+        'Label', sprintf('%s budget', opLab), 'LabelHorizontalAlignment', 'left', 'FontSize', 8);
+    xticks(ax, x);
+    xticklabels(ax, arrayfun(@(s) C.labelOf(char(s)), S.Condition, 'UniformOutput', false));
+    xtickangle(ax, 20);
     if level == "PerUE"
-        yline(ax, S.FPRGranularity(1), ':', 'Color', [0.4 0.4 0.4], ...
-            'Label', 'one UE-run', 'LabelHorizontalAlignment', 'left', 'FontSize', 8);
+        ylabel(ax, sprintf('Terrestrial UE-runs falsely flagged (of %d)', nUnits));
+    else
+        ylabel(ax, sprintf('Terrestrial windows falsely flagged (of %d)', nUnits));
     end
-    xticks(ax, x); xticklabels(ax, S.Condition); xtickangle(ax, 20);
-    ylabel(ax, 'Measured false positive rate');
+    ylim(ax, [0 max(hi) * 1.15 + 1]);
     title(ax, sprintf('%s level', level));
     V.styleAxes(ax);
 end
-title(tl, sprintf('D8.4 operating point under every condition, %s, %s, first %d windows', ...
-    C.primaryName, opLab, C.nWin));
+title(tl, sprintf(['D8.4 operating point under every condition, %s, %s, first %d windows, ' ...
+    'in UE-runs'], C.primaryName, opLab, C.nWin));
 V.saveFig(fig, fullfile(C.figureDir, 'fpr_audit.png'));
 close(fig);
 
@@ -207,14 +220,14 @@ fprintf('\n----- primary model, %s, per-UE, %s, truncated -----\n', C.primaryNam
 P = T(T.IsPrimary & T.Level == "PerUE" & T.OperatingPoint == opLab & T.Length == "Truncated", :);
 ref = P.FPR(P.Condition == "honest");
 for i = 1:height(P)
-    fprintf('%-18s FPR %s   %d of %d terrestrial UE-runs   %+.2f steps from honest\n', ...
-        P.Condition(i), V.fmtCI(P.FPR(i), P.FPR_lo(i), P.FPR_hi(i), 4), ...
-        P.FalsePositives(i), P.NegativeUnits(i), ...
+    fprintf('%-26s flagged %-20s  %+.0f UE-runs from honest\n', ...
+        C.labelOf(char(P.Condition(i))), ...
+        V.fmtCountCI(P.FalsePositives(i), P.NegativeUnits(i)), ...
         (P.FPR(i) - ref) / P.FPRGranularity(i));
 end
-fprintf(['\nA drift of less than one step is not evidence that the operating point moved. ' ...
-         'The\nrecall changes in D8.2 and D8.3 are attributable to the evasion policy only ' ...
-         'to the\nextent that these rates agree.\n']);
+fprintf(['\nA drift of less than one UE-run is not evidence that the operating point ' ...
+         'moved.\nThe detection changes in D8.2 are attributable to the evasion policy ' ...
+         'only to the\nextent that these counts agree.\n']);
 fprintf('\nWrote results/fpr_audit.csv, fpr_audit_terrestrial_invariance.csv, figures/fpr_audit.png\n');
 
 
@@ -233,20 +246,25 @@ for i = 1:height(P)
     fprTxt(i)  = RPT.fmtCI(P.FPR(i), P.FPR_lo(i), P.FPR_hi(i), 4);
     stepTxt(i) = string(sprintf('%+.2f', (P.FPR(i) - ref) / P.FPRGranularity(i)));
 end
-T87 = table(P.Condition, P.Threshold, P.NegativeUnits, P.FalsePositives, fprTxt, ...
-    stepTxt, P.TPR, ...
-    'VariableNames', {'Condition', 'Frozen_threshold', 'Terrestrial_UE_runs', ...
-                      'False_positives', 'FPR_95pct_CI', 'Steps_from_honest', 'Recall'});
+condLab = arrayfun(@(s) string(C.labelOf(char(s))), P.Condition);
+falseTxt = arrayfun(@(i) string(V.fmtCountCI(P.FalsePositives(i), P.NegativeUnits(i))), ...
+                    (1:height(P))');
+detTxt   = arrayfun(@(i) string(V.fmtCount(round(P.TPR(i) * P.PositiveUnits(i)), ...
+                    P.PositiveUnits(i))), (1:height(P))');
+T87 = table(condLab, P.Threshold, falseTxt, stepTxt, detTxt, ...
+    'VariableNames', {'Condition', 'Frozen_threshold', 'Terrestrial_flagged', ...
+                      'Steps_from_honest', 'Aerial_detected'});
 
 RPT.tableFigure(T87, fullfile(figDir, 'T8_7_fpr_audit.png'), struct( ...
     'Title', sprintf('T8.7  D8.4 false positive audit, %s, per-UE, %s, first %d windows', ...
                      C.primaryName, opLab, C.nWin), ...
     'Highlight', P.Condition == "honest", ...
-    'Note', ["";sprintf('The per-UE rate can only move in whole UE-runs, so one step is 1/%d = %.3f%%.', ...
-                     P.NegativeUnits(1), 100 * P.FPRGranularity(1)); ...
-             "A drift of less than one step is not evidence that the operating point moved."; ...
-             "The recall changes in D8.2 and D8.3 are attributable to the evasion policy only to the extent"; ...
-             "that these rates agree."]));
+    'Note', ["";sprintf('Counts of UE-runs. The false positive count can only move in whole UE-runs, one of %d.', ...
+                     P.NegativeUnits(1)); ...
+             "A drift of less than one UE-run is not evidence that the operating point moved."; ...
+             "The detection changes in D8.2 are attributable to the evasion policy only to the extent"; ...
+             "that these counts agree."; ...
+             "Bracketed ranges are exact Clopper-Pearson 95 per cent intervals, expressed in UE-runs."]));
 
 %% T8.8 Are the terrestrial UEs really untouched
 %  If they were identical by construction the audit above would be a tautology. They

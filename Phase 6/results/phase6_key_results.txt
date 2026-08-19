@@ -1,0 +1,150 @@
+PHASE 6 KEY RESULTS
+===================
+Written 2026-08-19 14:56:06
+
+D6.1  Development set
+---------------------
+  Seeds                 : 1:45 (45 seeds)
+  Runs / windows        : 45 runs, 23950 windows
+  UE-runs               : 479, of which 119 aerial (24.8%)
+  Predictors in use     : 12 of 85 listed
+  Predictors switched off: 73
+  Per-UE FPR resolution : 1/360 = 0.278%
+  Highest single-feature AUC: 0.8591 (nbrSINR_mean_mean_dB)
+
+D6.1  Development set by scenario
+---------------------------------
+  Scenario       Runs  Windows  UE runs  Aerial UE runs  Aerial pct  
+  -------------------------------------------------------------------
+  RMa            15    8200     164      44              26.829      
+  UMa            15    7500     150      30              20.000      
+  UMi            15    8250     165      45              27.273      
+  All scenarios  45    23950    479      119             24.843      
+
+D6.2  Cross-validation
+----------------------
+  Design                : grouped stratified 5-fold, whole runs held out together
+  Rows / predictors     : 23950 windows, 12 predictors
+  Best by pAUC<5%FPR    : Random Forest at 0.7614
+  Best by AUC           : Random Forest at 0.9782
+  Best recall at 1% FPR : Random Forest at 0.6687
+  Model                  AUC              pAUC below 5pct FPR  Recall at 1pct FPR  Recall at 5pct FPR  
+  -----------------------------------------------------------------------------------------------------
+  Random Forest          0.978 +/- 0.005  0.761 +/- 0.044      0.669 +/- 0.050     0.880 +/- 0.039     
+  KNN                    0.963 +/- 0.016  0.730 +/- 0.065      0.656 +/- 0.089     0.856 +/- 0.063     
+  Decision Tree          0.925 +/- 0.023  0.579 +/- 0.089      0.413 +/- 0.235     0.743 +/- 0.067     
+  Logistic Regression    0.901 +/- 0.030  0.563 +/- 0.051      0.490 +/- 0.046     0.650 +/- 0.057     
+  Discriminant Analysis  0.894 +/- 0.037  0.548 +/- 0.052      0.476 +/- 0.040     0.643 +/- 0.053     
+
+D6.3  Per-UE decision rule
+--------------------------
+  UE-runs                 : 479, of which 360 terrestrial
+  Candidate rules tested   : 26 per family (mean posterior plus M-of-N over N in [3 5 7 10])
+  Best pooled pAUC<5%FPR   : Random Forest at 0.9482
+  Its rule                 : mean posterior
+  Its pooled recall at 1%  : 0.8992 at an achieved 0.833% FPR
+  Pooled recall resolution : 1/119 = 0.0084
+  Model                  Chosen rule     CV recall at 1pct FPR  CV achieved FPR pct  Pooled recall  Pooled achieved FPR pct  Pooled per UE AUC  Pooled pAUC below 5pct  
+  ----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  Random Forest          mean posterior  0.871 +/- 0.052        0.8333               0.8992         0.8333                   0.9961             0.9482                  
+  KNN                    mean posterior  0.888 +/- 0.047        0.5556               0.8992         0.8333                   0.9888             0.9080                  
+  Decision Tree          mean posterior  0.753 +/- 0.067        0.8333               0.8151         0.8333                   0.9826             0.8761                  
+  Logistic Regression    mean posterior  0.562 +/- 0.039        0.8333               0.5882         0.8333                   0.9229             0.6534                  
+  Discriminant Analysis  mean posterior  0.551 +/- 0.076        0.5556               0.5546         0.8333                   0.9130             0.6410                  
+
+D6.4  Operating thresholds
+--------------------------
+  Nominal points          : 1%, 5%
+  Best per-UE recall at 1%: 0.8992 (KNN, Random Forest)
+  Thresholds are read off pooled out-of-fold scores, never from hold-out data.
+  Achieved rates are reported beside nominal because the per-UE rate moves in whole UE-runs.
+  Model                  Level  DecisionRule    NominalFPR  Threshold  AchievedFPR  Recall  FalsePositives  NegativeUnits  
+  -------------------------------------------------------------------------------------------------------------------------
+  KNN                    PerUE  mean posterior  0.0100      0.4082     0.0083       0.8992  3               360            
+  KNN                    PerUE  mean posterior  0.0500      0.2412     0.0500       0.9496  18              360            
+  Random Forest          PerUE  mean posterior  0.0100      0.3933     0.0083       0.8992  3               360            
+  Random Forest          PerUE  mean posterior  0.0500      0.2218     0.0500       0.9916  18              360            
+  Decision Tree          PerUE  mean posterior  0.0100      0.4960     0.0083       0.8151  3               360            
+  Decision Tree          PerUE  mean posterior  0.0500      0.2680     0.0500       0.9496  18              360            
+  Logistic Regression    PerUE  mean posterior  0.0100      0.5681     0.0083       0.5882  3               360            
+  Logistic Regression    PerUE  mean posterior  0.0500      0.3544     0.0500       0.7479  18              360            
+  Discriminant Analysis  PerUE  mean posterior  0.0100      0.6131     0.0083       0.5546  3               360            
+  Discriminant Analysis  PerUE  mean posterior  0.0500      0.3164     0.0500       0.7731  18              360            
+
+D6.5  Detection latency
+-----------------------
+  Population              : 479 of 479 UE-runs, each with at least 50 windows
+  Best recall after 1 window : 0.6891 (Random Forest)
+  Best recall at 50 windows  : 0.8992 (KNN)
+  The threshold is re-derived at every observation length, so every point sits at the same 1% FPR.
+  Model                  Windows to recall 0p50  Windows to recall 0p80  Windows to recall 0p90  Recall at 1 window  Recall at end  
+  ----------------------------------------------------------------------------------------------------------------------------------
+  KNN                    1                       21                      not reached             0.5378              0.8992         
+  Random Forest          1                       15                      not reached             0.6891              0.8992         
+  Decision Tree          10                      44                      not reached             0.5042              0.8151         
+  Logistic Regression    16                      not reached             not reached             0.4454              0.5882         
+  Discriminant Analysis  18                      not reached             not reached             0.3782              0.5546         
+
+D6.6  Feature importance
+------------------------
+  Predictors ranked        : 12, over 5 folds with a refit in each
+  Top five by mean rank    : nbrSINR_mean_mean_dB, cqi_mean, nbrSINR_max_mean_dB, numAboveThr_mean, servSINR_mean_dB
+  Of those, hard to manipulate: 4
+  Highest single-feature AUC : 0.8591 (nbrSINR_mean_mean_dB)
+  Predictor             Mean rank  RF OOB importance  Logistic abs coef  Single feature AUC  Feature block          Manipulability  
+  ----------------------------------------------------------------------------------------------------------------------------------
+  nbrSINR_mean_mean_dB  1.400      3.576              4.600              0.8591              Neighbour geometry     Low             
+  cqi_mean              3.800      3.694              0.802              0.6345              Channel quality        Medium          
+  nbrSINR_max_mean_dB   4.000      3.344              1.368              0.7946              Neighbour geometry     Low             
+  numAboveThr_mean      5.600      1.777              2.325              0.8177              Neighbour geometry     Low             
+  servSINR_mean_dB      6.000      1.888              0.853              0.7155              Serving cell SINR      Low             
+  servSINR_min_dB       6.600      2.298              0.356              0.6710              Serving cell SINR      Low             
+  sinrSpread_mean_dB    7.000      3.322              0.298              0.5250              Neighbour geometry     Low             
+  numAboveThr_max       7.400      1.616              0.534              0.7934              Neighbour geometry     Low             
+  nbrSINR_max_var_dB2   8.200      3.641              0.057              0.5233              Neighbour geometry     Low             
+  numAboveThr_var       8.600      2.731              0.077              0.5730              Neighbour geometry     Low             
+  hoCount_win           9.600      2.128              0.065              0.5387              Handover and mobility  Low             
+  pingPongCount_win     9.800      1.439              0.343              0.5658              Handover and mobility  Low             
+
+D6.7  Model selection and freeze
+--------------------------------
+  Primary classifier      : Random Forest
+  Its decision rule       : mean posterior
+  Selection criterion     : pooled per-UE pAUC below 5% FPR = 0.9482
+  Margin over runner-up   : 0.0401
+  Reported recall at 1%   : 0.8992 at an achieved 0.833% FPR
+  Per-UE threshold        : 0.3933 (1%), 0.2218 (5%)
+  Window threshold        : 0.7015 (1%), 0.3105 (5%)
+  Frozen                  : 2026-08-19 14:58:44, MATLAB 24.2.0.3212159 (R2024b) Update 9
+  Fitted on               : 45 runs, 23950 rows, 12 predictors
+  Model                  Decision rule   Selection pAUC below 5pct  Reported recall at 1pct  Achieved FPR pct  Window threshold  PerUE threshold  Primary  
+  ---------------------------------------------------------------------------------------------------------------------------------------------------------
+  Random Forest          mean posterior  0.9482                     0.8992                   0.8333            0.7015            0.3933           yes      
+  KNN                    mean posterior  0.9080                     0.8992                   0.8333            0.7681            0.4082           no       
+  Decision Tree          mean posterior  0.8761                     0.8151                   0.8333            0.9691            0.4960           no       
+  Logistic Regression    mean posterior  0.6534                     0.5882                   0.8333            0.7295            0.5681           no       
+  Discriminant Analysis  mean posterior  0.6410                     0.5546                   0.8333            0.7651            0.6131           no       
+
+Phase 6 figures written to figures/
+-----------------------------------
+  T6_1_development_set.png        development set composition
+  T6_2_leakage_check.png          single-predictor separability
+  T6_3_cv_results.png             cross-validation summary
+  T6_4_per_ue_rule.png            decision rule and family comparison
+  T6_5_thresholds_per_ue.png      per-UE operating points
+  T6_6_thresholds_window.png      window-level operating points
+  T6_7_detection_latency.png      windows needed to reach a recall level
+  T6_8_feature_importance.png     predictor ranking
+  T6_9_freeze_manifest.png        what was frozen and why
+  F6_1_feature_correlation.png    predictor correlation heatmap
+  F6_2_cv_metric_comparison.png   four headline metrics by family
+  F6_3_cv_fold_dispersion.png     fold-to-fold spread
+  F6_4_oof_roc.png                pooled out-of-fold ROC
+  F6_5_oof_score_distributions.png  score distributions by class
+  F6_6_per_ue_roc.png             per-UE ROC under each chosen rule
+  F6_7_operating_points.png       recall at 1% and 5% FPR
+  F6_8_detection_latency.png      the latency curve
+  F6_9_importance_rank_heatmap.png  rank under each measure
+  F6_10_rf_importance.png         forest importance with fold spread
+  F6_11_model_selection.png       selection criterion by family
+  Each name above is written twice: <name>.png for the report, <name>.fig to edit.

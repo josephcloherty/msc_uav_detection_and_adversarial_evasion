@@ -251,7 +251,12 @@ function [cfg, info] = applyEvasion(cfg, condition)
             cfg.traffic.aerial = cfg.traffic.terrestrial;
             info.trafficReshaped = true;
 
-        case "combined"
+        % Three actions, not two. The speed reduction is the reason this condition is
+        % named for its actions rather than called "combined": it appears in no other
+        % condition, so the difference between this and lowAltitude is the joint effect
+        % of reshaping traffic and slowing down, and is not an interaction between the
+        % two conditions that are tested individually.
+        case "lowAltLowSpeed"
             cfg = setAerialAltitude(cfg, z);
             cfg.evasion.allowSubBoundary = true;
             cfg.traffic.aerial = cfg.traffic.terrestrial;
@@ -267,7 +272,9 @@ function [cfg, info] = applyEvasion(cfg, condition)
         otherwise
             error('phase7_RunBatch:unknownCondition', ...
                 ['Unknown evasion condition "%s". Defined conditions are: ' ...
-                 'honest, lowAltitude, trafficReshaping, combined.'], condition);
+                 'honest, lowAltitude, trafficReshaping, lowAltLowSpeed. Note that ' ...
+                 'trafficReshaping is implemented but is not in the default batch.'], ...
+                condition);
     end
 
     % The failure this prevents is silent: a desynchronised run still writes

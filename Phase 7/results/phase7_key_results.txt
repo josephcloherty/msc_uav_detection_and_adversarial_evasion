@@ -1,0 +1,49 @@
+PHASE 7 KEY RESULTS
+===================
+Written 2026-08-19 13:47:43
+
+D7  Mission cost of evasion
+---------------------------
+  Conditions priced      : combined, lowAltitude, trafficReshaping
+  Scenarios              : RMa, UMa, UMi
+  Mission profiles       : reconnaissance, remotePiloting, terminalApproach
+  Seeds per condition    : 15
+  Aggregation            : weighted, signed terms = 1, clamp +/-1.0
+  Most expensive         : combined under reconnaissance, C_op = 0.661 [0.616, 0.709]
+  Cheapest               : trafficReshaping under terminalApproach, C_op = 0.125 [0.086, 0.147]
+  Runs where the link improved: 14 of 45
+  Cost table stamp       : 20260819_134743
+  Condition         Profile           Tier  Seeds  C op 95pct CI         dT      dR       dL      dV       dK      
+  -----------------------------------------------------------------------------------------------------------------
+  lowAltitude       reconnaissance    0     15     0.182 [0.142, 0.220]  0.0179  0.3650   0.1985  0.6560   0.0000  
+  trafficReshaping  reconnaissance    1     15     0.543 [0.511, 0.560]  0.9888  -0.0325  0.6168  -0.0572  0.0000  
+  combined          reconnaissance    1     15     0.661 [0.616, 0.709]  0.9890  0.2175   0.6344  -0.1093  0.8667  
+  trafficReshaping  remotePiloting    1     15     0.210 [0.148, 0.245]  0.9888  -0.0325  0.6168  -0.0572  0.0000  
+  lowAltitude       remotePiloting    0     15     0.334 [0.260, 0.408]  0.0179  0.3650   0.1985  0.6560   0.0000  
+  combined          remotePiloting    1     15     0.364 [0.278, 0.455]  0.9890  0.2175   0.6344  -0.1093  0.8667  
+  trafficReshaping  terminalApproach  1     15     0.125 [0.086, 0.147]  0.9888  -0.0325  0.6168  -0.0572  0.0000  
+  lowAltitude       terminalApproach  0     15     0.220 [0.169, 0.271]  0.0179  0.3650   0.1985  0.6560   0.0000  
+  combined          terminalApproach  1     15     0.529 [0.468, 0.590]  0.9890  0.2175   0.6344  -0.1093  0.8667  
+
+D7  Measured effect on the aerial link
+--------------------------------------
+  Condition         Scenario  SINR honest dB  SINR evasive dB  Outage honest  Outage evasive  SINR var ratio  Payload honest Mbps  Payload evasive Mbps  
+  -------------------------------------------------------------------------------------------------------------------------------------------------------
+  combined          RMa       24.471          13.855           0.0000         0.0400          0.274           3.432                0.037                 
+  combined          UMa       22.724          13.990           0.0922         0.0278          1.886           3.667                0.038                 
+  combined          UMi       23.689          19.453           0.1600         0.0000          1.006           3.621                0.036                 
+  lowAltitude       RMa       24.471          15.935           0.0000         0.1600          4.960           3.432                3.355                 
+  lowAltitude       UMa       22.724          17.127           0.0922         0.2417          4.594           3.667                3.658                 
+  lowAltitude       UMi       23.689          19.518           0.1600         0.3956          2.981           3.621                3.624                 
+  trafficReshaping  RMa       24.471          24.471           0.0000         0.0000          1.000           3.432                0.038                 
+  trafficReshaping  UMa       22.724          22.727           0.0922         0.0922          0.999           3.667                0.038                 
+  trafficReshaping  UMi       23.689          24.640           0.1600         0.0933          0.821           3.621                0.036                 
+
+Phase 7 figures written to figures/
+-----------------------------------
+  F7_1_mission_cost_by_condition_scenario.png  mean C_op per condition and scenario, per profile
+  F7_2_cost_components.png                     unweighted dT/dR/dL/dV/dK decomposition
+  F7_3_link_effects_paired.png                 honest against evasive, paired per run
+  T7_1_mission_cost_summary.png                cost by condition and profile with CIs
+  T7_2_link_effects.png                        measured link effect per condition and scenario
+  Each name above is written twice: <name>.png for the report, <name>.fig to edit.

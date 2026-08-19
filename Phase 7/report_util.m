@@ -4,8 +4,8 @@ function R = report_util()
 %   R = report_util() returns a struct of function handles. Every reporting block in
 %   Phases 6, 7 and 8 uses these, so one change to the styling changes every figure.
 %
-%     R.tableFigure(T, file, opts)   draw a MATLAB table as a PNG at 300 dpi
-%     R.saveFig(fig, file)           write any figure at 300 dpi on white
+%     R.tableFigure(T, file, opts)   draw a MATLAB table as a PNG at 300 dpi, plus .fig
+%     R.saveFig(fig, file)           write any figure at 300 dpi on white, plus .fig
 %     R.styleAxes(ax)                one axes style for every plot
 %     R.palette()                    categorical colours, consistent across phases
 %     R.logNew(file, title)          start a key-results text file, overwriting it
@@ -18,6 +18,12 @@ function R = report_util()
 %   put in a report. Anything worth quoting is drawn instead, exported at print
 %   resolution, and dropped straight into the document. Keep tables short: a figure of
 %   thirty rows is a spreadsheet, not an exhibit.
+%
+%   Every figure is written twice: a PNG for the report and a MATLAB .fig of the same
+%   name beside it. Open the .fig when a label needs rewording, a legend needs moving or
+%   a title needs shortening to fit a column, then export the PNG again from there. The
+%   .fig is briefly made visible before saving, because a figure saved while invisible
+%   reopens invisible and looks like it failed to load.
 %
 %   opts fields, all optional:
 %     Title      char or string, drawn bold above the table
@@ -106,6 +112,11 @@ noteLines = noteLines(strlength(noteLines) > 0);
 chPx   = 0.60 * fs;
 tblW   = sum(w) * chPx;
 rowH   = 1.85 * fs;
+noteFs = max(6, fs - 2);
+noteW  = 0;
+if ~isempty(noteLines)
+    noteW = double(max(strlength(noteLines))) * 0.58 * noteFs;
+end
 headH  = 2.35 * fs;
 titleH = 0;
 if strlength(string(opts.Title)) > 0, titleH = 2.9 * fs; end
@@ -114,7 +125,9 @@ if noteH > 0, noteH = noteH + 0.5 * fs; end
 
 marginX = 20;
 marginY = 14;
-figW = max(360, tblW + 2 * marginX);
+% The figure is as wide as the wider of the table and its longest footnote, so a note
+% that runs past the last column is not clipped at the edge.
+figW = max([360, tblW + 2 * marginX, noteW + 2 * marginX]);
 figH = titleH + headH + nR * rowH + noteH + 2 * marginY;
 
 fig = figure('Visible', 'off', 'Color', 'w', 'Units', 'pixels', ...
@@ -123,16 +136,17 @@ ax = axes('Parent', fig, 'Units', 'normalized', 'Position', [0 0 1 1], ...
           'XLim', [0 1], 'YLim', [0 1]);
 axis(ax, 'off'); hold(ax, 'on');
 
+% The table keeps its natural width and sits left; only the notes use the full span.
 x0 = marginX / figW;
-x1 = 1 - marginX / figW;
+x1 = x0 + tblW / figW;
 xe = x0 + (x1 - x0) * [0, cumsum(w) / sum(w)];
 
 y = 1 - marginY / figH;
 
 if titleH > 0
     text(ax, x0, y - 0.9 * fs / figH, string(opts.Title), 'FontName', 'Helvetica', ...
-        'FontSize', fs + 2, 'FontWeight', 'bold', 'Color', [0.10 0.12 0.16], ...
-        'VerticalAlignment', 'middle', 'Interpreter', 'none');
+        'FontSize', fs + 2, 'FontWeight', 'bold', 'Color', [0 0 0], ...
+        'VerticalAlignment', 'middle', 'Interpreter', 'none', 'Tag', 'keepColor');
     y = y - titleH / figH;
 end
 
@@ -172,14 +186,17 @@ plot(ax, [x0 x1], [y y], '-', 'Color', [0.16 0.20 0.26], 'LineWidth', 1);
 y = y - 0.45 * fs / figH;
 for k = 1:numel(noteLines)
     y = y - 1.75 * fs / figH;
-    text(ax, x0, y, noteLines(k), 'FontName', 'Helvetica', 'FontSize', max(6, fs - 2), ...
-        'Color', [0.38 0.40 0.44], 'VerticalAlignment', 'middle', 'Interpreter', 'none');
+    text(ax, x0, y, noteLines(k), 'FontName', 'Helvetica', 'FontSize', noteFs, ...
+        'Color', [0.32 0.34 0.38], 'VerticalAlignment', 'middle', 'Interpreter', 'none', ...
+        'Tag', 'keepColor');
 end
 
+forceLightTheme(fig);
 ensureDir(fileparts(outFile));
 exportgraphics(fig, outFile, 'Resolution', 300, 'BackgroundColor', 'white');
+saveEditable(fig, outFile);
 close(fig);
-fprintf('Wrote %s\n', outFile);
+fprintf('Wrote %s (+ .fig)\n', outFile);
 end
 
 
@@ -192,7 +209,7 @@ switch al
 end
 text(ax, xp, y, str, 'FontName', 'Helvetica', 'FontSize', fs, 'Color', col, ...
     'FontWeight', wt, 'HorizontalAlignment', ha, 'VerticalAlignment', 'middle', ...
-    'Interpreter', 'none');
+    'Interpreter', 'none', 'Tag', 'keepColor');
 end
 
 
@@ -229,17 +246,122 @@ end
 
 %% ---- plot styling --------------------------------------------------------------
 function saveFig(fig, file)
+forceLightTheme(fig);
 ensureDir(fileparts(file));
 exportgraphics(fig, file, 'Resolution', 300, 'BackgroundColor', 'white');
-fprintf('Wrote %s\n', file);
+saveEditable(fig, file);
+fprintf('Wrote %s (+ .fig)\n', file);
+end
+
+
+function saveEditable(fig, file)
+%SAVEEDITABLE Write the editable MATLAB figure beside the exported PNG.
+%
+%   The PNG is what goes in the report. The .fig is what you open when a title is too
+%   long for the column, a legend sits over a line, or a label needs rewording after a
+%   supervisor reads it. Edit there and export again rather than rerunning the stage,
+%   which for Phase 8 means rescoring the whole hold-out.
+%
+%   The figure is made visible for the save and put back afterwards. openfig honours the
+%   visibility stored in the file, so a .fig written while invisible reopens invisible
+%   and reads as a failed load. The window flashes up briefly during a batch run; that
+%   is the cost of the file being usable when you come back to it.
+
+[d, n] = fileparts(file);
+figFile = fullfile(d, [n '.fig']);
+was = get(fig, 'Visible');
+try
+    set(fig, 'Visible', 'on');
+    savefig(fig, figFile, 'compact');
+catch err
+    warning('report_util:figSaveFailed', ...
+        'Wrote the PNG but not %s: %s', figFile, err.message);
+end
+try
+    set(fig, 'Visible', was);
+catch
+end
+end
+
+
+function forceLightTheme(fig)
+%FORCELIGHTTHEME White canvas, black text, Helvetica, whatever theme MATLAB is in.
+%
+%   MATLAB R2025a introduced figure themes, and a figure built while the dark theme is
+%   active exports with a black axes background and pale grey text however the figure
+%   colour is set. A report figure has to be legible on white paper, so the theme is
+%   undone here, once, rather than at thirty call sites.
+%
+%   Text drawn deliberately light on a dark mark, such as a value printed inside a dark
+%   heatmap cell or a table header on its navy band, carries the tag 'keepColor' and is
+%   left alone. Text that is already dark is also left alone, so the grey footnotes
+%   under a table survive. Everything else is set to black.
+
+try
+    set(fig, 'Theme', 'light');            % R2025a and later; older releases have none
+catch
+end
+set(fig, 'Color', 'w');
+
+ink = [0 0 0];
+
+ax = findall(fig, 'Type', 'axes');
+for k = 1:numel(ax)
+    a = ax(k);
+    set(a, 'Color', 'w', 'XColor', ink, 'YColor', ink, 'ZColor', ink, ...
+           'GridColor', [0.15 0.15 0.15], 'MinorGridColor', [0.30 0.30 0.30], ...
+           'FontName', 'Helvetica');
+    set([a.Title, a.XLabel, a.YLabel, a.ZLabel], 'Color', ink, 'FontName', 'Helvetica');
+end
+
+lg = findall(fig, 'Type', 'legend');
+for k = 1:numel(lg)
+    set(lg(k), 'TextColor', ink, 'FontName', 'Helvetica');
+    if strcmp(lg(k).Box, 'on')
+        set(lg(k), 'Color', 'w', 'EdgeColor', [0.55 0.55 0.55]);
+    end
+end
+
+cb = findall(fig, 'Type', 'colorbar');
+for k = 1:numel(cb)
+    set(cb(k), 'Color', ink, 'FontName', 'Helvetica');
+    try
+        set(cb(k).Label, 'Color', ink, 'FontName', 'Helvetica');
+    catch
+    end
+end
+
+tls = findall(fig, 'Type', 'tiledlayout');
+for k = 1:numel(tls)
+    try
+        set(tls(k).Title, 'Color', ink, 'FontName', 'Helvetica');
+    catch
+    end
+    try
+        set(tls(k).Subtitle, 'Color', ink, 'FontName', 'Helvetica');
+    catch
+    end
+end
+
+tx = findall(fig, 'Type', 'text');
+for k = 1:numel(tx)
+    if strcmp(tx(k).Tag, 'keepColor'), continue; end
+    set(tx(k), 'FontName', 'Helvetica');
+    c = tx(k).Color;
+    if isnumeric(c) && numel(c) == 3 && mean(c) >= 0.5
+        set(tx(k), 'Color', ink);
+    end
+end
 end
 
 
 function styleAxes(ax)
 set(ax, 'FontName', 'Helvetica', 'FontSize', 10, 'Box', 'off', ...
-        'TickDir', 'out', 'LineWidth', 0.75, 'Layer', 'top');
+        'TickDir', 'out', 'LineWidth', 0.75, 'Layer', 'top', ...
+        'Color', 'w', 'XColor', [0 0 0], 'YColor', [0 0 0]);
 grid(ax, 'on');
-ax.GridAlpha = 0.12;
+ax.GridColor = [0.15 0.15 0.15];
+ax.GridAlpha = 0.15;
 end
 
 
