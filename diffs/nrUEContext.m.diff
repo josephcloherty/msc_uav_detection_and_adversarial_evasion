@@ -1,0 +1,43 @@
+--- a/toolbox/5g/5g/+nr5g/+internal/nrUEContext.m
++++ b/toolbox/5g/5g/+nr5g/+internal/nrUEContext.m
+@@ -82,7 +82,7 @@
+         CustomContext
+     end
+ 
+-    properties(Hidden)
++    properties%(Hidden)
+         %XOverheadPDSCH Additional overheads in PDSCH transmission
+         XOverheadPDSCH = 0;
+ 
+@@ -476,7 +476,12 @@
+             harqIndex = rxResultInfo.HARQID+1;
+             rxResult = rxResultInfo.RxResult;
+ 
+-            isNewTx = strcmp(obj.HarqStatusDL{harqIndex}.Type, 'newTx');
++           % isNewTx = strcmp(obj.HarqStatusDL{harqIndex}.Type, 'newTx');
++            if isstruct(obj.HarqStatusDL{harqIndex})
++                isNewTx = strcmp(obj.HarqStatusDL{harqIndex}.Type, 'newTx');
++           else
++                isNewTx = false;
++           end
+             % If DL link adaptation is enabled and it is a new transmission then update
+             % MCS offset for the received feedback.
+             if isNewTx && ~isempty(schedulerConfig.LinkAdaptationConfigDL)
+@@ -537,9 +542,16 @@
+             %                            The structure contains the fields InitialOffset, StepUp and StepDown fields
+ 
+             harqIndex = rxResultInfo.HARQID+1;
++            %disp(harqIndex);
+             rxResult = rxResultInfo.RxResult;
+ 
+-            isNewTx = strcmp(obj.HarqStatusUL{harqIndex}.Type, 'newTx');
++           %isNewTx = strcmp(obj.HarqStatusUL{harqIndex}.Type, 'newTx'); 
++           if isstruct(obj.HarqStatusUL{harqIndex})
++                isNewTx = strcmp(obj.HarqStatusUL{harqIndex}.Type, 'newTx');
++           else
++                isNewTx = false;
++           end
++
+             % If UL link adaptation is enabled and it is a new transmission then update
+             % MCS offset for the received feedback.
+             if isNewTx && ~isempty(schedulerConfig.LinkAdaptationConfigUL)

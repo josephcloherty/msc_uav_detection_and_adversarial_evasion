@@ -1,0 +1,62 @@
+--- a/toolbox/5g/5g/+nr5g/+internal/nrUEPHY.m
++++ b/toolbox/5g/5g/+nr5g/+internal/nrUEPHY.m
+@@ -169,6 +169,22 @@
+             obj.ReTxTagBuffer = cell(1,connectionConfig.NumHARQ);
+         end
+ 
++        function RemoveConnection(obj)
++            obj.RNTI=[];
++            obj.L2SMIUI=[];
++            obj.L2SMCSI=[];
++            obj.CSIReportConfig=[];
++
++            % Clear the CSI-RS reception buffer.
++            if ~isempty(obj.CSIRSInfo)
++                for i = 1:length(obj.CSIRSInfo)
++                    obj.CSIRSInfo{i} = {};
++                end
++            end
++           
++           
++        end
++
+         function registerMACHandle(obj, sendMACPDUFcn, sendDLChannelQualityFcn)
+             %registerMACHandle Register MAC interface functions at PHY, for sending
+             % information to MAC
+@@ -466,6 +482,19 @@
+ 
+         function [estChannelGrid, estChannelGridIntf] = estimateChannelGrid(obj, packetOfInterest, ...
+                 interferingPackets, carrierConfigInfo)
++       
++            if isempty(packetOfInterest) || ~isstruct(packetOfInterest)
++                estChannelGrid = [];
++                estChannelGridIntf = [];
++                return;
++            end
++
++            % 确保 Metadata.Channel.PathGains 存在
++            if ~isfield(packetOfInterest, 'Metadata') || ...
++               ~isfield(packetOfInterest.Metadata, 'Channel') || ...
++               ~isfield(packetOfInterest.Metadata.Channel, 'PathGains')
++                error('Invalid packet: Missing Metadata.Channel.PathGains');
++            end
+             %estPerfectChannelGrid Returns estimated channel grid w.r.t transmitter of interest and interferers
+ 
+             % Estimate channel for transmitter of interest. Scale path gains to
+@@ -755,6 +784,16 @@
+ 
+             for idx=1:length(csirsInfo)
+                 csirsConfig = csirsInfo{idx};
++                % (Su) Check whether the sender of the CSI-RS packet is the currently connected gNB.
++                if csirsConfig.NID ~= obj.CarrierInformation.NCellID
++                    % If the CSI-RS packet is not from the currently connected gNB, skip processing.
++                    continue;
++                end
++        
++                if isempty(obj.CSIReportConfig)
++                    continue;
++                end
++
+                 % Set carrier information
+                 carrierConfigInfo = obj.CarrierConfig;
+                 slotsPerSubframe = obj.WaveformInfo.SlotsPerSubframe;

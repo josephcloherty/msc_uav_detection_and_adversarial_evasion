@@ -1,0 +1,87 @@
+--- a/toolbox/5g/5g/+nr5g/+internal/nrGNBAbstractPHY.m
++++ b/toolbox/5g/5g/+nr5g/+internal/nrGNBAbstractPHY.m
+@@ -8,6 +8,8 @@
+     %   Copyright 2022-2024 The MathWorks, Inc.
+ 
+     properties (Access = private)
++        % UE node IDs registered for SRS measurement, parallel to L2SMsSRS
++        SRSUEIDs = []
+         %L2SMs Link-to-system-mapping (L2SM) context for UEs
+         % It is an array of objects of length 'N' where N is the number of UEs in
+         % the cell
+@@ -80,9 +82,18 @@
+             % Set PHY abstraction specific context
+             % Initialize L2SMs
+             obj.L2SMs = [obj.L2SMs; nr5g.internal.L2SM.initialize(obj.CarrierConfig, connectionConfig.NumHARQ, 1)];
++          
+             obj.L2SMsSRS = [obj.L2SMsSRS; nr5g.internal.L2SM.initialize(obj.CarrierConfig)];
++           
+             obj.CSIMeasurementSignalDLType = connectionConfig.CSIMeasurementSignalDLType;
+         end
++    
++        
++        function addSRSconfigure(obj,connectionConfig)
++                addSRSconfigure@nr5g.internal.nrGNBPHY(obj,connectionConfig);%调用父类
++                obj.L2SMsSRS = [obj.L2SMsSRS; nr5g.internal.L2SM.initialize(obj.CarrierConfig)];
++                obj.SRSUEIDs(end+1) = connectionConfig.RNTI;   % track which UE this slot belongs to
++        end
+ 
+         function data = pdschData(obj, pdschInfo, macPDU)
+             % Return the MAC packet without any PHY processing
+@@ -249,8 +260,12 @@
+             % Measure channel quality for each SRS
+             for i=1:numSRSPkts
+                 srsPacket = srsPackets(i);
+-                rnti = srsPacket.Metadata.RNTI;
+-
++                %rnti = srsPacket.Metadata.RNTI;
++                rnti = find(obj.SRSUEIDs == srsPacket.TransmitterID, 1);
++                if isempty(rnti)
++                    continue;   % SRS from a UE not registered at this gNB; skip
++                end
++            
+                 % PUSCH configuration
+                 puschConfiguration = nrPUSCHConfig;
+                 puschConfiguration.NumLayers = 1;
+@@ -358,19 +373,29 @@
+             intfPktCount = 0;
+ 
+             % Divide relevant packets as packets of interest and interfering packets
+-            for pktIdx = 1:numPkts
+-                if relevantPackets(pktIdx).Metadata.PacketType==packetType && ...
+-                        obj.CarrierInformation.NCellID ~= relevantPackets(pktIdx).Metadata.NCellID
+-                    % For CSI-RS packet, only consider CSI-RS from other cells as
+-                    % interference. Likewise for SRS
+-                    intfPktCount = intfPktCount + 1;
+-                    interferingPackets(intfPktCount) = relevantPackets(pktIdx);
+-                elseif (relevantPackets(pktIdx).Metadata.PacketType==packetType && ...
+-                        obj.CarrierInformation.NCellID == relevantPackets(pktIdx).Metadata.NCellID)
+-                    pktOfInterestCount = pktOfInterestCount + 1;
+-                    packetsofInterest(pktOfInterestCount) = relevantPackets(pktIdx);
++            
++                for pktIdx = 1:numPkts
++                    if packetType~=2
++                        if relevantPackets(pktIdx).Metadata.PacketType==packetType && ...
++                                obj.CarrierInformation.NCellID ~= relevantPackets(pktIdx).Metadata.NCellID
++                            % For CSI-RS packet, only consider CSI-RS from other cells as
++                            % interference. Likewise for SRS
++                            intfPktCount = intfPktCount + 1;
++                            interferingPackets(intfPktCount) = relevantPackets(pktIdx);
++                        elseif (relevantPackets(pktIdx).Metadata.PacketType==packetType && ...
++                                obj.CarrierInformation.NCellID == relevantPackets(pktIdx).Metadata.NCellID)
++                            pktOfInterestCount = pktOfInterestCount + 1;
++                            packetsofInterest(pktOfInterestCount) = relevantPackets(pktIdx);
++                        end
++                    else % For packetType = 2, i.e., SRS packets, they are not considered as interference packets.
++                        if relevantPackets(pktIdx).Metadata.PacketType==packetType
++                             pktOfInterestCount = pktOfInterestCount + 1;
++                            packetsofInterest(pktOfInterestCount) = relevantPackets(pktIdx);
++                        end
++                    end
++
+                 end
+-            end
++            
+             interferingPackets = interferingPackets(1:intfPktCount);
+             packetsofInterest = packetsofInterest(1:pktOfInterestCount);
+         end

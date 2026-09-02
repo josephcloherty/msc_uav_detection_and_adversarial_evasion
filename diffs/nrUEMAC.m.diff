@@ -1,0 +1,178 @@
+--- a/toolbox/5g/5g/+nr5g/+internal/nrUEMAC.m
++++ b/toolbox/5g/5g/+nr5g/+internal/nrUEMAC.m
+@@ -527,6 +527,175 @@
+             obj.PacketStruct.Metadata.RNTI = obj.RNTI;
+         end
+ 
++        function RemoveConnection(obj)
++            paramToClear = {'RNTI', 'NumResourceBlocks', 'SchedulingType', 'DuplexMode','DLULConfigTDD','BSRPeriodicity',...
++                'CSIReportPeriod','DLULSlotFormat','NumDLULPatternSlots','NCellID','NumHARQ','SubcarrierSpacing','LCHBufferStatus',...
++                'LogicalChannelConfig','LCHBjList','CSIRSConfiguration',...
++                'SRSConfiguration','CarrierConfigUL','CarrierConfigDL'};
++
++
++            for idx=1:numel(paramToClear)
++                obj.(paramToClear{idx}) = [];
++            end
++            obj.PacketStruct.DirectToDestination = 0;
++            obj.ElapsedTimeSinceLastLCP = 0;
++            % Remove the metadata for the packet
++            obj.PacketStruct= structfun(@(x) [], obj.PacketStruct , 'UniformOutput', false);
++            % Remove NID and RNTI at the connection set-up time (for runtime optimization)
++            obj.PDSCHInfo.PDSCHConfig.NID = [];
++            obj.PUSCHInfo.PUSCHConfig.NID = [];
++            obj.CSIMeasurement = structfun(@(x) [], obj.CSIMeasurement , 'UniformOutput', false);
++            
++
++        end
++
++        function reAddConnection(obj,connectionInfo)
++            inputParam = {'RNTI', 'NCellID', 'SubcarrierSpacing', 'SchedulingType', 'NumHARQ', ...
++                'CSIRSConfiguration', 'SRSConfiguration', 'NumResourceBlocks', ...
++                'BSRPeriodicity', 'CSIReportPeriod'};
++
++            for idx=1:numel(inputParam)
++                obj.(inputParam{idx}) = connectionInfo.(inputParam{idx});
++            end
++
++            if ~isempty(connectionInfo.CSIRSConfiguration)
++                obj.XOverheadPDSCH = 18;
++            end
++
++            if strcmp(connectionInfo.DuplexMode, 'FDD')
++                obj.DuplexMode = 0;
++            else
++                obj.DuplexMode = 1;
++            end
++
++            if isfield(connectionInfo, 'CSIRSConfigurationRSRP')
++                obj.CSIRSConfigurationRSRP = connectionInfo.CSIRSConfigurationRSRP;
++            end
++            if isfield(connectionInfo, 'SSBIdx')
++                obj.SSBIdx = connectionInfo.SSBIdx;
++            end
++            if isfield(connectionInfo, 'CSIReportPeriodicityRSRP')
++                obj.CSIReportPeriodicityRSRP = connectionInfo.CSIReportPeriodicityRSRP;
++            end
++
++            obj.GNBInfo  = struct('ID', connectionInfo.GNBID, 'Name', connectionInfo.GNBName);
++            % All the out-of-band packets are sent directly to gNB
++            obj.PacketStruct.DirectToDestination = obj.GNBInfo.ID;
++
++            obj.MACType = 1; % UE MAC
++            slotDuration = 1/(obj.SubcarrierSpacing/15); % In ms
++            obj.SlotDurationInNS = slotDuration * 1e6; % In nanoseconds
++            obj.NumSlotsFrame = 10/slotDuration; % Number of slots in a 10 ms frame
++            obj.NumSymInFrame = obj.NumSlotsFrame*obj.NumSymbols;
++            % Calculate symbol end times (in nanoseconds) in a slot for the given scs
++            obj.SymbolEndTimesInSlot = round(((1:obj.NumSymbols)*slotDuration)/obj.NumSymbols, 4) * 1e6;
++            obj.SymbolDurationsInSlot = obj.SymbolEndTimesInSlot(1:obj.NumSymbols) - [0 obj.SymbolEndTimesInSlot(1:13)];
++
++            % TDD specific configuration
++            if obj.DuplexMode == 1 % TDD
++                obj.DLULConfigTDD = connectionInfo.DLULConfigTDD;
++                obj.NumDLULPatternSlots = obj.DLULConfigTDD.DLULPeriodicity/(obj.SlotDurationInNS*1e-6);
++
++                % All the remaining symbols in DL-UL pattern are assumed to
++                % be guard symbols
++                obj.GuardDuration = (obj.NumDLULPatternSlots * obj.NumSymbols) - ...
++                    (((obj.DLULConfigTDD.NumDLSlots + obj.DLULConfigTDD.NumULSlots)*obj.NumSymbols) + ...
++                    obj.DLULConfigTDD.NumDLSymbols + obj.DLULConfigTDD.NumULSymbols);
++
++                % Set format of slots in the DL-UL pattern. Value 0 means
++                % DL symbol, value 1 means UL symbol while symbols with
++                % value 2 are guard symbols
++                obj.DLULSlotFormat = obj.GuardType * ones(obj.NumDLULPatternSlots, obj.NumSymbols);
++                obj.DLULSlotFormat(1:obj.DLULConfigTDD.NumDLSlots, :) = obj.DLType; % Mark all the symbols of full DL slots as DL
++                obj.DLULSlotFormat(obj.DLULConfigTDD.NumDLSlots + 1, 1 : obj.DLULConfigTDD.NumDLSymbols) = obj.DLType; % Mark DL symbols following the full DL slots
++                obj.DLULSlotFormat(obj.DLULConfigTDD.NumDLSlots + floor(obj.GuardDuration/obj.NumSymbols) + 1, (obj.DLULConfigTDD.NumDLSymbols + mod(obj.GuardDuration, obj.NumSymbols) + 1) : end)  ...
++                    = obj.ULType; % Mark UL symbols at the end of slot before full UL slots
++                obj.DLULSlotFormat((end - obj.DLULConfigTDD.NumULSlots + 1):end, :) = obj.ULType; % Mark all the symbols of full UL slots as UL type
++            end
++
++            % Set the RBG size configuration (for defining number of RBs in
++            % one RBG) to 1 (configuration-1 RBG table) or 2
++            % (configuration-2 RBG table) as defined in 3GPP TS 38.214
++            % Section 5.1.2.2.1. If it is not configured, take default
++            % value as 1.
++            % Calculate RBG size in terms of number of RBs
++            rbgSizeIndex = min(find(obj.NumResourceBlocks <= obj.NominalRBGSizePerBW(:, 1), 1));
++            if connectionInfo.RBGSizeConfiguration == 1
++                obj.RBGSize = obj.NominalRBGSizePerBW(rbgSizeIndex, 2);
++            else % RBGSizeConfig is 2
++                obj.RBGSize = obj.NominalRBGSizePerBW(rbgSizeIndex, 3);
++            end
++
++            obj.PDSCHRxFeedback = -1*ones(obj.NumHARQ, 3);
++            obj.PDSCHRxFeedback(:, 3) = Inf;
++            obj.HARQNDIUL = zeros(obj.NumHARQ, 1); % Initialize NDI of each UL HARQ process to 0
++            obj.HARQNDIDL = zeros(obj.NumHARQ, 1); % Initialize NDI of each DL HARQ process to 0
++
++            % Stores uplink assignments (if any), corresponding to uplink
++            % transmissions starting at different symbols of the frame
++            % obj.UplinkTxContext = cell(obj.NumSymInFrame, 1);
++
++            % Stores downlink assignments (if any), corresponding to
++            % downlink receptions starting at different symbols of the
++            % frame
++            % obj.DownlinkRxContext = cell(obj.NumSymInFrame, 1);
++
++            % % Set non-zero-power (NZP) CSI-RS configuration for the UE
++            % if ~isempty(obj.CSIRSConfiguration)
++            %     obj.NextCSIReportTime = obj.CSIReportPeriod(2)*obj.SlotDurationInNS; % In nanoseconds
++            % end
++
++            % % CSIRS-RSRP configuration for the UE
++            % if ~isempty(obj.CSIRSConfigurationRSRP)
++            %     obj.NextRSRPReportTime = obj.CSIReportPeriodicityRSRP*obj.SlotDurationInNS; % In nanoseconds
++            % end
++
++            % Calculate unique CSI-RS reception slots
++            % csirsResourceConfig = [obj.CSIRSConfiguration obj.CSIRSConfigurationRSRP];
++            % obj.CSIRSRxInfo = calculateCSIRSPeriodicity(obj, csirsResourceConfig); 
++
++            % % Calculate unique SRS transmission time and periodicity
++            % obj.SRSTxInfo = calculateSRSPeriodicity(obj, obj.SRSConfiguration);
++
++            obj.MCSTableUL = nr5g.internal.MACConstants.MCSTable;
++            obj.MCSTableDL = nr5g.internal.MACConstants.MCSTable;
++            obj.LCHBufferStatus = zeros(1, obj.MaxLogicalChannels);
++            obj.LCHBjList = zeros(1, obj.MaxLogicalChannels);
++            obj.LogicalChannelConfig = cell(1, obj.MaxLogicalChannels);
++            obj.ElapsedTimeSinceLastLCP = 0;
++            obj.CSIMeasurement.CQI = connectionInfo.InitialCQIDL*ones(1, obj.NumResourceBlocks);
++
++            % Create carrier configuration object for UL
++            obj.CarrierConfigUL = nrCarrierConfig(SubcarrierSpacing=obj.SubcarrierSpacing, NSizeGrid=obj.NumResourceBlocks);
++            % Create carrier configuration object for DL
++            obj.CarrierConfigDL = nrCarrierConfig(SubcarrierSpacing=obj.SubcarrierSpacing, NSizeGrid=obj.NumResourceBlocks);
++
++            % Set the DMRS configuration
++            obj.PDSCHInfo.PDSCHConfig.DMRS = nrPDSCHDMRSConfig(DMRSConfigurationType=obj.PDSCHDMRSConfigurationType, ...
++                DMRSTypeAPosition=obj.DMRSTypeAPosition);
++            obj.PUSCHInfo.PUSCHConfig.DMRS = nrPUSCHDMRSConfig(DMRSConfigurationType=obj.PUSCHDMRSConfigurationType, ...
++                DMRSTypeAPosition=obj.DMRSTypeAPosition);
++
++            % Fill NID and RNTI at the connection set-up time (for runtime optimization)
++            obj.PDSCHInfo.PDSCHConfig.NID = obj.NCellID;
++            obj.PDSCHInfo.PDSCHConfig.RNTI = obj.RNTI;
++            obj.PUSCHInfo.PUSCHConfig.NID = obj.NCellID;
++            obj.PUSCHInfo.PUSCHConfig.RNTI = obj.RNTI;
++
++            % if isinf(obj.BSRPeriodicity)
++            %     % Disable BSR control element generation when BSR periodicity is infinite
++            %     obj.NextBSRTime = Inf;
++            % end
++
++            % Set the metadata for the packet
++            obj.PacketStruct.Metadata.NCellID = obj.NCellID;
++            obj.PacketStruct.Metadata.RNTI = obj.RNTI;
++
++
++        end
++
++
++
+         function updateBufferStatus(obj, lcBufferStatus)
+             %updateBufferStatus Update the buffer status of the logical channel
+             %

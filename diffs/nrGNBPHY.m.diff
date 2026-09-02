@@ -1,0 +1,70 @@
+--- a/toolbox/5g/5g/+nr5g/+internal/nrGNBPHY.m
++++ b/toolbox/5g/5g/+nr5g/+internal/nrGNBPHY.m
+@@ -17,7 +17,7 @@
+         UEInfo
+     end
+ 
+-    properties (Access = protected)
++    properties %(Access = protected)
+         %CSIRSInfo CSI-RS transmission information sent by MAC for the current slot
+         % It is an array of objects of type nrCSIRSConfig. Each element contains a
+         % CSI-RS configuration which corresponds to a CSI-RS packet. Value as empty
+@@ -90,6 +90,16 @@
+             % Set NR packet fields 
+             obj.PacketStruct.CenterFrequency = obj.CarrierInformation.DLCarrierFrequency;
+             obj.PacketStruct.Bandwidth = obj.CarrierInformation.ChannelBandwidth;
++
++          
++        end
++        %(Su)
++        function addSRSconfigure(obj,connectionConfig)
++            rxEndStruct = obj.PacketRxEndedStruct;
++            rxEndStruct.DuplexMode = connectionConfig.DuplexMode;
++            rxEndStruct.RNTI = connectionConfig.RNTI-2;
++            rxEndStruct.LinkType = "UL";
++            obj.PacketReceptionEnded = [obj.PacketReceptionEnded; rxEndStruct];
+         end
+ 
+         function addConnection(obj, connectionConfig)
+@@ -138,6 +148,14 @@
+             obj.ReTxTagBuffer = [obj.ReTxTagBuffer; cell(1,connectionConfig.NumHARQ)];
+         end
+ 
++        function RemoveConnection(obj, ueInfo)
++            obj.UEInfo([obj.UEInfo.RNTI]==ueInfo.RNTI)=[];
++
++        end
++
++
++
++
+         function registerMACHandle(obj, sendMACPDUFcn, sendULChannelQualityFcn)
+             %registerMACHandle Register MAC interface functions at PHY, for sending information to MAC
+ 
+@@ -547,7 +565,7 @@
+             % Create CSI-RS packet(s) and send
+             pktList = csirsPacket(obj, obj.CSIRSInfo, csirsPacketList, currTimingInfo.Time/1e9);
+             for i=1:numel(pktList)
+-                obj.SendPacketFcn(pktList(i));
++                obj.SendPacketFcn(pktList(i)); % addToTxBuffer
+                 % CSI-RS packet is single packet transmitted to all the
+                 % nodes. So, update the context for all the nodes
+                 for ueIdx=1:numel(obj.UEInfo)
+@@ -658,7 +676,16 @@
+             duration = endTime-startTime;
+             for i=1:length(srsMeasurement)
+                 srsInfo = srsMeasurement(i);
+-                obj.SRSIndicationFcn(srsInfo);
++                if ~isempty(obj.UEInfo)
++                    for idx=1:length(obj.UEInfo)
++                        if obj.UEInfo(idx).ID-2==srsInfo.RNTI
++                            obj.SRSIndicationFcn(srsInfo);%传给MAC nrGNBMAC.srsIndication 更新信道质量，从而去调度。但是只将和连接的UE有关的srs传上去
++                        end
++                    end
++                end
++                % if ~isempty(obj.UEInfo)
++                %     obj.SRSIndicationFcn(srsInfo);
++                % end
+                 rnti = srsInfo.RNTI;
+                 obj.PacketReceptionEnded(rnti).ChannelMeasurements.SINR = effectiveSINR(i);
+                 obj.PacketReceptionEnded(rnti).ChannelMeasurements.SRSBasedULMeasurements = struct('RI',srsInfo.RankIndicator,'TPMI',srsInfo.TPMI,'MCSIndex',srsInfo.MCSIndex);

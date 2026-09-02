@@ -1,0 +1,309 @@
+--- a/toolbox/5g/5g/+nr5g/+internal/nrGNBMAC.m
++++ b/toolbox/5g/5g/+nr5g/+internal/nrGNBMAC.m
+@@ -20,7 +20,7 @@
+ 
+     %   Copyright 2022-2024 The MathWorks, Inc.
+ 
+-    properties(Hidden)
++    properties%(Hidden)
+         %Scheduler Scheduler object
+         Scheduler
+ 
+@@ -83,7 +83,7 @@
+         PUSCHDMRSAdditionalPosTypeB = 0;
+     end
+ 
+-    properties(SetAccess = protected)
++    properties%(SetAccess = protected)
+         %UEs RNTIs of the UEs connected to the gNB
+         UEs
+ 
+@@ -95,10 +95,11 @@
+         % array is a structure with two fields:
+         %   ID - Node id of the UE
+         %   Name - Node Name of the UE
++        %   RNTI
+         UEInfo
+     end
+ 
+-    properties (Access = protected)
++    properties % (Access = protected)
+         %DownlinkTxContext Tx context used for PDSCH transmissions
+         % N-by-P cell array where is N is number of UEs and 'P' is number of
+         % symbols in a 10 ms frame. An element at index (i, j) stores the
+@@ -172,6 +173,7 @@
+             obj.NumResourceBlocks = param.NumResourceBlocks;
+             obj.DuplexModeNumber = 0;
+             slotDuration = 1/(obj.SubcarrierSpacing/15); % In ms
++            
+             if strcmp(param.DuplexMode, "TDD")
+                 obj.DuplexModeNumber = 1;
+                 configTDD = param.DLULConfigTDD;
+@@ -232,6 +234,13 @@
+             % Set the MCS tables as matrices
+             obj.MCSTableUL = nr5g.internal.MACConstants.MCSTable;
+             obj.MCSTableDL = nr5g.internal.MACConstants.MCSTable;
++
++            obj.CSIRSTxInfo = calculateCSIRSPeriodicity(obj, [obj.CSIRSConfiguration obj.CSIRSConfigurationRSRP]);
++        end
++        function addSRSconfigure(obj,param)
++  
++               obj.SRSConfiguration = [obj.SRSConfiguration param.SRSConfiguration];
++               obj.SRSRxInfo = calculateSRSPeriodicity(obj, obj.SRSConfiguration);
+         end
+ 
+         function addConnection(obj, ueInfo)
+@@ -257,7 +266,7 @@
+             % SRSConfiguration         - SRS configuration information specified as an object of type nrSRSConfig
+ 
+             obj.UEs = [obj.UEs ueInfo.RNTI];
+-            nodeInfo = struct('ID', ueInfo.UEID, 'Name', ueInfo.UEName);
++            nodeInfo = struct('ID', ueInfo.UEID, 'Name', ueInfo.UEName,'RNTI',ueInfo.RNTI);
+             obj.UEInfo = [obj.UEInfo nodeInfo];
+ 
+             if isfield(ueInfo, 'CSIRSConfigurationRSRP') && ~isempty(ueInfo.CSIRSConfigurationRSRP)
+@@ -283,6 +292,49 @@
+             updateMACContext(obj);
+         end
+ 
++        function RemoveConnection(obj, ueInfo)
++            obj.UEs=obj.UEs(obj.UEs~=ueInfo.RNTI);
++            obj.UEInfo([obj.UEInfo.ID]==ueInfo.UEID)=[];
++
++            if isfield(ueInfo, 'CSIRSConfigurationRSRP') && ~isempty(ueInfo.CSIRSConfigurationRSRP) %如果存在，事实上并不存在
++                obj.CSIRSConfigurationRSRP =obj.CSIRSConfigurationRSRP( obj.CSIRSConfigurationRSRP~=ueInfo.CSIRSConfigurationRSRP);
++            end
++            % 如果CSI-RS是unique的，那么就需要特别处理，事实上并不是特殊的，所以不用特别处理
++
++           % obj.SRSConfiguration(end)=[]; %直接去除最后一个
++
++        end
++        function reAddConnection(obj, ueInfo)
++            obj.UEs = [obj.UEs ueInfo.RNTI];
++            nodeInfo = struct('ID', ueInfo.UEID, 'Name', ueInfo.UEName,'RNTI',ueInfo.RNTI);
++            obj.UEInfo = [obj.UEInfo nodeInfo];
++
++            if isfield(ueInfo, 'CSIRSConfigurationRSRP') && ~isempty(ueInfo.CSIRSConfigurationRSRP)
++                obj.CSIRSConfigurationRSRP = [obj.CSIRSConfigurationRSRP ueInfo.CSIRSConfigurationRSRP];
++            end
++
++            % Append CSI-RS configuration (only if it is unique)
++            if ~isempty(ueInfo.CSIRSConfiguration)
++                uniqueConfiguration = true;
++                for idx = 1:numel(obj.CSIRSConfiguration)
++                    if isequal(obj.CSIRSConfiguration(idx), ueInfo.CSIRSConfiguration)
++                        uniqueConfiguration = false;
++                        break;
++                    end
++                end
++                if uniqueConfiguration
++                    obj.CSIRSConfiguration = [obj.CSIRSConfiguration ueInfo.CSIRSConfiguration];
++                end
++            end
++
++            obj.SRSConfiguration = [obj.SRSConfiguration ueInfo.SRSConfiguration];
++            % Update the MAC context after each UE is connected
++            reUpdateMACContext(obj);
++            obj.CSIRSTxInfo = ueInfo.CSIRSRxInfo;
++            obj.SRSRxInfo = ueInfo.SRSTxInfo;
++
++        end
++
+         function nextInvokeTime = run(obj, currentTime, packets)
+             %run Run the gNB MAC layer operations and return the next invoke time in nanoseconds
+             %   NEXTINVOKETIME = run(OBJ, CURRENTTIME, PACKETS) runs the
+@@ -323,7 +375,9 @@
+             end
+ 
+             % Receive and process control packet
+-            controlRx(obj, packets);
++            if ~isempty(obj.UEInfo) % If the gNB is connected to a UE, execute the receive function; if the gNB is not connected to any UE, skip directly.
++                controlRx(obj, packets);
++            end
+ 
+             % Avoid running MAC operations more than once in the same symbol
+             symNumFrame = obj.CurrSlot * obj.NumSymbols + obj.CurrSymbol;
+@@ -473,8 +527,9 @@
+             %           W - Precoding matrix
+             %           MCSIndex - DL MCS index corresponding to the rank and precoder
+ 
+-            updateChannelQualityUL(obj.Scheduler, csiMeasurement);
+-
++            if csiMeasurement.RNTI >= 1 && csiMeasurement.RNTI <= numel(obj.Scheduler.UEContext)
++                updateChannelQualityUL(obj.Scheduler, csiMeasurement);
++            end
+             % Update the DL CSI using SRS based DL measurements
+             if ~isempty(csiMeasurement.SRSBasedDLMeasurements)
+                 updateChannelQualityDL(obj.Scheduler, csiMeasurement);
+@@ -590,7 +645,8 @@
+             % CURRENTTIME is the current time (in nanoseconds).
+ 
+             symbolNumFrame = obj.CurrSlot*obj.NumSymbols + obj.CurrSymbol; % Current symbol number in the 10 ms frame
+-            for rnti = 1:length(obj.UEs) % For all UEs
++            for rntiIdx = 1:length(obj.UEs)
++                rnti = obj.UEInfo(rntiIdx).RNTI;
+                 downlinkGrant = obj.DownlinkTxContext{rnti, symbolNumFrame + 1};
+                 % If there is any downlink grant corresponding to which a transmission is scheduled at the current symbol
+                 if ~isempty(downlinkGrant)
+@@ -658,11 +714,15 @@
+                 grantFieldNames = obj.ULGrantFieldNames;
+                 for i = 1:length(resourceAssignmentsUL) % For each UL assignment
+                     grant = resourceAssignmentsUL(i);
++                    if ~any([obj.UEInfo.RNTI] == grant.RNTI)
++                        continue; % Discard this grant and skip this iteration.
++                    end
++
+                     for ind = 1:obj.ULGrantFieldNamesCount
+                         uplinkGrant.(grantFieldNames{ind}) = grant.(grantFieldNames{ind});
+                     end
+                     % Construct packet information
+-                    pktInfo.DirectToDestination = obj.UEInfo(grant.RNTI).ID;
++                    pktInfo.DirectToDestination = obj.UEInfo([obj.UEInfo.RNTI]==grant.RNTI).ID;
+                     pktInfo.Data = uplinkGrant;
+                     pktInfo.Metadata.PacketType = obj.ULGrant;
+                     pktInfo.Metadata.RNTI = grant.RNTI;
+@@ -678,11 +738,14 @@
+                 grantFieldNames = obj.DLGrantFieldNames;
+                 for i = 1:length(resourceAssignmentsDL) % For each DL assignment
+                     grant = resourceAssignmentsDL(i);
++                    if ~any([obj.UEInfo.RNTI] == grant.RNTI) %Su
++                        continue; 
++                    end
+                     for ind = 1:obj.DLGrantFieldNamesCount
+                         downlinkGrant.(grantFieldNames{ind}) = grant.(grantFieldNames{ind});
+                     end
+                     % Construct packet information and send the DL grant out-of-band to UE's MAC
+-                    pktInfo.DirectToDestination = obj.UEInfo(grant.RNTI).ID;
++                    pktInfo.DirectToDestination = obj.UEInfo([obj.UEInfo.RNTI]==grant.RNTI).ID;
+                     pktInfo.Data = downlinkGrant;
+                     pktInfo.Metadata.PacketType = obj.DLGrant;
+                     pktInfo.Metadata.RNTI = grant.RNTI;
+@@ -711,10 +774,10 @@
+                     pktType = pktInfo.Metadata.PacketType;
+                     rnti = pktInfo.Metadata.RNTI;
+                     switch pktType
+-                        case obj.BSR % BSR received
++                        case obj.BSR % BSR received 1
+                             processMACControlElement(obj.Scheduler, rnti, pktInfo, obj.LCGPriority(rnti,:));
+ 
+-                        case obj.PDSCHFeedback % PDSCH feedback received
++                        case obj.PDSCHFeedback % PDSCH feedback received 4
+                             feedbackList = pktInfo.Data;
+                             symNumFrame = obj.CurrSlot*obj.NumSymbols + obj.CurrSymbol;
+                             for harqIdx = 1:obj.NumHARQ % Check for all HARQ processes
+@@ -730,7 +793,7 @@
+                                 end
+                             end
+ 
+-                        case obj.CSIReport % CSI report received containing RI, PMI and CQI
++                        case obj.CSIReport % CSI report received containing RI, PMI and CQI 5
+                             csiReport = pktInfo.Data;
+                             channelQualityInfo.RNTI = rnti;
+                             channelQualityInfo.RankIndicator = csiReport.RankIndicator;
+@@ -739,7 +802,7 @@
+                             channelQualityInfo.W = csiReport.W;
+                             updateChannelQualityDL(obj.Scheduler, channelQualityInfo);
+ 
+-                        case obj.CSIReportRSRP % CSI report received containing CRI and RSRP
++                        case obj.CSIReportRSRP % CSI report received containing CRI and RSRP 6
+                             csiReport = pktInfo.Data;
+                             channelQualityInfo.RNTI = rnti;
+                             channelQualityInfo.CRI = csiReport.CRI;
+@@ -816,6 +879,50 @@
+             % Calculate unique SRS reception time and periodicity
+             obj.SRSRxInfo = calculateSRSPeriodicity(obj, obj.SRSConfiguration);
+         end
++
++
++        function reUpdateMACContext(obj)
++            %updateMACContext Update the MAC context when new UE is connected
++
++            obj.StatTransmittedPackets = [obj.StatTransmittedPackets; 0];
++            obj.StatTransmittedBytes = [obj.StatTransmittedBytes; 0];
++            obj.StatRetransmittedPackets = [obj.StatRetransmittedPackets; 0];
++            obj.StatRetransmittedBytes = [obj.StatRetransmittedBytes; 0];
++            obj.StatReceivedPackets = [obj.StatReceivedPackets; 0];
++            obj.StatReceivedBytes = [obj.StatReceivedBytes; 0];
++
++            obj.ElapsedTimeSinceLastLCP = [obj.ElapsedTimeSinceLastLCP; 0];
++            % Configuration of logical channels for UEs
++            obj.LogicalChannelConfig = [obj.LogicalChannelConfig; cell(1, obj.MaxLogicalChannels)];
++            obj.LCHBjList = [obj.LCHBjList; zeros(1, obj.MaxLogicalChannels)];
++            obj.LCHBufferStatus = [obj.LCHBufferStatus; zeros(1, obj.MaxLogicalChannels)];
++            % Initialize LCG with lowest priority level for all the UEs. Here
++            % lowest priority level is indicated by higher value
++            obj.LCGPriority = [obj.LCGPriority; obj.MaxPriorityForLCH*ones(1,8)];
++            % Extend the cell array to hold the RLC entity callbacks of the UE
++            obj.RLCTxFcn = [obj.RLCTxFcn; cell(1, obj.MaxLogicalChannels)];
++            obj.RLCRxFcn = [obj.RLCRxFcn; cell(1, obj.MaxLogicalChannels)];
++
++            % Create Tx/Rx contexts
++            obj.UplinkRxContext = [obj.UplinkRxContext; cell(1, obj.NumSymInFrame)];
++            obj.DownlinkTxContext = [obj.DownlinkTxContext; cell(1, obj.NumSymInFrame)];
++            obj.RxContextFeedback = [obj.RxContextFeedback; cell(1, obj.NumSymInFrame, obj.NumHARQ)];
++
++            % % Calculate unique CSI-RS transmission time and periodicity
++           
++            % obj.CSIRSTxInfo = calculateCSIRSPeriodicity(obj, [obj.CSIRSConfiguration obj.CSIRSConfigurationRSRP]);
++
++            % % Calculate unique SRS reception time and periodicity
++            % obj.SRSRxInfo = calculateSRSPeriodicity(obj, obj.SRSConfiguration);
++
++
++
++        end
++       
++
++
++
++
+         function dlControlRequest(obj, currentTime)
+             %dlControlRequest Request from MAC to PHY to send non-data DL transmissions
+             %   dlControlRequest(OBJ) sends a request to PHY for non-data downlink
+@@ -878,29 +985,31 @@
+                     carrier = obj.CarrierConfigUL;
+                     carrier.NSlot = obj.CurrSlot;
+                     carrier.NFrame = obj.CurrFrame;
+-                    for rnti=1:length(obj.UEs) % Send SRS reception request to PHY for the UEs
+-                        srsConfigUE = obj.SRSConfiguration(rnti);
+-                        if ~isempty(srsConfigUE)
+-                            srsLocations = srsConfigUE.SymbolStart : (srsConfigUE.SymbolStart + srsConfigUE.NumSRSSymbols-1); % SRS symbol locations
+-                            % Check whether the mode is FDD OR if it is TDD then all the SRS symbols must be UL symbols
+-                            if obj.DuplexModeNumber == 0 || all(obj.DLULSlotFormat(obj.CurrDLULSlotIndex + 1, srsLocations+1) == obj.ULType)
+-                                srsInd = nrSRSIndices(carrier, srsConfigUE);
+-                                if ~isempty(srsInd) % Empty value means SRS is not scheduled to be received in the current slot for this UE
+-                                    numSRSUEs = numSRSUEs+1;
+-                                    ulControlType(numSRSUEs) = 1; % SRS PDU
+-                                    ulControlPDUs{numSRSUEs}{1} = rnti;
+-                                    ulControlPDUs{numSRSUEs}{2} = srsConfigUE;
++
++                    for idx=1:length(obj.SRSConfiguration) % Send SRS reception request to PHY for the UEs
++                            srsConfigUE = obj.SRSConfiguration(idx);
++                            if ~isempty(srsConfigUE)
++                                srsLocations = srsConfigUE.SymbolStart : (srsConfigUE.SymbolStart + srsConfigUE.NumSRSSymbols-1); % SRS symbol locations
++                                % Check whether the mode is FDD OR if it is TDD then all the SRS symbols must be UL symbols
++                                if obj.DuplexModeNumber == 0 || all(obj.DLULSlotFormat(obj.CurrDLULSlotIndex + 1, srsLocations+1) == obj.ULType)
++                                    srsInd = nrSRSIndices(carrier, srsConfigUE);
++                                    if ~isempty(srsInd) % Empty value means SRS is not scheduled to be received in the current slot for this UE
++                                        numSRSUEs = numSRSUEs+1;
++                                        ulControlType(numSRSUEs) = 1; % SRS PDU
++                                        ulControlPDUs{numSRSUEs}{1} = idx;
++                                        ulControlPDUs{numSRSUEs}{2} = srsConfigUE;
++                                    end
+                                 end
+                             end
+-                        end
+                     end
++
+                     ulControlType = ulControlType(1:numSRSUEs);
+                     ulControlPDUs = ulControlPDUs(1:numSRSUEs);
+                     obj.TimestampInfo.Timestamp = currentTime;
+                     obj.UlControlRequestFcn(ulControlType, ulControlPDUs, obj.TimestampInfo); % Send UL control request to PHY
+-                    if numSRSUEs > 0
++                    %if numSRSUEs > 0
+                         obj.LastRxTime = currentTime;
+-                    end
++                    %end
+                 end
+             end
+         end
